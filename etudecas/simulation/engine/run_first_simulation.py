@@ -16,7 +16,9 @@ import subprocess
 import sys
 from bisect import bisect_left, bisect_right
 from collections import defaultdict, deque
+from dataclasses import replace
 from datetime import date, timedelta
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
@@ -34,8 +36,12 @@ from etudecas.simulation.engine.model_semantics import (
 from etudecas.simulation.engine.mrp_planning import (
     ExternalComponentDemandCalendar, FirmReceipt, LotSizing, Requirement, SupplierOffer,
     plan_dated_requirements, plan_sourced_requirements, serve_external_component_requirements,
-    StockProtection, plan_with_stock_protection,
-    IndustrialComponentPlanningCalendar, reconcile_industrial_requirements, prospective_stock_protection,
+    StockProtection, ProtectionBalance, plan_with_stock_protection, plan_anticipated_requirements, reschedule_dated_plan,
+    IndustrialComponentPlanningCalendar, industrial_forecast_missing_policy,
+    IndustrialPlanningHorizonCoverage, exclude_unreported_revocable_requirements,
+    reconcile_industrial_requirements, reconcile_industrial_purchase_envelope, prospective_stock_protection,
+    InternalTransferCommitments, ObservedExternalComponentExecution,
+    ReceiptReplanningStatus, postpone_initial_receipts, WeeklyProductionProgramme, IndustrialPlanningWindow,
 )
 
 from etudecas.case_config import (
@@ -132,6 +138,22 @@ SUPPLIER_STATE_RISK_FAMILIES = (
     "cost",
 )
 LOT_TRACE_EPS = 1e-6
+INTERNAL_TRANSFER_COMMITMENT_FIELDS = [
+    "day", "event", "commitment_id", "campaign_id", "source_node_id", "node_id", "item_id", "uom",
+    "source_snapshot_day", "source_requirement_id", "proposal_id", "original_dispatch_day",
+    "original_available_day", "created_qty", "event_qty", "remaining_qty", "support_allocations",
+    "late_dispatch_days", "early_handoff_days", "promised_dispatch_day", "promised_available_day", "shipment_id",
+]
+INTERNAL_TRANSFER_ADVANCEMENT_FIELDS = [
+    "rescheduling_policy", "rescheduling_reason", "normal_release_today_qty",
+    "counterfactual_release_today_qty", "advancement_requested_qty",
+    "available_source_before_dispatch_qty", "quantity_event_role",
+]
+INTERNAL_TRANSFER_RESCHEDULING_DAILY_FIELDS = [
+    "internal_transfer_rescheduling_policy", "internal_transfer_future_committed_qty",
+    "internal_transfer_counterfactual_release_today_qty", "internal_transfer_advance_requested_qty",
+    "internal_transfer_advanced_dispatched_qty",
+]
 
 EXTERNAL_COMPONENT_DAILY_FIELDS = [
     "day", "node_id", "item_id", "uom", "demand_qty", "backlog_start_qty",
@@ -143,6 +165,10 @@ EXTERNAL_COMPONENT_REVISION_FIELDS = [
     "forecast_latest_known_vintage_id", "forecast_latest_known_day",
     "forecast_period_start_day", "forecast_source_covered", "forecast_coverage_reason",
     "forecast_source_file", "forecast_source_cells",
+]
+EXTERNAL_COMPONENT_OBSERVATION_FIELDS = [
+    "physical_demand_source", "physical_source_file", "physical_source_cells",
+    "physical_observation_qty", "physical_demand_known_day",
 ]
 EXTERNAL_COMPONENT_TRACE_FIELDS = [
     "external_demand_qty", "external_consumed_qty", "external_backlog_qty",
@@ -2069,6 +2095,10 @@ MRP_DATED_RECEIPT_FIELDS = [
     "decision_stock_proj_qty", "decision_target_with_backlog_qty",
     "decision_held_release_within_cover_qty", "decision_bn_qty", "decision_controlled_bn_qty",
 ]
+FINISHED_GOODS_DISPATCH_FIELDS = [
+    "finished_goods_dispatch_policy", "finished_goods_push_available_qty",
+    "finished_goods_pull_requirement_qty",
+]
 PRODUCTION_MRP_SAFETY_FIELDS = [
     f"{stage}_{field}" for stage in ("mps", "production")
     for field in ("mrp_safety_enabled", "target_signal_qty", "historical_target_qty",
@@ -2076,10 +2106,71 @@ PRODUCTION_MRP_SAFETY_FIELDS = [
                   "safety_stock_qty", "target_multiplier", "stock_position_qty",
                   "reference_signal_basis", "reference_signal_qty")
 ]
+PRODUCTION_DEPOT_FEEDBACK_FIELDS = [
+    f"{stage}_depot_{field}" for stage in ("mps", "production")
+    for field in ("feedback_policy", "target_qty", "available_qty", "firm_qty",
+                  "campaign_qty", "backlog_qty", "network_target_qty",
+                  "network_position_qty", "gap_qty", "raw_command_qty")
+]
 MRP_SOURCE_FORECAST_FIELDS = [
     "mrp_forecast_source", "mrp_forecast_vintage_day", "mrp_forecast_cycle_index",
     "mrp_forecast_window_days", "mrp_forecast_source_days", "mrp_forecast_fallback_days",
     "mrp_forecast_daily_qty", "mrp_forecast_source_rows",
+]
+MRP_KNOWN_PERIOD_FIELDS = ["mrp_forecast_missing_period_policy", "mrp_forecast_source_vintages"]
+FORECAST_CONSUMPTION_FIELDS = [
+    "day", "node_id", "item_id", "uom", "policy", "status", "period_start_day", "period_end_day",
+    "source_vintage_day", "source_row", "weekly_forecast_qty", "arrived_demand_qty",
+    "remaining_forecast_qty", "future_days", "future_daily_qty", "expired_forecast_qty",
+    "today_arrived_qty",
+]
+CUSTOMER_DEMAND_POLICY_FIELDS = [
+    "day", "decision_day", "node_id", "item_id", "uom", "policy", "status",
+    "period_start_day", "period_end_day", "source_vintage_day", "source_row", "source_file",
+    "weekly_source_qty", "day_qty", "nominal_day_qty", "allocation_start_day",
+    "cumulative_before_qty", "cumulative_through_qty",
+]
+CUSTOMER_FORECAST_PROJECTION_FIELDS = [
+    "day", "node_id", "item_id", "uom", "policy", "status",
+    "period_start_day", "period_end_day", "represented_start_day", "represented_end_day",
+    "weekly_source_qty", "used_future_qty", "source_vintage_days", "source_rows",
+    "source_days", "fallback_days", "fallback_source_vintage_days", "fallback_source_rows",
+]
+
+CURRENT_REQUIREMENT_ENVELOPE_FIELDS = [
+    "day", "node_id", "item_id", "source_node_id", "policy", "status", "vintage_day",
+    "period_end_day", "source_row", "source_I_qty", "source_H_qty", "served_since_vintage_qty",
+    "residual_I_qty", "model_backlog_qty", "model_remaining_forecast_qty", "extra_planning_qty",
+    "expired_residual_qty", "requirement_day",
+]
+DATED_PRODUCTION_EXECUTION_FIELDS = [
+    "production_execution_policy", "production_dated_snapshot_day", "production_dated_new_release_qty",
+    "production_dated_late_qty", "production_dated_release_proposal_ids",
+]
+
+CHAIN_EXECUTION_SNAPSHOT_FIELDS = [
+    "day", "node_id", "item_id", "uom", "policy",
+    "pre_dispatch_available_qty", "post_dispatch_available_qty",
+    "pre_dispatch_requirement_qty", "post_dispatch_requirement_qty",
+    "post_dispatch_firm_qty", "post_dispatch_due_proposal_qty",
+    "source_safety_window_days", "source_safety_requirement_qty", "source_safety_target_qty",
+]
+DEPOT_SAFETY_PROTECTION_FIELDS = ["depot_safety_protection_policy", "depot_safety_protection_qty"]
+CUSTOMER_PHYSICAL_COVER_FIELDS = [
+    "customer_replenishment_policy", "customer_physical_arrival_day", "customer_physical_future_demand_qty",
+    "customer_physical_backlog_qty", "customer_physical_target_qty", "customer_physical_available_qty",
+    "customer_physical_firm_cover_qty", "customer_physical_order_qty", "customer_previous_forecast_order_qty",
+    "customer_dispatch_forecast_policy", "customer_dispatch_forecast_basis",
+    "customer_dispatch_forecast_source_rows", "customer_dispatch_forecast_source_vintage_days",
+    "customer_dispatch_forecast_source_days", "customer_dispatch_forecast_fallback_days",
+    "customer_dispatch_forecast_fallback_source_rows", "customer_dispatch_forecast_fallback_vintage_days",
+    "customer_dispatch_forecast_opening_days", "customer_dispatch_forecast_opening_observed_days",
+    "customer_dispatch_forecast_opening_daily_qty", "customer_dispatch_forecast_capped_days",
+    "customer_dispatch_forecast_future_qty",
+]
+FINISHED_GOODS_CAMPAIGN_AVAILABILITY_FIELDS = [
+    "available_qty", "held_finished_qty", "last_availability_day", "availability_completed_day",
+    "availability_status",
 ]
 SOURCE_BOUNDARY_TRACE_FIELDS = [
     "source_boundary_target_qty", "source_boundary_stock_qty_before_order",
@@ -2087,6 +2178,15 @@ SOURCE_BOUNDARY_TRACE_FIELDS = [
     "source_boundary_fixed_lot_qty", "source_boundary_lead_days",
     "source_boundary_cover_days", "source_boundary_daily_forecast_qty",
 ]
+SOURCE_BOUNDARY_CALENDAR_FIELDS = [
+    "source_boundary_lead_calendar", "source_boundary_effective_lead_days", "source_boundary_available_day",
+]
+
+
+def source_boundary_trace_fields(*, working_calendar=False):
+    return SOURCE_BOUNDARY_TRACE_FIELDS + (SOURCE_BOUNDARY_CALENDAR_FIELDS if working_calendar else [])
+
+
 MRP_NETWORK_PLAN_FIELDS = [
     "dated_action_scope",
     "dated_requirement_qty", "dated_campaign_remaining_qty", "dated_reserve_requirement_qty",
@@ -2095,7 +2195,73 @@ MRP_NETWORK_PLAN_FIELDS = [
     "dated_late_qty", "dated_late_qty_days", "dated_first_shortage_day",
     "dated_reserve_late_qty", "dated_requirement_late_qty",
     "dated_min_projected_qty", "dated_horizon_days", "dated_lead_days", "dated_lead_basis",
+    "purchase_need_date_policy", "anticipated_safety_working_days", "anticipated_fixed_floor_qty",
+    "anticipated_late_qty", "anticipated_first_shortage_day", "anticipated_no_extra_time_floor",
+    "purchase_rule_version", "purchase_fixed_floor_mode", "purchase_grouping_days",
+    "purchase_requirement_basis", "production_projection_floor_qty",
+    "dated_net_rounding_quantum", "dated_rounding_uncovered_qty",
 ]
+
+
+def mrp_mass_net_rounding_quantum(policy, uom):
+    """User-selected precision for net procurement only, never physical ledgers."""
+    if policy is None:
+        return 0.0
+    if policy != "nearest_kg_half_up_v1":
+        raise ValueError("Unknown mass net requirement rounding policy")
+    return {"KG": 1.0, "G": 1000.0}.get(normalize_unit(uom), 0.0)
+
+
+def mrp_network_plan_trace_values(decision: Mapping | None) -> dict:
+    """Optional purchase diagnostics remain absent on other network nodes."""
+    values = decision or {}
+    return {field: round(value, 6) if isinstance(value, float) else value
+            for field in MRP_NETWORK_PLAN_FIELDS for value in (values.get(field, ""),)}
+
+
+def dated_plan_daily_csv_fields(*, external_components=False, sourcing=False,
+                                stock_protection=False, internal_safety=False,
+                                coverage_protection=False, industrial_planning=False,
+                                prospective_safety=False, depot_safety=False,
+                                industrial_reconciliation=False):
+    """Schema shared by the actual CSV writer and its in-memory export checks."""
+    return (["day", "node_id", "item_id", "uom", "action_scope"] + MRP_NETWORK_PLAN_FIELDS
+            + (EXTERNAL_COMPONENT_PLAN_FIELDS if external_components else [])
+            + (SOURCING_PLAN_FIELDS if sourcing else [])
+            + (STOCK_PROTECTION_FIELDS if stock_protection else [])
+            + (["internal_component_safety_policy"] if internal_safety else [])
+            + (COVERAGE_PROTECTION_FIELDS if coverage_protection else [])
+            + (INDUSTRIAL_PLANNING_FIELDS if industrial_planning else [])
+            + industrial_reconciliation_csv_fields(industrial_reconciliation)
+            + (PROSPECTIVE_SAFETY_FIELDS if prospective_safety else [])
+            + (DEPOT_SAFETY_PROTECTION_FIELDS if depot_safety else []))
+
+
+PROVISIONAL_PURCHASE_WEEKLY_FIELDS = [
+    "purchase_proposal_lot_policy", "proposal_stage", "supplier_id", "planning_supplier_id",
+    "physical_receipt_day", "available_day", "receipt_date_basis",
+]
+
+
+def provisional_purchase_weekly_fields(sourced_proposal, *, policy, delivery_days_by_supplier, decision_day=None):
+    """Nominal scenario dates, never a supplier confirmation or executed receipt."""
+    if sourced_proposal is None:
+        return {}
+    row = sourced_proposal
+    reference = row.planning_supplier_id or row.supplier_id
+    delivery = delivery_days_by_supplier.get(reference)
+    future = row.role == "provisional" or (decision_day is not None and row.proposal.release_day > decision_day)
+    return {
+        "purchase_proposal_lot_policy": policy or "",
+        "proposal_stage": ("provisional_unreleased" if row.role == "provisional"
+                           else "supplier_reference_unreleased" if future else "supplier_lot_due_for_release"),
+        "supplier_id": "" if future else row.supplier_id, "planning_supplier_id": reference,
+        "physical_receipt_day": (row.proposal.release_day + delivery if delivery is not None else ""),
+        "available_day": row.proposal.available_day,
+        "receipt_date_basis": "nominal_supplier_reference_not_confirmation",
+    }
+
+
 SUPPLIER_DELIVERY_ORDER_FIELDS = [
     "delivery_reference_days", "delivery_sampled_days", "receipt_source_days", "receipt_calendar",
 ]
@@ -2135,6 +2301,102 @@ def mrp_planning_horizon_days(
     if type(configured_days) is not int or configured_days != 364 or execution_mode != "dated":
         raise ValueError("The explicit rolling MRP horizon must be exactly 364 days in dated mode")
     return configured_days
+
+
+def resolve_purchase_planning_lots(
+    policy, *, purchase_pairs, lanes_by_dest_item, selected_suppliers,
+    protected_pairs, nonbinding_pairs, item_unit_map,
+):
+    """Opt-in alignment with existing nominal execution, no new supplier choice.
+
+    A source standard is binding only when execution already makes it binding.
+    Refuse incompatible successive execution roundings rather than inventing a
+    common multiple. Specific sourcing/batching/internal policies take priority.
+    """
+    if policy is None:
+        return {}, []
+    if policy != "execution_standard_for_unambiguous_offer_v1":
+        raise ValueError("Unknown purchase_planning_lot_policy")
+    overrides, audit = {}, []
+    for pair in sorted(purchase_pairs):
+        if pair in protected_pairs:
+            audit.append(dict(node_id=pair[0], item_id=pair[1], status="preserved_specific_policy"))
+            continue
+        lanes = tuple(lanes_by_dest_item.get(pair, ()))
+        selected = selected_suppliers.get(pair)
+        if selected is not None:
+            lanes = tuple(lane for lane in lanes if lane["src"] == selected)
+            if len(lanes) != 1:
+                raise ValueError("Selected purchase planning offer must identify exactly one lane")
+        if len(lanes) != 1:
+            audit.append(dict(node_id=pair[0], item_id=pair[1], status="unchanged_ambiguous_offers",
+                              admissible_offer_count=len(lanes)))
+            continue
+        lane = lanes[0]
+        quantities = []
+        for field in ("standard_order_qty", "physical_dispatch_multiple"):
+            raw = lane.get(field, 0.0)
+            if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(raw) or raw < 0:
+                raise ValueError("Purchase lot alignment needs finite normalized nonnegative quantities")
+            quantities.append(float(raw))
+        standard, dispatch = quantities
+        binding = pair not in nonbinding_pairs
+        if (binding and standard > 0 and dispatch > 0
+                and not math.isclose(standard / dispatch, round(standard / dispatch), rel_tol=0, abs_tol=1e-9)):
+            raise ValueError("Purchase lot alignment refuses a binding standard incompatible with the physical dispatch multiple")
+        minimum = standard if binding else 0.0
+        multiple = standard if binding and standard > 0 else dispatch
+        integer = normalize_unit(item_unit_map.get(pair[1], "")) == "UN"
+        if integer and (minimum != math.floor(minimum) or multiple != math.floor(multiple)):
+            raise ValueError("Physical UN purchase lot constraints must be integer")
+        overrides[pair] = LotSizing(minimum=minimum, multiple=multiple, integer=integer)
+        audit.append(dict(node_id=pair[0], item_id=pair[1], status="aligned_nominal_execution",
+            supplier_id=lane["src"], offer_basis="explicit_selection" if selected else "only_offer",
+            standard_order_qty=standard, standard_binding=binding, physical_dispatch_multiple=dispatch,
+            planning_minimum_qty=minimum, planning_multiple_qty=multiple, integer=integer))
+    return overrides, audit
+
+
+def allocated_supplier_scope(policy, *, purchase_pairs, lanes_by_dest_item, excluded_pairs):
+    """Keep explicit sourcing policies; align the remaining legacy allocations."""
+    if policy is None:
+        return set()
+    if policy != "allocated_supplier_plan_v1":
+        raise ValueError("Unknown allocated supplier policy")
+    result = set()
+    for pair in set(purchase_pairs) - set(excluded_pairs):
+        lanes = lanes_by_dest_item.get(pair, ())
+        if len(lanes) <= 1:
+            continue
+        weights = [to_float(lane.get("mrp_share"), 0.0) for lane in lanes]
+        if (len({lane["src"] for lane in lanes}) != len(lanes)
+                or any(not math.isfinite(w) or w < 0 for w in weights) or sum(weights) <= 0):
+            raise ValueError("Allocated supplier planning needs unique offers and nonnegative existing shares")
+        result.add(pair)
+    return result
+
+
+def allocated_purchase_offers(lanes, *, decision_day, through_day, receipt_days,
+                              origin_date, nonworking_dates, uom, binding, rounding_policy):
+    """Bind each unchanged allocation share to its own lot and availability dates."""
+    offers = []
+    for lane in lanes:
+        lead = lead_time_reference_days(lane)
+        calendar = tuple((release, supplier_receipt_available_day(release + lead, receipt_days,
+            origin_date=origin_date, nonworking_dates=nonworking_dates))
+            for release in range(decision_day, through_day + 1))
+        standard = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
+        physical_multiple = max(0.0, to_float(lane.get("physical_dispatch_multiple"), 0.0))
+        if physical_multiple and standard and binding and not math.isclose(standard % physical_multiple, 0.0, abs_tol=1e-9):
+            raise ValueError("Allocated purchase and physical dispatch multiples must be compatible")
+        offers.append(SupplierOffer(lane["src"], max(0.0, to_float(lane.get("unit_purchase_cost"), 0.0)),
+            "EUR", uom, calendar[0][1] - decision_day,
+            LotSizing(minimum=standard if binding else 0.0,
+                multiple=standard if binding and standard else physical_multiple,
+                integer=normalize_unit(uom) == "UN",
+                net_rounding_quantum=mrp_mass_net_rounding_quantum(rounding_policy, uom)),
+            calendar, standard_order_qty=standard))
+    return {"offers": tuple(offers), "allocation_weights": tuple(to_float(lane.get("mrp_share"), 0.0) for lane in lanes)}
 
 
 def resolve_procurement_batching(payload, *, execution_mode, lanes_by_dest_item, item_unit_map):
@@ -2246,6 +2508,73 @@ INDUSTRIAL_PLANNING_FIELDS = ["industrial_source_requirement_qty", "industrial_o
     "industrial_source_covered_days", "industrial_source_excess_own_qty", "industrial_target_rate_qty",
     "industrial_target_window_days", "industrial_forecast_source_cells"]
 INDUSTRIAL_WEEKLY_FIELDS = ["period_start_day", "period_end_day_exclusive", "source_vintage_day", "source_file", "source_cells"]
+INDUSTRIAL_RECONCILIATION_FIELDS = ["industrial_requirement_reconciliation_policy",
+    "industrial_weekly_complement_before_netting_qty", "industrial_temporal_overlap_removed_qty"]
+
+
+def industrial_reconciliation_csv_fields(policy):
+    if not policy:
+        return []
+    if policy == "separate_own_and_other_v1":
+        return INDUSTRIAL_RECONCILIATION_FIELDS[:2] + ["industrial_complement_delta_qty"]
+    return INDUSTRIAL_RECONCILIATION_FIELDS
+
+
+def resolve_purchase_calendar_or_source_policy(payload, *, mode, eligible_pairs, origin_date):
+    """Experimental purchase-only scope; neither safety nor physical usage changes."""
+    if payload is None:
+        return None
+    fields={"schema_version","mode","pairs","assumption"}
+    if mode=="weekly_calendar_v1":fields|={"first_review_day","review_weekday"}
+    optional={"unreported_weeks_policy","forecast_envelope_policy"} if mode=="source_weekly_with_committed_floor_v1" else set()
+    if (not isinstance(payload,dict) or not fields<=set(payload) or set(payload)-fields-optional
+            or type(payload["schema_version"]) is not int
+            or payload["schema_version"]!=1 or payload["mode"]!=mode
+            or not isinstance(payload["pairs"],list) or not payload["pairs"]
+            or not isinstance(payload["assumption"],str) or not payload["assumption"].strip()):
+        raise ValueError("Purchase policy requires explicit schema, scope and assumption")
+    if ("unreported_weeks_policy" in payload and payload["unreported_weeks_policy"]
+            != "no_revocable_need_within_declared_horizon_v1"):
+        raise ValueError("Unreported weeks require the explicit scenario horizon interpretation")
+    if ("forecast_envelope_policy" in payload and payload["forecast_envelope_policy"]
+            != "declared_horizon_cumulative_max_v1"):
+        raise ValueError("Purchase envelope requires the explicit declared-horizon interpretation")
+    if {"unreported_weeks_policy","forecast_envelope_policy"} <= set(payload):
+        raise ValueError("Exclusive source and cumulative envelope policies cannot be combined")
+    pairs=[]
+    for row in payload["pairs"]:
+        if not isinstance(row,dict) or set(row)!={"node_id","item_id"}:
+            raise ValueError("Purchase policy scope requires article/site pairs")
+        pair=(row["node_id"],row["item_id"])
+        if pair not in eligible_pairs or pair in pairs:
+            raise ValueError("Purchase policy pair must be a unique eligible supplier boundary")
+        pairs.append(pair)
+    if mode=="weekly_calendar_v1" and (type(payload["first_review_day"]) is not int
+            or payload["first_review_day"]<0 or type(payload["review_weekday"]) is not int
+            or not 0<=payload["review_weekday"]<=6
+            or (date.fromisoformat(origin_date)+timedelta(days=payload["first_review_day"])).weekday()!=payload["review_weekday"]):
+        raise ValueError("First review must fall on the explicitly selected weekday")
+    return dict(payload)
+
+
+def purchase_policy_applies(policy,pair):
+    return policy is not None and {"node_id":pair[0],"item_id":pair[1]} in policy["pairs"]
+
+
+def purchase_review_is_due(policy,pair,day,origin_date):
+    return (not purchase_policy_applies(policy,pair) or
+        day>=policy["first_review_day"] and
+        (date.fromisoformat(origin_date)+timedelta(days=day)).weekday()==policy["review_weekday"])
+
+
+def purchase_review_calendar(calendar, *, policy, pair, origin_date, through_day):
+    """Filter allowed order dates; planner already selects the last feasible one."""
+    rows=tuple(calendar)
+    if not purchase_policy_applies(policy,pair):return rows
+    selected=tuple((r,a) for r,a in rows if purchase_review_is_due(policy,pair,r,origin_date))
+    if not selected or selected[-1][0]<through_day:
+        raise ValueError("Weekly order calendar must extend through the last planning day")
+    return selected
 PROSPECTIVE_SAFETY_FIELDS = ["prospective_safety_basis", "prospective_safety_source_days",
     "prospective_safety_tomorrow_qty", "prospective_safety_legacy_qty",
     "prospective_safety_dated_days", "prospective_safety_fallback_days"]
@@ -2294,19 +2623,71 @@ def resolve_supplier_planning_policies(payload, *, execution_mode, lanes_by_dest
     return policies
 
 
-def resolve_internal_component_policies(payload, *, execution_mode, lanes_by_dest_item, item_unit_map):
+def resolve_internal_component_policies(payload, *, execution_mode, lanes_by_dest_item, item_unit_map,
+                                       nodes=None):
     if payload is None:
         return {}
     if (execution_mode != "dated" or not isinstance(payload, dict)
-            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] not in {1, 2}
             or not isinstance(payload.get("rows"), list) or not payload["rows"]):
-        raise ValueError("Internal component policy requires dated execution and schema 1 rows")
+        raise ValueError("Internal component policy requires dated execution and schema 1 or 2 rows")
     if set(payload) - {"schema_version", "rows"}:
         raise ValueError("Unknown internal component policy metadata field")
+    receipt_only = payload["schema_version"] == 2
+    if receipt_only and not isinstance(nodes, list):
+        raise ValueError("Source-backed internal receipt requires the modeled node and BOM structure")
+    node_kinds = {str(node.get("id")): node.get("type") for node in (nodes or [])}
+    process_inputs, process_outputs = set(), set()
+    if receipt_only:
+        for node in nodes:
+            for process in node.get("processes") or []:
+                process_inputs.update((str(node.get("id")), str(row.get("item_id")))
+                    for row in process.get("inputs") or [] if to_float(row.get("ratio_per_batch"), 0.0) > 0)
+                process_outputs.update((str(node.get("id")), str(row.get("item_id")))
+                    for row in process.get("outputs") or [])
     policies = {}
     for row in payload["rows"]:
         if not isinstance(row, dict):
             raise ValueError("Internal component policy row must be an object")
+        if receipt_only:
+            allowed = {"policy_id", "node_id", "item_id", "source_node_id", "uom",
+                       "receipt_days", "receipt_calendar", "delivery_reference_days", "source_refs", "status",
+                       "physical_transport_days", "transfer_multiple_qty"}
+            pair = (row.get("node_id"), row.get("item_id"))
+            incoming = tuple(lanes_by_dest_item.get(pair, ()))
+            refs = row.get("source_refs")
+            if (set(row) - allowed or pair in policies or pair not in process_inputs - process_outputs
+                    or not isinstance(row.get("policy_id"), str) or not row["policy_id"].strip()
+                    or any(p["policy_id"] == row["policy_id"] for p in policies.values())
+                    or row.get("status") != "candidate_not_inferred_ERP"
+                    or len(incoming) != 1 or incoming[0].get("src") != row.get("source_node_id")
+                    or node_kinds.get(row.get("source_node_id")) not in {"factory", "distribution_center"}
+                    or not normalize_unit(row.get("uom"))
+                    or normalize_unit(row.get("uom")) != normalize_unit(item_unit_map.get(pair[1], ""))
+                    or not isinstance(refs, dict) or any(not isinstance(refs.get(key), str) or not refs[key].strip()
+                        for key in ("receipt_days", "receipt_calendar", "delivery_reference"))):
+                raise ValueError("Source-backed receipt requires a unique pure internal BOM input, matching unit and source provenance")
+            if (type(row.get("receipt_days")) is not int or row["receipt_days"] < 0
+                    or row.get("receipt_calendar") != "monday_friday"
+                    or isinstance(row.get("delivery_reference_days"), bool)
+                    or not isinstance(row.get("delivery_reference_days"), (int, float))
+                    or not math.isfinite(row["delivery_reference_days"]) or row["delivery_reference_days"] <= 0
+                    or not float(row["delivery_reference_days"]).is_integer()
+                    or row["delivery_reference_days"] != lead_time_reference_days(incoming[0])):
+                raise ValueError("Internal receipt requires source working days and the unchanged lane delivery reference")
+            if "physical_transport_days" in row and (
+                    type(row["physical_transport_days"]) is not int or row["physical_transport_days"] < 1
+                    or not isinstance(refs.get("physical_transport_days"), str) or not refs["physical_transport_days"].strip()):
+                raise ValueError("Internal physical transport requires positive whole calendar days and explicit provenance")
+            if "transfer_multiple_qty" in row:
+                multiple = row["transfer_multiple_qty"]
+                if (isinstance(multiple, bool) or not isinstance(multiple, (int, float))
+                        or not math.isfinite(multiple) or multiple <= 0
+                        or (normalize_unit(row["uom"]) == "UN" and not float(multiple).is_integer())
+                        or not isinstance(refs.get("transfer_multiple_qty"), str) or not refs["transfer_multiple_qty"].strip()):
+                    raise ValueError("Internal transfer multiple requires a positive physical quantity and explicit provenance")
+            policies[pair] = dict(row)
+            continue
         if set(row) - {"policy_id", "node_id", "item_id", "source_node_id", "uom", "transfer_multiple_qty",
                        "receipt_days", "receipt_calendar", "protection_mode", "source_refs", "status"}:
             raise ValueError("Unknown internal component policy row field")
@@ -2335,6 +2716,958 @@ def resolve_internal_component_policies(payload, *, execution_mode, lanes_by_des
     return policies
 
 
+def apply_internal_component_lane_policies(policies, lanes_by_dest_item, *, schema_version):
+    """Configure normalized execution routes, never rewrite source graph edges or FIA."""
+    for pair, policy in policies.items():
+        lane = lanes_by_dest_item[pair][0]
+        if "physical_transport_days" in policy:
+            lane["physical_transport_days"] = policy["physical_transport_days"]
+        if "transfer_multiple_qty" in policy:
+            lane["standard_order_qty"] = float(policy["transfer_multiple_qty"])
+            lane["standard_order_qty_note"] = (
+                "Explicit internal transfer multiple candidate; source purchasing reference retained"
+                if schema_version == 2 else
+                "Explicit source-backed 693055 candidate; supersedes historical 50 KG grouping")
+            if schema_version == 2:
+                lane["internal_transfer_multiple_qty"] = float(policy["transfer_multiple_qty"])
+                lane["physical_dispatch_multiple"] = float(policy["transfer_multiple_qty"])
+                lane["physical_dispatch_uom"] = normalize_unit(policy["uom"])
+                lane["physical_dispatch_policy_scope"] = "explicit_internal_transfer_candidate"
+                lane["physical_dispatch_policy_source"] = policy["source_refs"]["transfer_multiple_qty"]
+                lane["physical_dispatch_policy_confidence"] = policy["status"]
+
+
+def resolve_common_internal_safety_pairs(payload, *, execution_mode, nodes,
+                                         component_pairs, lanes_by_dest_item):
+    """Select source-backed internal BOM inputs without changing any route parameter."""
+    if payload is None:
+        return set()
+    if payload not in {"source_stock_floor_v1", "source_safety_additive_v2"} or execution_mode != "dated":
+        raise ValueError("Common internal safety requires a supported source policy in dated execution")
+    internal_nodes = {str(node.get("id")) for node in nodes
+                      if node.get("type") in {"factory", "distribution_center"}}
+    policies = {(str(node.get("id")), str(state.get("item_id"))): state.get("mrp_policy")
+                for node in nodes for state in (node.get("inventory") or {}).get("states", [])}
+    selected = set()
+    for pair in component_pairs:
+        incoming = lanes_by_dest_item.get(pair, ())
+        if (pair[0] not in internal_nodes or not incoming
+                or any(str(lane.get("src")) not in internal_nodes for lane in incoming)):
+            continue
+        policy = policies.get(pair)
+        if policy is None:
+            continue
+        if not isinstance(policy, dict):
+            raise ValueError(f"Internal component safety policy must be an object: {pair}")
+        values = [policy.get("safety_time_days", 0), policy.get("safety_stock_qty", 0)]
+        if any(isinstance(value, bool) or not isinstance(value, (int, float))
+               or not math.isfinite(value) or value < 0 for value in values):
+            raise ValueError(f"Internal source safety must be finite and nonnegative: {pair}")
+        if not any(value > 0 for value in values):
+            continue
+        if payload == "source_safety_additive_v2" and not float(values[0]).is_integer():
+            raise ValueError(f"Internal anticipation requires whole source working days: {pair}")
+        if not isinstance(policy.get("source"), str) or not policy["source"].strip():
+            raise ValueError(f"Internal component safety requires source provenance: {pair}")
+        selected.add(pair)
+    return selected
+
+
+def resolve_finished_goods_push_sources(payload, *, nodes, produced_pairs,
+                                        finished_item_ids, lanes_by_dest_item):
+    """Push released PF only on unambiguous factory-to-depot routes."""
+    if payload is None:
+        return {}
+    if payload != "push_released_available_v1":
+        raise ValueError("Unknown finished_goods_dispatch_policy")
+    kinds = {str(node.get("id")): node.get("type") for node in nodes}
+    outgoing = defaultdict(set)
+    selected = {}
+    for destination, incoming in lanes_by_dest_item.items():
+        sources = {(str(lane.get("src")), destination[1]) for lane in incoming}
+        manufactured = {source for source in sources if source in produced_pairs
+                        and kinds.get(source[0]) == "factory" and source[1] in finished_item_ids}
+        for source in manufactured:
+            outgoing[source].add(destination)
+        if kinds.get(destination[0]) != "distribution_center" or not manufactured:
+            continue
+        if len(incoming) != 1 or len(sources) != 1:
+            raise ValueError("Finished-goods push requires one explicit factory route per depot/item")
+        selected[destination] = next(iter(manufactured))
+    if any(len(outgoing[source]) != 1 for source in selected.values()):
+        raise ValueError("Finished-goods push with multiple destinations requires an explicit allocation rule")
+    return selected
+
+
+def finished_goods_dispatch_need(*, destination, push_sources, available_by_pair, legacy_need, uom):
+    """Use only unreserved released stock; held/WIP/future receipts never enter."""
+    if destination not in push_sources:
+        return legacy_need
+    available = available_by_pair.get(push_sources[destination], 0.0)
+    if (isinstance(available, bool) or not isinstance(available, (int, float))
+            or not math.isfinite(available) or available < 0):
+        raise ValueError("Finished-goods push requires finite nonnegative available stock")
+    return require_physical_integer(available, uom)
+
+
+def resolve_internal_transfer_planning_lots(payload, *, execution_mode, nodes,
+                                           component_pairs, lanes_by_dest_item,
+                                           item_unit_map, current_lots):
+    """Align pure internal-input proposals with their existing dispatch quantum.
+
+    This changes uncommitted projections only. Review dates and the physical
+    executor's partial dispatch below one available quantum remain unchanged.
+    No production lot is inferred to be a transfer lot: the lane must already
+    carry an explicit positive physical_dispatch_multiple.
+    """
+    if payload is None:
+        return {}
+    if payload != "execution_dispatch_multiple_v1" or execution_mode != "dated":
+        raise ValueError("Internal transfer lot alignment requires execution_dispatch_multiple_v1 and dated MRP")
+    kinds = {str(node.get("id")): node.get("type") for node in nodes}
+    aligned = {}
+    for pair in sorted(component_pairs):
+        incoming = tuple(lanes_by_dest_item.get(pair, ()))
+        if len(incoming) != 1 or kinds.get(incoming[0].get("src")) not in {"factory", "distribution_center"}:
+            continue
+        multiple = incoming[0].get("physical_dispatch_multiple", 0.0)
+        if (isinstance(multiple, bool) or not isinstance(multiple, (int, float))
+                or not math.isfinite(multiple) or multiple < 0):
+            raise ValueError("Internal dispatch multiple must be finite and nonnegative")
+        if multiple == 0:
+            continue
+        integer = normalize_unit(item_unit_map.get(pair[1], "")) == "UN"
+        if integer and multiple != math.floor(multiple):
+            raise ValueError("Physical UN dispatch multiples must be integer")
+        existing = current_lots.get(pair, LotSizing())
+        if (existing.minimum > 0 or existing.maximum is not None
+                or existing.multiple not in (0, multiple)):
+            raise ValueError("Internal dispatch alignment cannot override a different explicit planning lot")
+        aligned[pair] = LotSizing(multiple=float(multiple), integer=integer)
+    return aligned
+
+
+def resolve_production_depot_feedback(payload, *, execution_mode, forecast_signal,
+                                      nodes, produced_pairs, finished_item_ids,
+                                      lanes_by_dest_item):
+    """One manufactured output owns a depot position only if its supply is exclusive."""
+    if payload is None:
+        return {}
+    if payload != "net_depot_position_v1" or execution_mode != "dated" or not forecast_signal:
+        raise ValueError("Production depot feedback requires net_depot_position_v1, dated MRP and forecast production")
+    kinds = {str(node.get("id")): node.get("type") for node in nodes}
+    destinations = defaultdict(set)
+    ambiguous_outputs = set()
+    for destination, lanes in lanes_by_dest_item.items():
+        if kinds.get(destination[0]) != "distribution_center" or destination[1] not in finished_item_ids:
+            continue
+        sources = {(str(lane["src"]), destination[1]) for lane in lanes}
+        eligible = {pair for pair in sources if pair in produced_pairs and kinds.get(pair[0]) == "factory"}
+        if len(sources) != 1:
+            ambiguous_outputs.update(eligible)
+        elif eligible:
+            destinations[next(iter(eligible))].add(destination)
+    return {pair: tuple(sorted(depots)) for pair, depots in destinations.items()
+            if pair not in ambiguous_outputs}
+
+
+def resolve_depot_safety_protection(payload, *, source_policy_pairs, **route_context):
+    """Select source-policy PF depots; reuse only the exclusive-route validation."""
+    if payload is None:
+        return set()
+    if payload != "source_stock_floor_v1":
+        raise ValueError("Unknown depot safety protection policy")
+    routes = resolve_production_depot_feedback("net_depot_position_v1", **route_context)
+    return {pair for depots in routes.values() for pair in depots if pair in source_policy_pairs}
+
+
+def resolve_customer_physical_cover(payload, *, nodes, demand_pairs, lanes_by_dest_item,
+                                    dated_planning, stochastic_leads=False, warmup_days=0,
+                                    demand_perturbation=False, controls=False, review_days=1):
+    """Opt-in final-customer boundary; no new customer inventory policy is inferred."""
+    if payload is None:
+        return {}
+    if payload != "physical_demand_cover_v1":
+        raise ValueError("Unknown customer replenishment policy")
+    if not dated_planning or stochastic_leads or warmup_days or demand_perturbation or controls or review_days != 1:
+        raise ValueError("Physical customer cover requires dated planning, deterministic daily review, known exogenous demand, no warmup or controls")
+    kinds = {str(n.get("id")): n.get("type") for n in nodes}
+    result = {}
+    for pair in demand_pairs:
+        if kinds.get(pair[0]) != "customer":
+            continue
+        incoming = lanes_by_dest_item.get(pair, ())
+        if (len(incoming) != 1 or kinds.get(incoming[0].get("src")) != "distribution_center"
+                or int(round(incoming[0].get("order_frequency_days", 1))) != 1
+                or to_float(incoming[0].get("standard_order_qty"), 0.0) > 0):
+            raise ValueError("Physical customer cover requires one daily depot-to-customer route")
+        result[pair] = incoming[0]
+    if not result:
+        raise ValueError("Physical customer cover has no eligible customer demand route")
+    return result
+
+
+def resolve_customer_dispatch_forecast_policy(payload, *, customer_cover_pairs,
+                                             customer_demand_policy, forecast, demand_calendar):
+    """Validate an explicitly scoped physical-dispatch policy, separate from MRP."""
+    if payload is None:
+        return frozenset()
+    known_only = isinstance(payload, dict) and payload.get("mode") == "known_demand_only_v1"
+    required = {"schema_version", "mode", "pairs"} | (set() if known_only else {"opening_missing_period"})
+    if (not isinstance(payload, dict) or set(payload) != required
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
+            or payload.get("mode") not in {"dated_source_profile_v1", "known_demand_only_v1"}
+            or (not known_only and payload.get("opening_missing_period") != "observed_to_date_mean_v1")):
+        raise ValueError("Invalid customer dispatch forecast policy contract")
+    raw_pairs = payload["pairs"]
+    if (not isinstance(raw_pairs, list) or not raw_pairs
+            or any(not isinstance(pair, list) or len(pair) != 2
+                   or any(not isinstance(value, str) or not value.strip() for value in pair)
+                   for pair in raw_pairs)):
+        raise ValueError("Customer dispatch forecast pairs must be a nonempty list of node/item pairs")
+    pairs = frozenset(tuple(pair) for pair in raw_pairs)
+    if len(pairs) != len(raw_pairs) or not pairs <= set(customer_cover_pairs):
+        raise ValueError("Customer dispatch forecast requires unique physical-cover customer pairs")
+    if known_only:
+        if (customer_demand_policy != "source_customer_history_v1"
+                or not isinstance(demand_calendar, SourceCustomerHistory)
+                or not pairs <= {pair for pair, _start in demand_calendar.rows}):
+            raise ValueError("Customer dispatch requires known source customer history")
+        return pairs
+    if (customer_demand_policy != "source_customer_history_v1"
+            or not isinstance(forecast, RollingMrpForecast) or not forecast.customer_projection
+            or not isinstance(demand_calendar, SourceCustomerHistory)
+            or forecast.calendar != "monday_start" or not pairs <= forecast.demand_pairs
+            or demand_calendar.origin != date.fromisoformat(forecast.origin_date)
+            or not pairs <= {pair for pair, _start in demand_calendar.rows}):
+        raise ValueError("Customer dispatch forecast requires source customer history and its dated forecast calendar")
+    return pairs
+
+
+def customer_dispatch_profile(forecast, pair, *, policy_pairs, decision_day, target_day, window_days):
+    """None means the caller must retain its legacy physical-demand calculation."""
+    if pair not in policy_pairs:
+        return None, {}
+    return forecast.customer_dispatch_window(pair, decision_day=decision_day,
+        target_day=target_day, window_days=window_days)
+
+
+def generic_safety_days_for_pair(pair, *, source_policy_pairs, default_days, source_precedence=False):
+    """A present source policy (including explicit zero) replaces a fallback."""
+    return 0.0 if source_precedence and pair in source_policy_pairs else default_days
+
+
+def resolve_opening_production_availability(payload, *, opening_orders, nodes, dated_execution,
+                                          lot_trace, bom_issue_mode):
+    """Source G/I date explicit opening OF; never infer new-batch quality."""
+    if payload is None:
+        return set()
+    if payload != "source_dates_v1" or not dated_execution or not lot_trace or bom_issue_mode != "wip":
+        raise ValueError("Opening production source dates require dated lot tracing and initial WIP")
+    if not isinstance(opening_orders, dict) or not opening_orders.get("source_file"):
+        raise ValueError("Opening production source dates require a source order book")
+    kinds = {str(node.get("id")): node.get("type") for node in nodes}
+    identities, pairs = set(), set()
+    for row in opening_orders.get("rows", ()):
+        if row.get("order_type") != "production_open_order":
+            continue
+        identity = row.get("source_row")
+        physical, usable = row.get("physical_delivery_day"), row.get("usable_day")
+        if (identity is None or identity == "" or identity in identities
+                or type(physical) is not int or type(usable) is not int or not 0 <= physical <= usable
+                or kinds.get(row.get("dst_node_id")) not in {"factory", "supplier_dc"}
+                or not row.get("item_id") or not row.get("uom")
+                or isinstance(row.get("quantity"), bool)
+                or not math.isfinite(float(row.get("quantity", -1))) or row.get("quantity", -1) <= 0):
+            raise ValueError("Opening production source dates require unique source rows and valid G/I at the source factory")
+        require_physical_integer(row["quantity"], row["uom"])
+        identities.add(identity)
+        pairs.add((row["dst_node_id"], row["item_id"]))
+    if not pairs:
+        raise ValueError("Opening production source dates have no explicit O.Proc rows")
+    return pairs
+
+
+def customer_physical_cover_trace(decisions, pair, *, enabled):
+    return ({field: decisions.get(pair, {}).get(field, "") for field in CUSTOMER_PHYSICAL_COVER_FIELDS}
+            if enabled else {})
+
+
+class OpeningPackOrders:
+    """Opt-in residual conditioning of source opening OF, never a second BOM.
+
+    Pack identities are declared from the source BOM. The rest of the BOM is
+    already incorporated WIP. Physical Pack UN use cumulative ceilings per OF,
+    so splitting an OF never rounds the same component more than once.
+    """
+
+    def __init__(self, payload, *, opening_orders, nodes, bom_by_pair, item_unit_map,
+                 origin_date, dated_execution, lot_trace, bom_issue_mode, closed_days_by_pair=None):
+        if (not isinstance(payload, dict) or set(payload) != {"schema_version", "mode", "late_release_policy", "rows"}
+                or type(payload["schema_version"]) is not int or payload["schema_version"] != 1
+                or payload["mode"] != "pack_at_source_G_v1"
+                or payload["late_release_policy"] != "source_G_I_workdays_v1"
+                or not isinstance(payload["rows"], list) or not payload["rows"]
+                or not dated_execution or not lot_trace or bom_issue_mode != "wip"):
+            raise ValueError("Opening Pack requires explicit schema1, dated lot tracing and non-Pack initial WIP")
+        self.origin_date = origin_date
+        self.origin = date.fromisoformat(origin_date)
+        self.components, self.rows, self.fragments = {}, {}, []
+        self.item_unit_map = item_unit_map
+        self.closed_days_by_pair = closed_days_by_pair or {}
+        node_map = {node["id"]: node for node in nodes}
+        for scope in payload["rows"]:
+            if not isinstance(scope, dict):
+                raise ValueError("Opening Pack scopes must be explicit objects")
+            pair = (scope.get("node_id"), scope.get("item_id"))
+            processes = [p for p in node_map.get(pair[0], {}).get("processes", ())
+                         if any(o.get("item_id") == pair[1] for o in p.get("outputs", ()))]
+            if (pair in self.components or len(processes) != 1 or len(processes[0].get("outputs", ())) != 1
+                    or normalize_unit(item_unit_map.get(pair[1])) != "UN"
+                    or not math.isfinite(to_float(processes[0].get("capacity", {}).get("max_rate"), 0))
+                    or to_float(processes[0].get("capacity", {}).get("max_rate"), 0) <= 0):
+                raise ValueError("Opening Pack requires unique UN output process with explicit shared capacity")
+            bom = dict(bom_by_pair.get(pair, ()))
+            components = []
+            for component in scope.get("pack_components", ()):
+                if not isinstance(component, dict):
+                    raise ValueError("Opening Pack components must be explicit objects")
+                component_pair = (pair[0], component.get("item_id"))
+                ratio = bom.get(component_pair)
+                if (component.get("role") != "Pack" or component_pair not in bom
+                        or not isinstance(ratio, (int, float)) or not math.isfinite(ratio) or ratio <= 0
+                        or any(c["pair"] == component_pair for c in components)
+                        or any(not isinstance(component.get(k), str) or not component[k].strip()
+                               for k in ("source_file", "source_cells"))
+                        or not item_unit_map.get(component_pair[1])):
+                    raise ValueError("Opening Pack requires unique local BOM components with explicit source roles")
+                components.append(dict(pair=component_pair, ratio=Decimal(str(ratio)),
+                    uom=normalize_unit(item_unit_map[component_pair[1]]),
+                    source_file=component["source_file"], source_cells=component["source_cells"]))
+            if not components:
+                raise ValueError("Opening Pack requires at least one explicitly classified Pack component")
+            self.components[pair] = tuple(components)
+        for source in opening_orders:
+            pair = (source.get("node_id"), source.get("item_id"))
+            if source.get("order_type") != "opening_production_order" or pair not in self.components:
+                continue
+            marker = source.get("source_marker")
+            g, i = source.get("physical_delivery_day"), source.get("arrival_day")
+            quantity = require_physical_integer(source.get("receipt_qty"), "UN")
+            if (not marker or marker in self.rows or type(g) is not int or type(i) is not int
+                    or not 0 <= g <= i or quantity <= 0 or source.get("source_row") in (None, "")):
+                raise ValueError("Opening Pack requires unique source OF identity and exact nonnegative G/I")
+            duration = sum((self.origin + timedelta(days=d)).weekday() < 5 for d in range(g + 1, i + 1))
+            self.rows[marker] = dict(source, pair=pair, target_qty=int(quantity), completed_qty=0,
+                consumed={}, fragment_count=0, source_workdays=duration)
+        if set(self.components) != {row["pair"] for row in self.rows.values()}:
+            raise ValueError("Every opening Pack scope must contain source opening production orders")
+        self.pairs = frozenset(self.components)
+
+    @staticmethod
+    def component_total(quantity, component):
+        amount = Decimal(quantity) * component["ratio"]
+        return (Decimal(math.ceil(amount)) if component["uom"] == "UN" else amount)
+
+    def availability(self, row, physical_day):
+        if physical_day <= row["physical_delivery_day"]:
+            return row["arrival_day"]
+        return max(row["arrival_day"], supplier_receipt_available_day(physical_day, row["source_workdays"],
+            origin_date=self.origin_date, calendar="monday_friday"))
+
+    def ordered(self, pair):
+        return sorted((row for row in self.rows.values() if row["pair"] == pair),
+                      key=lambda row: (row["physical_delivery_day"], int(row["source_row"])))
+
+    def candidate(self, row, *, day, capacity, available):
+        """Pure feasible fragment; availability is free stock, never held stock."""
+        if type(day) is not int or not math.isfinite(capacity) or capacity < 0:
+            raise ValueError("Opening Pack requires a finite nonnegative shared daily capacity")
+        remaining = row["target_qty"] - row["completed_qty"]
+        upper = min(remaining, math.floor(capacity)) if day >= row["physical_delivery_day"] else 0
+        def quantities(qty):
+            return {c["pair"]: self.component_total(row["completed_qty"] + qty, c)
+                    - row["consumed"].get(c["pair"], Decimal(0)) for c in self.components[row["pair"]]}
+        low, high = 0, upper
+        while low < high:
+            middle = (low + high + 1) // 2
+            if all(amount <= Decimal(str(available.get(pair, 0))) for pair, amount in quantities(middle).items()):
+                low = middle
+            else:
+                high = middle - 1
+        quantity = low
+        return dict(order_id=row["source_marker"], fragment_id=f'{row["source_marker"]};pack_fragment={row["fragment_count"] + 1}',
+            pair=row["pair"], day=day, qty=quantity, completed_before=row["completed_qty"],
+            remaining_before=remaining, remaining_after=remaining - quantity,
+            available_day=self.availability(row, day),
+            components={pair: float(amount) for pair, amount in quantities(quantity).items()} if quantity else {})
+
+    def commit(self, fragment):
+        row = self.rows[fragment["order_id"]]
+        if (fragment["qty"] <= 0 or fragment["completed_before"] != row["completed_qty"]
+                or fragment["qty"] > row["target_qty"] - row["completed_qty"]):
+            raise ValueError("Opening Pack fragment must be positive, unique and conserve remaining OF")
+        row["completed_qty"] += fragment["qty"]
+        row["fragment_count"] += 1
+        for pair, amount in fragment["components"].items():
+            row["consumed"][pair] = row["consumed"].get(pair, Decimal(0)) + Decimal(str(amount))
+        self.fragments.append(dict(fragment))
+
+    def planning(self, decision_day):
+        needs, firms = defaultdict(list), defaultdict(list)
+        for row in self.rows.values():
+            remaining = row["target_qty"] - row["completed_qty"]
+            if not remaining:
+                continue
+            physical = max(decision_day + 1, row["physical_delivery_day"])
+            while physical in self.closed_days_by_pair.get(row["pair"], ()):
+                physical += 1
+            firms[row["pair"]].append(FirmReceipt(row["source_marker"], self.availability(row, physical), remaining, "confirmed"))
+            for component in self.components[row["pair"]]:
+                qty = self.component_total(row["target_qty"], component) - row["consumed"].get(component["pair"], Decimal(0))
+                if qty > 0:
+                    needs[component["pair"]].append(Requirement(
+                        f'opening-pack:{row["source_marker"]}:{component["pair"][1]}', physical, float(qty)))
+        return dict(needs), dict(firms)
+
+
+def execute_opening_pack_fifo(book, pair, *, day, capacity, available, consume, materialize):
+    """Use one stock/capacity budget for all due source OF; callbacks are physical."""
+    remaining_capacity, fragments = capacity, []
+    available = dict(available)
+    for row in book.ordered(pair):
+        if row["completed_qty"] == row["target_qty"] or row["physical_delivery_day"] > day:
+            continue
+        fragment = book.candidate(row, day=day, capacity=remaining_capacity, available=available)
+        if not fragment["qty"]:
+            break  # Strict FIFO; a blocked first OF cannot be bypassed.
+        fragment.update(capacity_before=remaining_capacity, capacity_after=remaining_capacity - fragment["qty"])
+        parents = []
+        for component_pair, qty in fragment["components"].items():
+            if qty:
+                parents.extend(consume(component_pair, qty, fragment))
+                available[component_pair] -= qty
+        materialize(row, fragment, parents)
+        book.commit(fragment)
+        remaining_capacity -= fragment["qty"]
+        fragments.append(fragment)
+        if fragment["remaining_after"]:
+            break
+    return remaining_capacity, fragments
+
+
+def sync_opening_pack_commitments(book, *, decision_day, commitments):
+    """Replace only the pending OF residual; already physical held fragments stay."""
+    needs, pending = book.planning(decision_day)
+    for marker, row in book.rows.items():
+        commitments[row["pair"]].pop(marker, None)
+    for pair, rows in pending.items():
+        for row in rows:
+            commitments[pair][row.receipt_id] = (row.available_day, row.qty, "production")
+    return needs
+
+
+def materialize_opening_pack_fragment(source, fragment, parents, *, ledger, availability,
+                                      stock, pipeline, in_transit, commitments, receipt_calendar=None):
+    """Create only conditioned PF; the same lot becomes usable once at its I.
+
+    Parent allocations contain Pack only. The non-Pack initial WIP is explicitly
+    untraced and must never be presented as a new complete manufacturing BOM.
+    """
+    pair, qty = fragment["pair"], fragment["qty"]
+    physical, usable, marker = fragment["day"], fragment["available_day"], fragment["fragment_id"]
+    allocated = defaultdict(float)
+    for parent in parents:
+        allocated[parent["node_id"], parent["item_id"]] += parent["qty"]
+    if (qty <= 0 or set(allocated) != {p for p, q in fragment["components"].items() if q > 0}
+            or any(abs(allocated[p] - q) > LOT_TRACE_EPS for p, q in fragment["components"].items())):
+        raise RuntimeError("Opening PF cannot be materialized without its exact consumed Pack parents")
+    lot_id = ledger.create_child_lot(day=physical, node_id=pair[0], item_id=pair[1], qty=qty,
+        source_type="opening_production_order", source_id=marker, parent_allocations=parents,
+        link_type="production", uom="UN", planned_order_id=fragment["order_id"],
+        baseline_reference_id=fragment["order_id"], trace_status="partially_traced_mixed_occurrence",
+        trace_reason="Pack_traced_non_Pack_assumed_in_initial_WIP", notes=json.dumps({
+            "opening_pack_policy": "pack_at_source_G_v1", "order_id": fragment["order_id"],
+            "source_G": source["physical_delivery_day"], "source_I": source["arrival_day"],
+            "physical_day": physical, "available_day": usable, "availability_state": "held",
+            "source_kind": "opening_production_order", "non_pack_materials": "initial_WIP_untraced",
+            "late_release_basis": "source_G_I_actual_weekday_count_hypothesis"}))
+    availability.hold_production_lot(marker=marker, node_id=pair[0], item_id=pair[1], quantity=qty,
+        lot_id=lot_id, physical_day=physical, available_day=usable, ledger=ledger,
+        source_kind="opening_production_order")
+    fragment["lot_id"] = lot_id
+    if usable == physical:
+        availability.release(marker, physical, qty, ledger=ledger)
+        stock[pair] += qty
+        return qty
+    pipeline[usable].append((pair[0], pair[1], qty, marker))
+    in_transit[pair] += qty
+    commitments[pair][marker] = (usable, qty, "held")
+    if receipt_calendar is not None:
+        receipt_calendar.add(pair, usable, qty)
+    return 0
+
+
+def opening_pack_order_status(book, marker, *, last_day):
+    source = book.rows[marker]
+    fragments = [f for f in book.fragments if f["order_id"] == marker]
+    complete = source["completed_qty"] == source["target_qty"]
+    released = sum(f["qty"] for f in fragments if f["available_day"] <= last_day)
+    all_usable = released == source["target_qty"]
+    return dict(actual_physical_receipt_day=max((f["day"] for f in fragments), default="") if complete else "",
+        actual_available_day=max((f["available_day"] for f in fragments), default="") if all_usable else "",
+        actual_receipt_day=max((f["available_day"] for f in fragments), default="") if all_usable else "",
+        order_status_end_of_run=("available" if all_usable else "held_pending_availability" if complete
+            else "partially_conditioned_pending_pack_or_capacity" if fragments else "awaiting_conditioning"),
+        release_status="opening_pack_conditioning_commitment")
+
+
+def initial_planning_receipt_identity(calendar_name, receipt_day, ordinal, receipt, *,
+                                      availability_markers, opening_production_pairs):
+    marker = str(receipt[3]) if calendar_name == "lane" else ""
+    if marker in availability_markers or ((receipt[0], receipt[1]) in opening_production_pairs
+                                         and marker.startswith(OPENING_PRODUCTION_ORDER_LANE_PREFIX)):
+        return marker
+    return f"initial:{calendar_name}:{receipt_day}:{ordinal}"
+
+
+def customer_physical_cover_need(*, decision_day, arrival_day, physical_requirements,
+                                 available_qty, backlog_qty, firm_receipts, uom):
+    """After today's service, cover dated physical uses up to the next arrival.
+
+    Today's receipts are already in stock. Later receipts cannot serve earlier
+    demand; they remain committed and will be netted in their own date window.
+    """
+    if (type(decision_day) is not int or type(arrival_day) is not int or arrival_day <= decision_day
+            or isinstance(backlog_qty, bool) or not math.isfinite(float(backlog_qty)) or backlog_qty < 0):
+        raise ValueError("Invalid physical customer decision interval or backlog")
+    available = require_physical_integer(available_qty, uom)
+    seen = set()
+    receipts = []
+    for row in firm_receipts:
+        if row.receipt_id in seen:
+            raise ValueError("Customer firm receipt identity counted twice")
+        seen.add(row.receipt_id)
+        quantity = require_physical_integer(row.qty, uom)
+        if decision_day < row.available_day <= arrival_day:
+            receipts.append(quantity)
+    needs = list(physical_requirements)
+    if len({r.requirement_id for r in needs}) != len(needs):
+        raise ValueError("Customer physical demand identity counted twice")
+    if any(type(r.due_day) is not int or isinstance(r.qty, bool)
+           or not math.isfinite(float(r.qty)) or r.qty < 0 for r in needs):
+        raise ValueError("Invalid dated physical customer demand")
+    future = math.fsum(r.qty for r in needs if decision_day < r.due_day <= arrival_day)
+    target = float(backlog_qty) + future
+    cover = math.fsum(receipts)
+    quantity = normalize_physical_quantity(max(0.0, target - available - cover), uom, rounding="up")
+    return {"customer_replenishment_policy": "physical_demand_cover_v1",
+            "customer_physical_arrival_day": arrival_day, "customer_physical_future_demand_qty": future,
+            "customer_physical_backlog_qty": float(backlog_qty), "customer_physical_target_qty": target,
+            "customer_physical_available_qty": available, "customer_physical_firm_cover_qty": cover,
+            "customer_physical_order_qty": quantity}
+
+
+def customer_known_demand_need(*, decision_day, arrival_day, available_qty, backlog_qty, firm_receipts, uom):
+    """Dispatch only unserved known demand; never fund forecast customer stock.
+
+    Called after today's receipts and service. Every still-open commitment
+    covers the same backlog, even when late: its lateness is not a new order.
+    Already received quantities must have left this commitment registry.
+    """
+    if type(decision_day) is not int or type(arrival_day) is not int or arrival_day <= decision_day:
+        raise ValueError("Invalid known-demand customer decision dates")
+    available = require_physical_integer(available_qty, uom)
+    backlog = require_physical_integer(backlog_qty, uom)
+    receipts, identities = [], set()
+    for row in firm_receipts:
+        if (not isinstance(row.receipt_id,str) or not row.receipt_id or row.receipt_id in identities
+                or type(row.available_day) is not int):
+            raise ValueError("Customer open commitment requires one unique dated identity")
+        identities.add(row.receipt_id)
+        receipts.append(require_physical_integer(row.qty,uom))
+    cover = math.fsum(receipts)
+    quantity = normalize_physical_quantity(max(0.0,backlog-available-cover),uom,rounding="up")
+    return dict(customer_replenishment_policy="known_demand_only_v1",
+        customer_physical_arrival_day=arrival_day,customer_physical_future_demand_qty=0.0,
+        customer_physical_backlog_qty=backlog,customer_physical_target_qty=backlog,
+        customer_physical_available_qty=available,customer_physical_firm_cover_qty=cover,
+        customer_physical_order_qty=quantity,customer_dispatch_forecast_policy="known_demand_only_v1",
+        customer_dispatch_forecast_basis="known_backlog_after_service_no_future_forecast",
+        customer_dispatch_forecast_future_qty=0.0)
+
+
+def cap_known_customer_dispatch(quantity, *, known_need, uom, multiple_qty=0.0):
+    """A control or shipment lot cannot authorize shipping unrequested units."""
+    if any(isinstance(q,bool) or not math.isfinite(float(q)) or q<0
+           for q in (quantity,known_need,multiple_qty)):
+        raise ValueError("Customer dispatch cap requires finite nonnegative quantities")
+    bounded=min(float(quantity),require_physical_integer(known_need,uom))
+    multiple=require_physical_integer(multiple_qty,uom)
+    if multiple:
+        bounded=float((Decimal(str(bounded))//Decimal(str(multiple)))*Decimal(str(multiple)))
+    return normalize_physical_quantity(bounded,uom,rounding="down")
+
+
+def resolve_finished_goods_release_policy(payload, *, nodes, produced_pairs, finished_item_ids,
+                                          lanes_by_dest_item, item_unit_map, receipt_netting_mode="all_future"):
+    """Explicit source duration with an explicitly hypothetical physical location."""
+    if payload is None:
+        return {}
+    if receipt_netting_mode != "all_future":
+        raise ValueError("Finished-good release currently requires all_future receipt netting; within_cover is unsupported")
+    if (not isinstance(payload, dict) or type(payload.get("schema_version")) is not int
+            or payload["schema_version"] != 1 or not isinstance(payload.get("rows"), list)):
+        raise ValueError("Finished-good release requires schema1 rows")
+    kinds = {str(n.get("id")): n.get("type") for n in nodes}
+    result = {}
+    for row in payload["rows"]:
+        if not isinstance(row, dict):
+            raise ValueError("Finished-good release rows must be source-policy objects")
+        pair = (row.get("node_id"), row.get("item_id"))
+        destination = (row.get("depot_node_id"), pair[1])
+        incoming = lanes_by_dest_item.get(destination, ())
+        if (pair in result or pair not in produced_pairs or pair[1] not in finished_item_ids
+                or kinds.get(pair[0]) != "factory" or kinds.get(destination[0]) != "distribution_center"
+                or len(incoming) != 1 or incoming[0].get("src") != pair[0]
+                or normalize_unit(item_unit_map.get(pair[1])) != "UN"):
+            raise ValueError("Finished-good release needs one exclusive manufactured UN factory-to-depot route")
+        if (type(row.get("receipt_days")) is not int or row["receipt_days"] <= 0
+                or row.get("receipt_calendar") != "monday_friday"
+                or row.get("location_basis") != "factory_before_push_hypothesis"
+                or not isinstance(row.get("source_refs"), dict)
+                or any(not isinstance(row["source_refs"].get(k), str) or not row["source_refs"][k].strip()
+                       for k in ("receipt_days", "receipt_calendar", "location"))):
+            raise ValueError("Finished-good release requires source weekdays and documented location hypothesis")
+        result[pair] = dict(row)
+    return result
+
+
+def resolve_production_release_policy(payload, *, nodes, produced_pairs, item_unit_map,
+                                      receipt_netting_mode="all_future"):
+    """Source reception time after a physical batch at its confirmed manufacturing site.
+
+    Unlike the legacy finished-good location hypothesis, this opt-in also accepts
+    manufactured intermediates. It never creates stock at an order's release.
+    """
+    if payload is None:
+        return {}
+    if receipt_netting_mode != "all_future":
+        raise ValueError("Production release requires all_future receipt netting; within_cover is unsupported")
+    if (not isinstance(payload, dict) or type(payload.get("schema_version")) is not int
+            or payload["schema_version"] != 1 or not isinstance(payload.get("rows"), list)):
+        raise ValueError("Production release requires schema1 rows")
+    kinds = {str(n.get("id")): n.get("type") for n in nodes}
+    result = {}
+    for row in payload["rows"]:
+        if not isinstance(row, dict):
+            raise ValueError("Production release rows must be source-policy objects")
+        pair = (row.get("node_id"), row.get("item_id"))
+        if (pair in result or pair not in produced_pairs or kinds.get(pair[0]) != "factory"
+                or not normalize_unit(item_unit_map.get(pair[1]))):
+            raise ValueError("Production release needs a manufactured factory item with a known unit")
+        if (type(row.get("receipt_days")) is not int or row["receipt_days"] <= 0
+                or row.get("receipt_calendar") != "monday_friday"
+                or row.get("location_basis") != "source_confirmed_manufacturing_site"
+                or not isinstance(row.get("source_refs"), dict)
+                or any(not isinstance(row["source_refs"].get(k), str) or not row["source_refs"][k].strip()
+                       for k in ("receipt_days", "receipt_calendar", "manufacturing_site"))):
+            raise ValueError("Production release requires source weekdays and a confirmed manufacturing site")
+        result[pair] = dict(row)
+    return result
+
+
+def production_campaign_work_days(remaining_qty, *, capacity_qty, fixed_lot_qty):
+    """Remaining work under the existing one-fixed-batch-per-day convention.
+
+    Missing capacity is not a zero rate and cannot yield a fictitious remote
+    date. This fallback is selected by generic release or chain consistency; it is
+    a model convention, not an inferred industrial throughput.
+    """
+    remaining, capacity, fixed = map(float, (remaining_qty, capacity_qty, fixed_lot_qty))
+    if any(not math.isfinite(q) or q < 0 for q in (remaining, capacity, fixed)):
+        raise ValueError("Campaign work quantities must be finite and nonnegative")
+    if remaining <= LOT_TRACE_EPS:
+        return 0
+    if capacity > 0:
+        # Execution processes at most one physical fixed batch per day.
+        rate = min(capacity, fixed) if fixed > 0 else capacity
+    elif fixed > 0:
+        rate = fixed
+    else:
+        raise ValueError("Production release without capacity needs a fixed batch for its planning convention")
+    return int(math.ceil(remaining / rate))
+
+
+def dated_source_stock_protection(*, decision_day, requirements, safety_days, fixed_qty):
+    """Keep source safety on dated needs, never on a daily production-lot spike.
+
+    The open interval excludes overdue backlog: backlog remains a requirement,
+    not a second stock reserve. Days already use the source working calendar.
+    """
+    if (type(decision_day) is not int or isinstance(safety_days, bool)
+            or not isinstance(safety_days, (int, float)) or not math.isfinite(safety_days)
+            or safety_days < 0 or isinstance(fixed_qty, bool)
+            or not isinstance(fixed_qty, (int, float)) or not math.isfinite(fixed_qty) or fixed_qty < 0):
+        raise ValueError("Dated source protection needs a decision and nonnegative source safety")
+    window = int(math.ceil(safety_days))
+    needs = tuple(requirements)
+    if len({r.requirement_id for r in needs}) != len(needs):
+        raise ValueError("Dated source protection cannot count the same requirement twice")
+    if any(type(r.due_day) is not int or not math.isfinite(r.qty) or r.qty < 0 for r in needs):
+        raise ValueError("Dated source protection requires valid dated quantities")
+    covered = math.fsum(r.qty for r in needs if decision_day < r.due_day <= decision_day + window)
+    target = max(float(fixed_qty), covered)
+    return StockProtection("source_dated_window", decision_day + 1, target), {
+        "window_days": window, "dated_requirement_qty": covered,
+        "fixed_source_qty": float(fixed_qty), "target_qty": target,
+        "basis": "future_dated_requirements_once_no_overdue_backlog_no_lot_as_daily_rate",
+    }
+
+
+def source_stock_protection_profile(*, decision_day, requirements, safety_days, fixed_qty,
+                                    projection=None):
+    """Protect each future date from the current planning snapshot, once.
+
+    A missing projection keeps the historical constant floor. The dated mode
+    uses source workdays and keeps that floor at the unknown horizon tail.
+    Requirements here already include the planner's explicit forecast fallback;
+    a day with no requirement is not an absent industrial observation.
+    """
+    needs = tuple(requirements)
+    point, audit = dated_source_stock_protection(decision_day=decision_day,
+        requirements=needs, safety_days=safety_days, fixed_qty=fixed_qty)
+    if projection is None:
+        return (point,), audit
+    if (not isinstance(projection, dict) or set(projection) != {
+            "source_working_days", "origin_weekday", "forecast_through_day"}):
+        raise ValueError("Rolling source safety requires explicit workdays and forecast horizon")
+    points, detail = prospective_stock_protection(
+        decision_day=decision_day, requirements=needs,
+        covered_days=range(decision_day + 1, projection["forecast_through_day"] + 1),
+        fixed_floor_qty=fixed_qty, legacy_floor_qty=point.minimum_qty,
+        coverage_activation_day=decision_day + 1, coverage_complement_qty=0.0,
+        **projection)
+    audit.update(target_qty=detail["prospective_safety_tomorrow_qty"],
+        historical_constant_target_qty=point.minimum_qty,
+        projection_policy="rolling_source_workdays_v1",
+        forecast_through_day=projection["forecast_through_day"],
+        protection_point_count=len(points), **detail)
+    return points, audit
+
+
+def internal_transfer_commitment_scope(policy, *, lanes_by_dest_item, produced_pairs,
+                                      production_input_pairs, push_destinations):
+    """Only unique manufactured-component routes, never PF push or purchases."""
+    if policy is None:
+        return set()
+    if policy != "upstream_launch_pegged_v1":
+        raise ValueError("Unknown internal transfer commitment policy")
+    scope = set()
+    for pair in production_input_pairs:
+        if pair in produced_pairs or pair in push_destinations:
+            continue
+        incoming = lanes_by_dest_item.get(pair, ())
+        if not any((lane["src"], pair[1]) in produced_pairs for lane in incoming):
+            continue
+        if len(incoming) != 1 or (incoming[0]["src"], pair[1]) not in produced_pairs:
+            raise ValueError("Pegged internal transfers require a unique produced source")
+        if float(incoming[0].get("reliability", 1.0)) != 1.0:
+            raise ValueError("Pegged transfers require lossless nominal internal quantities")
+        scope.add(pair)
+    if not scope:
+        raise ValueError("No eligible produced-component internal transfer")
+    return scope
+
+
+def reconcile_production_execution_snapshot(network_inputs, *, available_by_pair,
+                                            firm_receipts_by_pair, produced_pairs):
+    """Re-net the whole topology after today's moves, without executing orders.
+
+    A factory shipment moves supply credit to the destination. Reusing only the
+    old upstream needs with the reduced factory stock would lose this credit.
+    """
+    refreshed = dict(network_inputs, available_by_pair=available_by_pair,
+                     firm_receipts_by_pair=firm_receipts_by_pair)
+    plans, requirements, audit = plan_component_network(**refreshed)
+    snapshots = {pair: {"decision_day": refreshed["decision_day"],
+        "requirements": tuple(requirements.get(pair, ())),
+        "protection": tuple(audit.get(pair, {}).get("protection_points", ())),
+        **({"transfer_pegs": audit.get(pair, {}).get("transfer_pegs", {}),
+            "transfer_allocation_plan": plans[pair]}
+           if network_inputs.get("transfer_commitment_pairs") else {})} for pair in produced_pairs}
+    return snapshots, plans, requirements, audit
+
+
+def record_started_transfer_campaign(book, *, day, source_pair, campaign_id, campaign_qty,
+                                     executed_qty, new_plan, snapshot, uom):
+    """A blocked authorization is not yet a launch; use the latest EOD pegging.
+
+    After a blocked day, the campaign is already a firm in the refreshed network.
+    Its current allocations replace the old authorization's revocable pegs.
+    """
+    if executed_qty <= LOT_TRACE_EPS or campaign_id in book.seen_campaigns:
+        return ()
+    plan = new_plan if new_plan is not None else snapshot.get("transfer_allocation_plan")
+    if plan is None:
+        raise ValueError("A first campaign work requires its dated allocation snapshot")
+    return book.from_started_campaign(day=day, campaign_id=campaign_id, source_pair=source_pair,
+        campaign_qty=campaign_qty, plan=plan, pegs=snapshot.get("transfer_pegs", {}), uom=uom,
+        existing_campaign=new_plan is None)
+
+
+def internal_transfer_advancement_requests(policy, *, book, network_inputs, plans):
+    """Diagnose today's executable need hidden by a later internal promise.
+
+    This counterfactual is never executed. It retains all real receipts and
+    already-due promises, removes only eligible future internal promises, and
+    supplies a bounded request to the existing physical shipping controller.
+    Original promise dates/quantities remain untouched until actual handoff.
+    """
+    if policy is None:
+        return {}
+    if policy != "advance_on_executable_need_v1" or book is None:
+        raise ValueError("Internal transfer advancement requires its explicit policy and commitment book")
+    day = network_inputs["decision_day"]
+    calendars = network_inputs.get("availability_by_release_by_pair") or {}
+    future = defaultdict(float)
+    outstanding = defaultdict(float)
+    sources = {}
+    for row in book.orders.values():
+        if row["remaining_qty"] <= LOT_TRACE_EPS:
+            continue
+        pair, source = row["destination_pair"], row["source_pair"]
+        outstanding[pair] += row["remaining_qty"]
+        if (row["release_day"] > day
+                and any(release == day for release, _ in calendars.get(pair, ()))
+                and network_inputs["available_by_pair"].get(source, 0.0) > LOT_TRACE_EPS):
+            future[pair] += row["remaining_qty"]
+            sources[pair] = source
+    if not future:
+        return {}
+    # Dates, held/transit supplies, BOM, forecasts and safety are identical.
+    # Due promises are retained here, so their quantities must NOT be
+    # subtracted again from the difference of the two new-proposal totals.
+    counter_inputs = dict(network_inputs, transfer_commitment_rows=tuple(
+        row for row in network_inputs.get("transfer_commitment_rows", ())
+        if not (tuple(row["destination_pair"]) in future and row["release_day"] > day)))
+    counter_plans, _, _ = plan_component_network(**counter_inputs)
+    requests = {}
+    for pair in sorted(future):
+        normal = math.fsum(p.qty for p in plans[pair].proposals if p.release_day <= day)
+        counter = math.fsum(p.qty for p in counter_plans[pair].proposals if p.release_day <= day)
+        amount = min(future[pair], max(0.0, counter - normal))
+        requests[pair] = dict(source_pair=sources[pair], future_committed_qty=future[pair],
+            normal_release_today_qty=normal, counterfactual_release_today_qty=counter,
+            advancement_requested_qty=amount,
+            physical_authorization_qty=normal + outstanding[pair])
+    return requests
+
+
+def internal_transfer_dispatch_limit(request, *, available_qty, already_dispatched_qty, uom):
+    """Bound physical dispatch by available stock and still-authorized volume."""
+    limit = min(max(0.0, available_qty),
+        max(0.0, request["physical_authorization_qty"] - already_dispatched_qty))
+    return normalize_physical_quantity(limit, uom, rounding="down") if normalize_unit(uom) == "UN" else limit
+
+
+def production_completion_quantities(physical_completed_qty, *, retained_for_quality=False):
+    """Completed physical batch is distinct from usability; incomplete WIP is zero."""
+    quantity = float(physical_completed_qty)
+    if not math.isfinite(quantity) or quantity < 0:
+        raise ValueError("Physical completed production quantity must be finite and nonnegative")
+    quantity = round(quantity, 6)
+    return {"released_qty": 0.0 if retained_for_quality else quantity,
+            **({"physical_completed_qty": quantity} if retained_for_quality else {})}
+
+
+def production_plan_csv_fields(*, quality_release=False):
+    return PRODUCTION_PLAN_EVENT_FIELDS + (["physical_completed_qty"] if quality_release else [])
+
+
+def finished_goods_quality_release_event(physical_event, *, day, lot_id, qty):
+    """Availability event cannot create work, another physical batch or a campaign."""
+    event = dict(physical_event)
+    event.update(day=day, event_type="quality_release", reason="none", actual_qty=0.0,
+        release_gate_mode="source_weekday_quality_release", physical_completed_qty=0.0,
+        batch_executed_start_qty=qty, batch_executed_today_qty=0.0, batch_executed_end_qty=qty,
+        wip_start_qty=0.0, wip_end_qty=0.0, released_qty=qty, released_lot_id=lot_id,
+        actual_lot_starts=0, requested_lot_starts=0, campaign_started_qty=0.0,
+        campaign_remaining_start_qty=0.0, campaign_remaining_end_qty=0.0,
+        shortfall_vs_desired_qty=0.0, shortfall_vs_lot_plan_qty=0.0,
+        notes="Availability after source working-day release; no second manufacture or BOM consumption.")
+    return event
+
+
+def production_campaign_rows_with_availability(plan_rows, lot_events):
+    """Keep physical campaign/BOM completion; add distinct executed quality availability."""
+    release_days = {row["lot_id"]: int(row["day"]) for row in lot_events
+                    if row.get("event_type") == "stock_availability_release"
+                    and row.get("source_type") == "finished_goods_release"}
+    held_by_campaign, available_by_campaign, days_by_campaign = defaultdict(float), defaultdict(float), defaultdict(list)
+    quality_campaigns = set()
+    for row in lot_events:
+        if row.get("event_type") != "production_output":
+            continue
+        try:
+            note = json.loads(row.get("notes") or "{}")
+        except (TypeError, json.JSONDecodeError):
+            note = {}
+        if not isinstance(note, dict) or note.get("availability_state") != "held":
+            continue
+        campaign = row.get("production_campaign_id", "")
+        quality_campaigns.add(campaign)
+        if row["lot_id"] in release_days:
+            available_by_campaign[campaign] += float(row["qty"])
+            days_by_campaign[campaign].append(release_days[row["lot_id"]])
+        else:
+            held_by_campaign[campaign] += float(row["qty"])
+    # A quality release is not an update of the ongoing physical campaign.
+    # In particular, release of its first batch must not close its later WIP.
+    physical_plan_rows = [row for row in plan_rows if row.get("event_type") != "quality_release"]
+    result = build_production_campaign_rows(physical_plan_rows, lot_events)
+    for row in result:
+        row.update({field: "" for field in FINISHED_GOODS_CAMPAIGN_AVAILABILITY_FIELDS})
+        if row["campaign_id"] not in quality_campaigns:
+            continue
+        campaign = row["campaign_id"]
+        held, available = held_by_campaign[campaign], available_by_campaign[campaign]
+        last_available = max(days_by_campaign[campaign], default="")
+        complete = row.get("completed_day") != "" and held <= LOT_TRACE_EPS
+        row.update(available_qty=available, held_finished_qty=held, last_availability_day=last_available,
+            availability_completed_day=last_available if complete else "",
+            availability_status="available" if complete else "partially_available" if available > LOT_TRACE_EPS else "held")
+        row["notes"] += "; completed_day remains physical/BOM completion; quality availability is reported separately"
+    return result
+
+
+def production_depot_position(*, output_pair, depot_pairs, decision_day, before_receipts,
+                              stock_by_pair, commitments_by_pair, depot_targets,
+                              backlog_by_pair, local_target_qty, remaining_qty, executed_wip_qty):
+    """Signed inventory-position feedback; future firm quantities never become new demand.
+
+    The MPS precedes pipeline receipts, the physical controller follows them.
+    Initial held releases already precede both stages. The commitment ledger
+    replaces, rather than supplements, the scalar transit counter. An executed
+    but unreleased campaign quantity is neither available stock nor another OF.
+    """
+    pairs = (output_pair, *depot_pairs)
+    available = math.fsum(max(0.0, stock_by_pair.get(pair, 0.0)) for pair in pairs)
+    firm = math.fsum(max(0.0, qty) for pair in pairs
+                    for arrival, qty, origin in commitments_by_pair.get(pair, {}).values()
+                    if arrival > decision_day or (before_receipts and arrival == decision_day and origin != "held"))
+    campaign = max(0.0, remaining_qty) + max(0.0, executed_wip_qty)
+    depot_target = math.fsum(max(0.0, depot_targets.get(pair, 0.0)) for pair in depot_pairs)
+    depot_available = math.fsum(max(0.0, stock_by_pair.get(pair, 0.0)) for pair in depot_pairs)
+    depot_backlog = math.fsum(max(0.0, backlog_by_pair.get(pair, 0.0)) for pair in depot_pairs)
+    target = max(0.0, local_target_qty) + depot_target + depot_backlog
+    position = available + firm + campaign
+    return dict(feedback_policy="net_depot_position_v1", target_qty=depot_target,
+                available_qty=depot_available, firm_qty=firm, campaign_qty=campaign,
+                backlog_qty=depot_backlog, network_target_qty=target,
+                network_position_qty=position, gap_qty=target - position)
+
+
 def plan_component_network(
     *, decision_day: int, requirements_by_pair: Mapping,
     available_by_pair: Mapping, firm_receipts_by_pair: Mapping,
@@ -2347,7 +3680,22 @@ def plan_component_network(
     coverage_protection_pairs: set | None = None,
     industrial_windows_by_pair: Mapping | None = None,
     industrial_target_context_by_pair: Mapping | None = None,
+    industrial_internal_pairs: set | None = None,
+    industrial_requirement_reconciliation_policy: str | None = None,
+    industrial_purchase_source_pairs: set | None = None,
+    industrial_unreported_windows_by_pair: Mapping | None = None,
+    industrial_purchase_envelope_pairs: set | None = None,
     prospective_safety_by_pair: Mapping | None = None,
+    anticipated_need_by_pair: Mapping | None = None,
+    anticipated_internal_pairs: set | None = None,
+    production_floor_pairs: set | None = None,
+    campaign_receipt_context_by_pair: Mapping | None = None,
+    manufacturing_calendar_by_pair: Mapping | None = None,
+    source_safety_by_pair: Mapping | None = None,
+    allocated_sourcing_by_pair: Mapping | None = None,
+    availability_by_release_by_pair: Mapping | None = None,
+    transfer_commitment_pairs: set | None = None,
+    transfer_commitment_rows: tuple = (),
 ) -> tuple[dict, dict, dict]:
     """Net a dated acyclic network once, downstream to upstream.
 
@@ -2367,6 +3715,10 @@ def plan_component_network(
     """
     if type(decision_day) is not int:
         raise ValueError("Dated network decision day must be an integer")
+    if not set(industrial_unreported_windows_by_pair or {}) <= set(industrial_purchase_source_pairs or ()):
+        raise ValueError("Assumed unreported horizon must stay inside source-authoritative purchase scope")
+    if not set(industrial_purchase_envelope_pairs or ()) <= set(industrial_unreported_windows_by_pair or {}):
+        raise ValueError("Purchase envelope requires explicit declared horizon coverage")
     for book in (lead_days_by_pair, coverage_days_by_pair):
         if any(type(value) is not int or value < 0 for value in book.values()):
             raise ValueError("Dated network leads and coverage must be nonnegative integer days")
@@ -2377,9 +3729,22 @@ def plan_component_network(
         raise ValueError("Coverage protection requires an explicit source stock floor for each selected pair")
     if prospective_safety_by_pair and not set(prospective_safety_by_pair) <= (coverage_protection_pairs or set()):
         raise ValueError("Prospective safety requires source protection with preserved coverage")
+    if production_floor_pairs and not production_floor_pairs <= set(bom_by_pair):
+        raise ValueError("Projected production floors require modeled BOM outputs")
     requirements = {pair: list(rows) for pair, rows in requirements_by_pair.items()}
     receipts = {pair: list(rows) for pair, rows in firm_receipts_by_pair.items()}
+    transfer_pegs = defaultdict(dict)
+    promises = [dict(row) for row in transfer_commitment_rows]
+    for row in promises:
+        source, destination = tuple(row["source_pair"]), tuple(row["destination_pair"])
+        if destination not in (transfer_commitment_pairs or set()):
+            raise ValueError("Transfer promise outside the selected structural scope")
+        requirements.setdefault(source, []).append(Requirement(
+            row["commitment_id"], row["dispatch_day"], row["qty"]))
+        receipts.setdefault(destination, []).append(FirmReceipt(
+            row["commitment_id"], row["promised_day"], row["qty"], "confirmed"))
     campaign_requirements: dict = defaultdict(float)
+    campaign_credit_canonicalizations = {}
     for pair, (campaign_id, remaining, wip, finish_day) in active_campaigns_by_pair.items():
         if (not isinstance(campaign_id, str) or not campaign_id or type(finish_day) is not int
                 or finish_day <= decision_day
@@ -2388,8 +3753,24 @@ def plan_component_network(
             raise ValueError("Invalid dated active production campaign")
         if remaining + wip <= LOT_TRACE_EPS:
             continue
+        campaign_receipt_qty = remaining + wip
+        if not math.isfinite(campaign_receipt_qty):
+            raise ValueError(f"Nonfinite campaign receipt: campaign={campaign_id!r}, day={decision_day}, pair={pair!r}")
+        if lot_sizing_by_pair.get(pair, LotSizing()).integer:
+            canonical_qty = float(round(campaign_receipt_qty))
+            if abs(campaign_receipt_qty-canonical_qty) > LOT_TRACE_EPS:
+                raise ValueError("Physical UN campaign receipt must be integer: "
+                    f"campaign={campaign_id!r}, day={decision_day}, pair={pair!r}, "
+                    f"remaining={remaining!r}, wip={wip!r}, total={campaign_receipt_qty!r}")
+            if campaign_receipt_qty != canonical_qty:
+                correction = dict(day=decision_day, node_id=pair[0], item_id=pair[1],
+                    campaign_id=campaign_id, raw_qty=campaign_receipt_qty, canonical_qty=canonical_qty,
+                    delta=canonical_qty-campaign_receipt_qty, remaining_work_qty=remaining, executed_wip_qty=wip)
+                campaign_credit_canonicalizations[pair] = correction
+                print("[MRP_CAMPAIGN_CANONICALIZATION] " + json.dumps(correction, sort_keys=True), flush=True)
+            campaign_receipt_qty = canonical_qty
         receipts.setdefault(pair, []).append(FirmReceipt(
-            "campaign:" + campaign_id, finish_day, remaining + wip, "confirmed",
+            "campaign:" + campaign_id, finish_day, campaign_receipt_qty, "confirmed",
         ))
         for component_pair, ratio in bom_by_pair.get(pair, ()):
             qty = remaining * ratio
@@ -2399,6 +3780,7 @@ def plan_component_network(
             campaign_requirements[component_pair] += qty
 
     all_pairs = set(requirements) | set(receipts) | set(reserve_targets_by_pair)
+    all_pairs.update(source_safety_by_pair or {})
     all_pairs.update(bom_by_pair)
     all_pairs.update(transport_sources_by_pair)
     upstream: dict = {}
@@ -2429,32 +3811,82 @@ def plan_component_network(
     if len(ordered) != len(all_pairs):
         raise ValueError("Dated component planning requires an acyclic supply/BOM network")
 
+    # Source-total I can reconcile a protected transferred input before its
+    # new transfer proposals propagate upstream. It cannot replace the recipe
+    # or the firm work of an output manufactured at this same site.
+    allowed_industrial_internal = set(industrial_internal_pairs or ())
+    for pair in allowed_industrial_internal:
+        if (not transport_sources_by_pair.get(pair) or bom_by_pair.get(pair)
+                or pair in active_campaigns_by_pair
+                or not (protection_by_pair or {}).get(pair)):
+            raise ValueError("Internal industrial totals require an explicitly protected pure transfer input")
+    allowed_anticipated_internal = set(anticipated_internal_pairs or ())
+    for pair in allowed_anticipated_internal:
+        context = (anticipated_need_by_pair or {}).get(pair)
+        if (not transport_sources_by_pair.get(pair) or bom_by_pair.get(pair)
+                or pair in active_campaigns_by_pair or pair in (sourcing_by_pair or {})
+                or not (protection_by_pair or {}).get(pair)
+                or not isinstance(context, dict) or context.get("fixed_floor_mode") != "additive"):
+            raise ValueError("Internal anticipation requires an explicitly protected pure transfer and additive source safety")
     plans, reserve_quantities, sourced_plans, protected_plans = {}, {}, {}, {}
     applied_protection_points, coverage_protection_audits = {}, {}
-    industrial_audits, prospective_audits = {}, {}
+    industrial_audits, prospective_audits, anticipated_audits, source_safety_audits = {}, {}, {}, {}
     for pair in ordered:
         if grouping_days_by_pair and pair in grouping_days_by_pair and (
-                upstream.get(pair) or pair in active_campaigns_by_pair or (sourcing_by_pair and pair in sourcing_by_pair)):
+                upstream.get(pair) or pair in active_campaigns_by_pair or (
+                    sourcing_by_pair and pair in sourcing_by_pair
+                    and pair not in (anticipated_need_by_pair or {}))):
             raise ValueError("Procurement grouping is restricted to purchase leaves without a competing sourcing policy")
         pair_requirements = requirements.setdefault(pair, [])
         pair_target = reserve_targets_by_pair.get(pair, 0.0)
         pair_protection = (protection_by_pair or {}).get(pair, ())
-        if industrial_windows_by_pair is not None and pair in industrial_windows_by_pair:
-            if upstream.get(pair) or pair in active_campaigns_by_pair:
-                raise ValueError("Total industrial requirements are restricted to aggregate purchase leaves")
+        anticipated_context = (anticipated_need_by_pair or {}).get(pair)
+        if anticipated_context is not None:
+            if ((upstream.get(pair) and pair not in allowed_anticipated_internal)
+                    or pair in active_campaigns_by_pair):
+                raise ValueError("Anticipated dates require purchase leaves or explicitly protected pure transfers")
+            pair_protection = ()
+        # The separate-use policy belongs to the configured component scope,
+        # not to the presence of an industrial observation in its audit data.
+        separate_use_scope = (industrial_requirement_reconciliation_policy == "separate_own_and_other_v1"
+                              and pair in (industrial_target_context_by_pair or {}))
+        if separate_use_scope or (industrial_windows_by_pair is not None and pair in industrial_windows_by_pair):
+            if ((upstream.get(pair) and pair not in allowed_industrial_internal)
+                    or pair in active_campaigns_by_pair):
+                raise ValueError("Total industrial requirements require aggregate purchase leaves or protected pure transfer inputs")
             context = (industrial_target_context_by_pair or {}).get(pair)
             if (not isinstance(context, dict) or type(context.get("window_days")) is not int or context["window_days"] <= 0
                     or any(isinstance(context.get(key), bool) or not isinstance(context.get(key), (int, float))
                            or not math.isfinite(context[key]) or context[key] < 0
                            for key in ("fixed_floor_qty", "target_days", "safety_floor_qty", "safety_days", "legacy_rate"))):
                 raise ValueError("Industrial planning requires the unchanged source target coefficients")
-            pair_requirements, windows_audit = reconcile_industrial_requirements(
-                pair_requirements, industrial_windows_by_pair[pair], pair=pair, decision_day=decision_day)
+            unreported_audit = []
+            envelope_audit = None
+            if pair in (industrial_purchase_envelope_pairs or ()):
+                pair_requirements, windows_audit, envelope_audit = reconcile_industrial_purchase_envelope(
+                    pair_requirements, (industrial_windows_by_pair or {}).get(pair, ()),
+                    industrial_unreported_windows_by_pair[pair], pair=pair, decision_day=decision_day)
+            elif pair in (industrial_unreported_windows_by_pair or {}):
+                if pair not in (industrial_purchase_source_pairs or ()):
+                    raise ValueError("Unreported forecast exclusion requires authoritative source purchase scope")
+                omitted = industrial_unreported_windows_by_pair[pair]
+                reported_days = {d for w in (industrial_windows_by_pair or {}).get(pair, ())
+                                 for d in range(w.first_day, w.end_day_exclusive)}
+                if any(reported_days.intersection(range(w.first_day,w.end_day_exclusive)) for w in omitted):
+                    raise ValueError("Actual source cells cannot overlap assumed unreported coverage")
+                pair_requirements, unreported_audit = exclude_unreported_revocable_requirements(
+                    pair_requirements, omitted, decision_day=decision_day)
+            if envelope_audit is None:
+                pair_requirements, windows_audit = reconcile_industrial_requirements(
+                    pair_requirements, (industrial_windows_by_pair or {}).get(pair, ()), pair=pair, decision_day=decision_day,
+                    policy=("source_weekly_with_committed_floor_v1" if pair in (industrial_purchase_source_pairs or ())
+                            else industrial_requirement_reconciliation_policy))
             requirements[pair] = pair_requirements
             window_days = context["window_days"]
             rate = context["legacy_rate"]
             core_rate = extra_rate = None
-            if any(window["first_day"] <= decision_day + window_days for window in windows_audit):
+            if (industrial_requirement_reconciliation_policy == "separate_own_and_other_v1"
+                    or any(window["first_day"] <= decision_day + window_days for window in windows_audit)):
                 in_window = [r for r in pair_requirements if decision_day < r.due_day <= decision_day + window_days]
                 core_rate = math.fsum(r.qty for r in in_window if not r.requirement_id.startswith("external:")) / window_days
                 extra_rate = math.fsum(r.qty for r in in_window if r.requirement_id.startswith("external:")) / window_days
@@ -2479,12 +3911,46 @@ def plan_component_network(
                 "industrial_forecast_source_cells": ";".join(w["source_cells"] for w in windows_audit),
                 "industrial_core_rate": core_rate, "industrial_extra_rate": extra_rate,
             }
+            if industrial_requirement_reconciliation_policy is not None:
+                weekly_complement = math.fsum(w["weekly_complement_before_netting_qty"] for w in windows_audit)
+                delta_field = ("industrial_complement_delta_qty"
+                    if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1"
+                    else "industrial_temporal_overlap_removed_qty")
+                window_delta_field = ("complement_delta_qty"
+                    if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1"
+                    else "temporal_overlap_removed_qty")
+                removed_overlap = (max(0.0, weekly_complement - industrial_audits[pair]["industrial_planning_complement_qty"])
+                    if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1" else
+                    math.fsum(w[window_delta_field] for w in windows_audit))
+                industrial_audits[pair].update(
+                    industrial_requirement_reconciliation_policy=industrial_requirement_reconciliation_policy,
+                    industrial_weekly_complement_before_netting_qty=weekly_complement,
+                    **{delta_field: removed_overlap})
+            if pair in (industrial_purchase_source_pairs or ()):
+                industrial_audits[pair]["industrial_requirement_reconciliation_policy"]="source_weekly_with_committed_floor_v1"
+            if unreported_audit:
+                industrial_audits[pair]["industrial_unreported_windows"] = unreported_audit
+            if envelope_audit is not None:
+                industrial_audits[pair]["industrial_purchase_envelope"] = envelope_audit
+                industrial_audits[pair]["industrial_requirement_reconciliation_policy"] = envelope_audit["policy"]
+        if pair in (source_safety_by_pair or {}):
+            if anticipated_context is not None or pair in (coverage_protection_pairs or ()):
+                raise ValueError("Dated source protection cannot duplicate anticipation or another coverage reserve")
+            points, source_safety_audits[pair] = source_stock_protection_profile(
+                decision_day=decision_day, requirements=pair_requirements, **source_safety_by_pair[pair])
+            pair_target = 0.0
+            pair_protection = tuple(replace(point, protection_id=point.protection_id + ":" + "|".join(pair))
+                                    for point in points)
+            if source_safety_by_pair[pair].get("projection") is not None:
+                prospective_audits[pair] = {key: value for key, value in source_safety_audits[pair].items()
+                                           if key.startswith("prospective_")}
         cover = max(1, int(coverage_days_by_pair.get(pair, 1)))
         cover_end = decision_day + cover
         gross_in_cover = sum(row.qty for row in pair_requirements if row.due_day <= cover_end)
-        protected = protection_by_pair is not None and pair in protection_by_pair
+        protected = anticipated_context is None and (
+            (protection_by_pair is not None and pair in protection_by_pair) or pair in (source_safety_by_pair or {}))
         coverage_complement = max(0.0, float(pair_target) - gross_in_cover)
-        reserve = 0.0 if protected else coverage_complement
+        reserve = 0.0 if protected or anticipated_context is not None else coverage_complement
         reserve_quantities[pair] = reserve
         if reserve > LOT_TRACE_EPS:
             # Using cover_end as a deadline when cover > lead deferred the
@@ -2494,8 +3960,20 @@ def plan_component_network(
             # nominal availability, not a promise of physical supplier service.
             replenishment_day = decision_day + lead_days_by_pair.get(pair, 1)
             pair_requirements.append(Requirement("reserve:" + "|".join(pair), replenishment_day, reserve))
-        if protected:
-            if (pair in active_campaigns_by_pair or (sourcing_by_pair and pair in sourcing_by_pair)
+        if anticipated_context is not None:
+            plan, sourced, anticipated_audits[pair] = plan_anticipated_requirements(
+                decision_day=decision_day, available_qty=available_by_pair.get(pair, 0.0),
+                requirements=pair_requirements, firm_receipts=receipts.get(pair, ()),
+                lead_days=lead_days_by_pair.get(pair, 1), lot_sizing=lot_sizing_by_pair.get(pair, LotSizing()),
+                grouping_days=(grouping_days_by_pair or {}).get(pair),
+                exact_release_calendar=(availability_by_release_by_pair or {}).get(pair),
+                sourcing=(sourcing_by_pair or {}).get(pair),
+                allocated_sourcing=(allocated_sourcing_by_pair or {}).get(pair), **anticipated_context)
+            if sourced is not None:
+                sourced_plans[pair] = sourced
+        elif protected:
+            if ((pair in active_campaigns_by_pair and pair not in (production_floor_pairs or set()))
+                    or (sourcing_by_pair and pair in sourcing_by_pair)
                     or (grouping_days_by_pair and pair in grouping_days_by_pair)):
                 raise ValueError("Stock protection cannot be combined with another candidate planner or active output")
             points = tuple(pair_protection)
@@ -2537,6 +4015,7 @@ def plan_component_network(
                 requirements=pair_requirements, firm_receipts=receipts.get(pair, ()),
                 lead_days=lead_days_by_pair.get(pair, 1), lot_sizing=lot_sizing_by_pair.get(pair, LotSizing()),
                 protection=points,
+                availability_by_release=(availability_by_release_by_pair or {}).get(pair),
             )
             plan = protected_plans[pair].plan
         elif sourcing_by_pair and pair in sourcing_by_pair:
@@ -2554,25 +4033,63 @@ def plan_component_network(
                 lead_days=int(lead_days_by_pair.get(pair, 1)),
                 lot_sizing=lot_sizing_by_pair.get(pair, LotSizing()),
                 grouping_days=(grouping_days_by_pair or {}).get(pair),
+                availability_by_release=(availability_by_release_by_pair or {}).get(pair),
             )
+        if pair in (manufacturing_calendar_by_pair or {}):
+            if pair not in bom_by_pair:
+                raise ValueError("Manufacturing closures apply only to modeled production outputs")
+            plan = calendarize_manufacturing_plan(plan, requirements=pair_requirements,
+                firm_receipts=receipts.get(pair, ()), **manufacturing_calendar_by_pair[pair])
+            if pair in protected_plans:
+                protected_plans[pair] = replace(protected_plans[pair], plan=plan,
+                    protection=manufacturing_protection_balances(plan, applied_protection_points[pair]))
         plans[pair] = plan
         for proposal in plan.proposals:
+            if pair in (allowed_industrial_internal | allowed_anticipated_internal) and proposal.qty <= LOT_TRACE_EPS:
+                # Weekly fractional forecasts can leave a sub-physical floating
+                # residual (e.g. 4e-15 G). Never inflate it into a full upstream
+                # production lot while propagating this new internal boundary.
+                continue
             for source, coefficient in upstream.get(pair, ()):
+                derived_id = "derived:" + "|".join(pair) + ":" + proposal.proposal_id + ":" + "|".join(source)
                 requirements.setdefault(source, []).append(Requirement(
-                    "derived:" + "|".join(pair) + ":" + proposal.proposal_id + ":" + "|".join(source),
+                    derived_id,
                     proposal.release_day, proposal.qty * coefficient,
                 ))
+                if pair in (transfer_commitment_pairs or set()):
+                    if coefficient != 1 or len(upstream[pair]) != 1:
+                        raise ValueError("Committed internal transfers require a unique unscaled source")
+                    transfer_pegs[source][derived_id] = dict(source_pair=source, destination_pair=pair,
+                        source_snapshot_day=decision_day, proposal_id=proposal.proposal_id,
+                        release_day=proposal.release_day, available_day=proposal.available_day, qty=proposal.qty)
     # Quantities were netted downstream to upstream. Carry the material dates
     # back through existing campaigns, upstream first, so a finished lot cannot
     # be promised before its allocated remaining components. This is a lower
     # bound on completion, not a finite-capacity production schedule: tau keeps
     # its existing planning meaning and no additional physical duration is added.
     for pair in reversed(ordered):
+        promise_dates_changed = False
+        for row in promises:
+            if tuple(row["destination_pair"]) != pair:
+                continue
+            source = tuple(row["source_pair"])
+            material_day = max((a.available_day for a in plans[source].allocations
+                                if a.requirement_id == row["commitment_id"]), default=decision_day)
+            calendar = (availability_by_release_by_pair or {}).get(pair, ())
+            slot = next(((r,a) for r,a in calendar
+                         if r >= max(decision_day, row["release_day"], material_day)), None)
+            if slot is None:
+                raise ValueError("Internal promise material availability exceeds the dated calendar")
+            if slot[1] != row["promised_day"]:
+                receipts[pair] = [replace(r, available_day=slot[1])
+                    if r.receipt_id == row["commitment_id"] else r for r in receipts[pair]]
+                promise_dates_changed = True
+            row.update(dispatch_day=slot[0], promised_day=slot[1], source_material_available_day=material_day)
         campaign = active_campaigns_by_pair.get(pair)
-        if campaign is None:
+        if campaign is None and not promise_dates_changed:
             continue
-        campaign_id, remaining, wip, estimated_finish_day = campaign
-        if remaining + wip <= LOT_TRACE_EPS:
+        campaign_id, remaining, wip, estimated_finish_day = campaign or ("", 0.0, 0.0, decision_day)
+        if remaining + wip <= LOT_TRACE_EPS and not promise_dates_changed:
             continue
         finish_day = estimated_finish_day
         for component_pair, _ratio in bom_by_pair.get(pair, ()):
@@ -2581,19 +4098,46 @@ def plan_component_network(
                 allocation.available_day for allocation in plans[component_pair].allocations
                 if allocation.requirement_id == requirement_id
             ), default=estimated_finish_day))
-        if finish_day == estimated_finish_day:
+        if campaign is not None and pair in (campaign_receipt_context_by_pair or {}):
+            context = campaign_receipt_context_by_pair[pair]
+            last_material_day = max((allocation.available_day
+                for component_pair, _ratio in bom_by_pair.get(pair, ())
+                for allocation in plans[component_pair].allocations
+                if allocation.requirement_id == "campaign:" + campaign_id + ":" + "|".join(component_pair)),
+                default=decision_day)
+            closed = (manufacturing_calendar_by_pair or {}).get(pair, {}).get("closed_days", ())
+            while last_material_day in closed:
+                last_material_day += 1
+            finish_day = max(estimated_finish_day, supplier_receipt_available_day(
+                last_material_day, context["receipt_days"], origin_date=context["origin_date"],
+                calendar="monday_friday"))
+        elif campaign is not None and pair in (manufacturing_calendar_by_pair or {}):
+            while finish_day in manufacturing_calendar_by_pair[pair]["closed_days"]:
+                finish_day += 1
+        if finish_day == estimated_finish_day and not promise_dates_changed:
             continue
         receipt_id = "campaign:" + campaign_id
         receipts[pair] = [
             FirmReceipt(row.receipt_id, finish_day, row.qty, row.state)
             if row.receipt_id == receipt_id else row for row in receipts[pair]
         ]
-        updated_plan = plan_dated_requirements(
-            decision_day=decision_day, available_qty=available_by_pair.get(pair, 0.0),
+        updated_args = dict(decision_day=decision_day, available_qty=available_by_pair.get(pair, 0.0),
             requirements=requirements[pair], firm_receipts=receipts[pair],
             lead_days=int(lead_days_by_pair.get(pair, 1)),
             lot_sizing=lot_sizing_by_pair.get(pair, LotSizing()),
-        )
+            availability_by_release=(availability_by_release_by_pair or {}).get(pair))
+        if pair in protected_plans:
+            protected_plans[pair] = plan_with_stock_protection(
+                **updated_args, protection=applied_protection_points[pair])
+            updated_plan = protected_plans[pair].plan
+        else:
+            updated_plan = plan_dated_requirements(**updated_args)
+        if pair in (manufacturing_calendar_by_pair or {}):
+            updated_plan = calendarize_manufacturing_plan(updated_plan,
+                requirements=requirements[pair], firm_receipts=receipts[pair], **manufacturing_calendar_by_pair[pair])
+            if pair in protected_plans:
+                protected_plans[pair] = replace(protected_plans[pair], plan=updated_plan,
+                    protection=manufacturing_protection_balances(updated_plan, applied_protection_points[pair]))
         # With firm quantities allocated first even when late, changing only a
         # firm date cannot change the uncovered quantities or new proposal dates.
         # Fail explicitly if that planner contract changes: upstream requirements
@@ -2605,37 +4149,463 @@ def plan_component_network(
         "campaign_remaining_qty": campaign_requirements.get(pair, 0.0),
         "reserve_requirement_qty": reserve_quantities.get(pair, 0.0),
         "firm_receipts": receipts.get(pair, ()),
+        **({"campaign_credit_canonicalization": campaign_credit_canonicalizations[pair]}
+           if pair in campaign_credit_canonicalizations else {}),
         **({"sourced_plan": sourced_plans[pair]} if pair in sourced_plans else {}),
         **({"protected_plan": protected_plans[pair]} if pair in protected_plans else {}),
         **({"protection_points": applied_protection_points[pair]} if pair in applied_protection_points else {}),
         **coverage_protection_audits.get(pair, {}),
         **industrial_audits.get(pair, {}),
         **prospective_audits.get(pair, {}),
+        **anticipated_audits.get(pair, {}),
+        **({"chain_source_safety": source_safety_audits[pair]} if pair in source_safety_audits else {}),
+        **({"transfer_pegs": transfer_pegs.get(pair, {}),
+            "transfer_promises": tuple(row for row in promises if tuple(row["destination_pair"]) == pair)}
+           if transfer_commitment_pairs else {}),
     } for pair in plans}
     return plans, requirements, audit
+
+
+def resolve_forecast_consumption(payload, *, source_forecast, missing_period_policy,
+                                 production_execution_policy, nodes, demand_pairs,
+                                 produced_pairs, lanes_by_dest_item, target_bucket_days=1):
+    """Constrain the candidate to final customers supplied with modeled manufactured PF."""
+    if payload is None:
+        return set()
+    if (payload != "weekly_actual_orders_v1" or not source_forecast
+            or missing_period_policy != "last_known_period_v1"
+            or production_execution_policy != "dated_releases_v1" or target_bucket_days != 1):
+        raise ValueError("Weekly forecast consumption requires source forecasts, last-known periods, dated production and daily target buckets")
+    kinds = {str(node.get("id")): node.get("type") for node in nodes}
+    scope = set()
+    for pair in demand_pairs:
+        incoming = lanes_by_dest_item.get(pair, ())
+        if (kinds.get(pair[0]) != "customer" or len(incoming) != 1
+                or kinds.get(str(incoming[0].get("src"))) != "distribution_center"):
+            raise ValueError("Forecast consumption requires a final customer with one incoming depot route")
+        depot = (str(incoming[0]["src"]), pair[1])
+        if not any((str(lane["src"]), pair[1]) in produced_pairs
+                   for lane in lanes_by_dest_item.get(depot, ())):
+            raise ValueError("Forecast consumption requires a depot supplied by a modeled manufactured output")
+        scope.add(pair)
+    if not scope:
+        raise ValueError("Forecast consumption has no eligible customer boundary")
+    return scope
+
+
+def resolve_managed_inventory_pairs(payload, *, stock_pairs, production_pairs, inbound_pairs):
+    """Explicit stocks outside the BOM; supply requires a separate candidate contract."""
+    if payload is None:
+        return set()
+    if (not isinstance(payload, dict) or type(payload.get("schema_version")) is not int
+            or payload["schema_version"] != 1):
+        raise ValueError("Managed inventory requires schema_version=1")
+    rows = payload.get("rows")
+    if not isinstance(rows, list):
+        raise ValueError("Managed inventory requires rows")
+    pairs = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("Managed inventory row must be an object")
+        pair = row.get("node_id"), row.get("item_id")
+        if any(not isinstance(value, str) or not value for value in pair):
+            raise ValueError("Managed inventory requires an article/site identity")
+        if pair in pairs or pair not in stock_pairs:
+            raise ValueError("Managed inventory requires a unique existing stock")
+        status = row.get("supply_status")
+        if pair in production_pairs or (status == "unconfigured" and pair in inbound_pairs):
+            raise ValueError("Managed inventory cannot overlap production or an unconfigured supply route")
+        if status == "configured_candidate" and pair not in inbound_pairs:
+            raise ValueError("Configured managed inventory requires an incoming supply route")
+        if status not in {"unconfigured", "configured_candidate"} or row.get("role") != "stock_external_use":
+            raise ValueError("Unsupported managed inventory role or supply status")
+        if status == "unconfigured" and "supply_policy" in row:
+            raise ValueError("Unconfigured inventory cannot carry an active supply policy")
+        pairs.add(pair)
+    return pairs
+
+
+def resolve_managed_supply_policies(payload, *, managed_pairs, lanes_by_dest_item, item_unit_map,
+                                    supplier_node_ids, forecast_payload, origin_date, horizon_days):
+    """Validate a single-offer candidate and a planning-only local forecast calendar."""
+    policies = {}
+    rows = payload.get("rows", ()) if isinstance(payload, dict) else ()
+    for row in rows:
+        if row.get("supply_status") != "configured_candidate":
+            continue
+        pair = row["node_id"], row["item_id"]
+        policy = row.get("supply_policy")
+        required = {"policy_id", "status", "lot_multiple_qty", "source_refs"}
+        if (pair not in managed_pairs or not isinstance(policy, dict) or not required <= set(policy)
+                or set(policy) - required - {"protection_workdays", "buffer_qty"}
+                or policy.get("status") != "candidate_not_inferred_ERP"
+                or not isinstance(policy.get("policy_id"), str) or not policy["policy_id"].strip()
+                or not ({"protection_workdays", "buffer_qty"} & set(policy))):
+            raise ValueError("Managed supply requires an explicit candidate lot and protection contract")
+        if any(p["policy_id"] == policy["policy_id"] for p in policies.values()):
+            raise ValueError("Managed supply policy IDs must be unique")
+        unit = normalize_unit(item_unit_map.get(pair[1], ""))
+        multiple, buffer = policy["lot_multiple_qty"], policy.get("buffer_qty", 0.0)
+        workdays = policy.get("protection_workdays", 0)
+        refs = policy["source_refs"]
+        if (unit not in {"KG", "G", "UN", "M"} or row.get("uom") != unit
+                or any(isinstance(q, bool) or not isinstance(q, (int, float))
+                       or not math.isfinite(q) or q < 0 for q in (multiple, buffer)) or multiple <= 0
+                or type(workdays) is not int or workdays < 0
+                or (unit == "UN" and not float(multiple).is_integer())
+                or not isinstance(refs, dict)
+                or any(not isinstance(refs.get(k), str) or not refs[k].strip()
+                       for k in ("lot_multiple_qty", "protection"))):
+            raise ValueError("Managed supply requires valid units, quantities, working days and provenance")
+        incoming = lanes_by_dest_item.get(pair, ())
+        if len(incoming) != 1 or incoming[0].get("src") not in supplier_node_ids:
+            raise ValueError("Managed supply candidate requires one explicit external supplier")
+        lane = incoming[0]
+        supplier_delivery_lead_days(lane, None, mode="source", stochastic=False)
+        physical_multiple = max(0.0, to_float(lane.get("physical_dispatch_multiple"), 0.0))
+        if physical_multiple and not math.isclose(multiple % physical_multiple, 0.0, abs_tol=1e-9):
+            raise ValueError("Managed purchase lot conflicts with physical dispatch multiple")
+        policies[pair] = dict(policy, uom=unit, supplier_id=lane["src"],
+                              effective_protection_workdays=workdays, effective_buffer_qty=buffer)
+    if not policies:
+        if forecast_payload is not None:
+            raise ValueError("Managed inventory forecasts require configured supply pairs")
+        return {}, None
+    if (not isinstance(forecast_payload, dict) or forecast_payload.get("schema_version") != 3
+            or forecast_payload.get("rows") != [] or forecast_payload.get("repeat_period_days") is not None):
+        raise ValueError("Managed supply requires separate schema-3 forecasts without physical/fixed rows")
+    calendar = ExternalComponentDemandCalendar(forecast_payload,
+        pair_uoms={pair: policy["uom"] for pair, policy in policies.items()},
+        origin_date=origin_date, horizon_days=horizon_days)
+    if set(calendar.pairs) != set(policies):
+        raise ValueError("Each managed supply pair requires exactly its local forecast series")
+    if any(not any(version["rows"] for version in series["versions"])
+           for series in forecast_payload["versioned_series"]):
+        raise ValueError("Managed supply needs documented forecast periods, not an entirely unknown horizon")
+    return policies, calendar
+
+
+def managed_supply_lot(policy, *, rounding_policy=None):
+    """One lot contract shared by projection and actual purchase rounding."""
+    return LotSizing(minimum=policy["lot_multiple_qty"], multiple=policy["lot_multiple_qty"],
+                     integer=policy["uom"] == "UN", net_rounding_quantum=mrp_mass_net_rounding_quantum(
+                         rounding_policy, policy["uom"]))
+
+
+class PlanningOnlyExternalComponentCalendar(ExternalComponentDemandCalendar):
+    """Known forecasts may drive planning, never become physical withdrawals."""
+
+    def due(self, day):
+        raise ValueError("Planning-only component forecasts cannot execute physical consumption")
+
+
+def resolve_external_planning_forecasts(payload, *, production_input_pairs, managed_pairs,
+                                        finished_good_item_ids, item_unit_map, origin_date, horizon_days):
+    if payload is None:
+        return None
+    if (not isinstance(payload, dict) or type(payload.get("schema_version")) is not int
+            or payload["schema_version"] != 3 or payload.get("rows") != []
+            or payload.get("repeat_period_days") is not None):
+        raise ValueError("Planning-only component forecasts require schema 3, no fixed rows and no repetition")
+    eligible = {pair: item_unit_map.get(pair[1], "") for pair in production_input_pairs
+                if pair not in managed_pairs and pair[1] not in finished_good_item_ids}
+    return PlanningOnlyExternalComponentCalendar(payload, pair_uoms=eligible,
+        origin_date=origin_date, horizon_days=horizon_days)
+
+
+def component_planning_calendar_for_pair(pair, legacy_calendar, planning_calendar):
+    """An explicit replacement owns even zero or absent future periods."""
+    if planning_calendar is not None and pair in planning_calendar.pairs:
+        return planning_calendar
+    if legacy_calendar is not None and pair in legacy_calendar.pairs:
+        return legacy_calendar
+    return None
+
+
+def component_planning_requirements(legacy_calendar, planning_calendar, *, decision_day, first_day, through_day):
+    query = dict(decision_day=decision_day, first_day=first_day, through_day=through_day)
+    result = legacy_calendar.requirements(**query) if legacy_calendar is not None else {}
+    if planning_calendar is not None:
+        for pair in planning_calendar.pairs:
+            result.pop(pair, None)
+        result.update(planning_calendar.requirements(**query))
+    return result
+
+
+def resolve_customer_demand_policy(payload, *, demand_pairs, forecast_consumption_pairs,
+                                   customer_cover_pairs, current_envelope_policy, sim_days):
+    """Opt-in estimated orders at the already validated finished-customer boundary."""
+    if payload is None:
+        return False
+    pairs = set(demand_pairs)
+    if (payload not in {"source_prior_week_need_v1", "source_customer_history_v1"} or not pairs
+            or pairs != set(forecast_consumption_pairs) or pairs != set(customer_cover_pairs)
+            or current_envelope_policy is not None or not 0 < sim_days <= 365):
+        raise ValueError("Prior-week customer demand requires source weekly consumption, physical customer cover, at most365days and no current-I envelope")
+    return True
+
+
+class SourceCustomerHistory:
+    """Arrived orders only, allocated as integer UN on their explicit Monday week.
+
+    The historical table is never queried by the planning or customer-cover
+    boundary. Days outside the simulated year retain their share of the week.
+    """
+
+    def __init__(self, payload, *, demand_pairs, origin_date, sim_days):
+        if (not isinstance(payload, dict) or payload.get("schema_version") != 1
+                or payload.get("origin") != origin_date or payload.get("calendar") != "monday_start"
+                or not isinstance(payload.get("rows"), list) or not payload["rows"]
+                or type(sim_days) is not int or not 0 < sim_days <= 365):
+            raise ValueError("Customer history requires explicit Monday periods and an annual horizon")
+        self.rows, self.origin, self.sim_days = {}, date.fromisoformat(origin_date), sim_days
+        for row in payload["rows"]:
+            pair, start = (row.get("node_id"), row.get("item_id")), row.get("period_start_day")
+            if (pair not in demand_pairs or row.get("uom") != "UN" or type(start) is not int
+                    or row.get("period_days") != 7 or (self.origin + timedelta(days=start)).weekday() != 0
+                    or not str(row.get("source_row") or "").strip()
+                    or not str(row.get("source_file") or "").strip()):
+                raise ValueError("Customer history requires known UN pairs, Monday dates and provenance")
+            raw = row.get("qty")
+            if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+                raise ValueError("Customer history quantities must be integer UN")
+            quantity = int(require_physical_integer(raw, "UN"))
+            if (pair, start) in self.rows:
+                raise ValueError("Duplicate customer historical week")
+            self.rows[pair, start] = (quantity, str(row["source_row"]), str(row["source_file"]))
+        for pair in demand_pairs:
+            for day in range(sim_days):
+                start = day - (self.origin + timedelta(days=day)).weekday()
+                if (pair, start) not in self.rows:
+                    raise ValueError("Missing customer history is not an explicit zero")
+
+    def quantity(self, pair, *, decision_day, target_day):
+        if (type(decision_day) is not int or target_day != decision_day
+                or not 0 <= decision_day < self.sim_days):
+            raise ValueError("Customer history may only provide arrived demand on the current simulated day")
+        start = target_day - (self.origin + timedelta(days=target_day)).weekday()
+        quantity, source_row, source_file = self.rows[pair, start]
+        offset = target_day - start
+        before, through = quantity * offset // 7, quantity * (offset + 1) // 7
+        audit = dict.fromkeys(CUSTOMER_DEMAND_POLICY_FIELDS, "")
+        audit.update(day=target_day, decision_day=decision_day, node_id=pair[0], item_id=pair[1], uom="UN",
+            policy="source_customer_history_v1", status="explicit_source_zero" if quantity == 0 else "source_customer_history",
+            period_start_day=start, period_end_day=start + 6, source_row=source_row, source_file=source_file,
+            weekly_source_qty=quantity, day_qty=through - before, allocation_start_day=start,
+            cumulative_before_qty=before, cumulative_through_qty=through)
+        return through - before, audit
+
+
+class SourcePriorWeekCustomerDemand:
+    """Estimated orders from a future source week known before its start.
+
+    Never read current I, H or a later vintage, and never repeat vintages into
+    another year. The commercial profiles remain the independent MRP fallback.
+    Future customer-cover queries use their decision date, not the final
+    ex-post weekly selection. Physical integer allocation is anchored to the
+    full Sunday week; the first partial nominal week starts at simulation day0.
+    """
+
+    def __init__(self, payload, *, nominal_profiles, origin_date):
+        if (not isinstance(payload, dict) or payload.get("schema_version") != 1
+                or (payload.get("origin") or payload.get("origin_date")) != origin_date
+                or payload.get("calendar") != "sunday_start"
+                or payload.get("current_bucket_policy") != "excluded_unresolved_carry_over"
+                or not isinstance(payload.get("rows"), list) or not payload["rows"]):
+            raise ValueError("Prior-week customer demand requires sourced future Sunday periods")
+        self.origin = date.fromisoformat(origin_date)
+        self.nominal_profiles = nominal_profiles  # Read only; never replace the planning fallback.
+        self.profile_cache = {}
+        self.rows, self.vintages = {}, defaultdict(list)
+        for row in payload["rows"]:
+            pair = (row.get("node_id"), row.get("item_id"))
+            vintage, start = row.get("vintage_day"), row.get("period_start_day")
+            if (pair not in nominal_profiles or row.get("uom") != "UN"
+                    or type(vintage) is not int or vintage < 0 or type(start) is not int
+                    or start <= vintage or row.get("period_days") != 7
+                    or (self.origin + timedelta(days=start)).weekday() != 6
+                    or not str(row.get("source_row") or "").strip()):
+                raise ValueError("Prior-week customer rows require future Sunday weeks, UN and provenance")
+            quantity = row.get("qty")
+            if isinstance(quantity, bool) or not isinstance(quantity, (int, float)):
+                raise ValueError("Prior-week source quantity must be physical integer UN")
+            quantity = int(require_physical_integer(quantity, "UN"))
+            key = (pair, start, vintage)
+            if key in self.rows:
+                raise ValueError("Duplicate prior-week customer forecast period")
+            self.rows[key] = (quantity, str(row["source_row"]))
+            self.vintages[pair, start].append(vintage)
+        for values in self.vintages.values():
+            values.sort()
+
+    def quantity(self, pair, *, decision_day, target_day):
+        if (pair not in self.nominal_profiles or type(decision_day) is not int or decision_day < 0
+                or type(target_day) is not int or target_day < decision_day):
+            raise ValueError("Customer demand requires a known pair and a current or future target day")
+        start = target_day - ((self.origin + timedelta(days=target_day)).weekday() + 1) % 7
+        end = start + 6
+        cutoff = min(decision_day, start - 1)
+        values = self.vintages.get((pair, start), ())
+        index = bisect_right(values, cutoff) - 1
+        nominal = max(0.0, _cached_profile_value(self.nominal_profiles[pair], target_day, self.profile_cache))
+        audit = dict.fromkeys(CUSTOMER_DEMAND_POLICY_FIELDS, "")
+        audit.update(day=target_day, decision_day=decision_day, node_id=pair[0], item_id=pair[1], uom="UN",
+            policy="source_prior_week_need_v1", period_start_day=start, period_end_day=end,
+            nominal_day_qty=nominal, allocation_start_day=max(0, start))
+        if index >= 0:
+            vintage = values[index]
+            weekly, source_row = self.rows[pair, start, vintage]
+            # Integer arithmetic conserves the complete source week exactly.
+            offset = target_day - start
+            before, through = weekly * offset // 7, weekly * (offset + 1) // 7
+            audit.update(status="explicit_source_zero" if weekly == 0 else "source_prior_week_estimate",
+                source_vintage_day=vintage, source_row=source_row, weekly_source_qty=weekly,
+                allocation_start_day=start)
+        else:
+            # Nominal is exogenous commercial input, not a future realized-I row.
+            # No pre-simulation demand is invented for the first partial week.
+            nominal_prefix = [max(0.0, _cached_profile_value(self.nominal_profiles[pair], day, self.profile_cache))
+                              for day in range(max(0, start), target_day)]
+            before = math.floor(math.fsum(nominal_prefix))
+            through = math.floor(math.fsum(nominal_prefix + [nominal]))
+            audit["status"] = "nominal_fallback_no_known_period"
+        quantity = through - before
+        audit.update(day_qty=quantity, cumulative_before_qty=before, cumulative_through_qty=through)
+        return quantity, audit
+
+
+class CurrentRequirementEnvelope:
+    """Experimental current-I overlap at the customer planning boundary only.
+
+    A vintage is known before that day's service. Its gross I replaces the old
+    envelope and decreases by service since that knowledge date. H is evidence,
+    never a modeled receipt. Unused I expires; it never becomes physical demand.
+    """
+
+    def __init__(self, payload, *, source_to_customer, origin_date):
+        if (not isinstance(payload, dict) or payload.get("schema_version") != 1
+                or payload.get("origin_date") != origin_date or payload.get("calendar") != "sunday_start"
+                or not isinstance(payload.get("rows"), list) or not payload["rows"]):
+            raise ValueError("Current requirement envelope requires dated, sourced Sunday buckets")
+        if not source_to_customer or len(set(source_to_customer.values())) != len(source_to_customer):
+            raise ValueError("Current envelope requires unique depot-to-finished-customer pairs")
+        self.rows, self.vintages = {}, {}
+        self.served_prefix = {pair: [0.0] for pair in source_to_customer.values()}
+        origin = date.fromisoformat(origin_date)
+        for raw in payload["rows"]:
+            source_pair = (raw.get("node_id"), raw.get("item_id"))
+            vintage = raw.get("vintage_day")
+            if (source_pair not in source_to_customer or raw.get("uom") != "UN"
+                    or type(vintage) is not int or vintage < 0
+                    or (origin + timedelta(days=vintage)).weekday() != 6
+                    or not str(raw.get("source_row") or "").strip()):
+                raise ValueError("Current envelope rows require a known depot, Sunday vintage, UN and provenance")
+            for field in ("qty_I", "qty_H"):
+                value = raw.get(field)
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                    raise ValueError("Current source I/H must be finite nonnegative quantities")
+            pair = source_to_customer[source_pair]
+            if (pair, vintage) in self.rows:
+                raise ValueError("Duplicate current source bucket")
+            self.rows[pair, vintage] = dict(raw)
+            self.vintages.setdefault(pair, []).append(vintage)
+        for vintages in self.vintages.values():
+            vintages.sort()
+
+    def observe_service(self, day, quantities):
+        if type(day) is not int or day < 0 or set(quantities) != set(self.served_prefix):
+            raise ValueError("Current envelope requires all physical service pairs each day")
+        for pair, qty in quantities.items():
+            prefix = self.served_prefix[pair]
+            if len(prefix) != day + 1 or not math.isfinite(qty) or qty < 0:
+                raise ValueError("Current envelope service must be consecutive, finite and nonnegative")
+        for pair, qty in quantities.items():
+            prefix = self.served_prefix[pair]
+            prefix.append(prefix[-1] + qty)
+
+    def requirement(self, pair, *, decision_day, requirements):
+        prefix = self.served_prefix[pair]
+        if type(decision_day) is not int or decision_day < 0 or len(prefix) != decision_day + 2:
+            raise ValueError("Current envelope is evaluated once service of the decision day is known")
+        audit = dict.fromkeys(CURRENT_REQUIREMENT_ENVELOPE_FIELDS, "")
+        audit.update(day=decision_day, node_id=pair[0], item_id=pair[1],
+                     policy="gross_current_residual_v1", status="no_known_current_bucket",
+                     extra_planning_qty=0.0, expired_residual_qty=0.0)
+        vintages = self.vintages.get(pair, ())
+        index = bisect_right(vintages, decision_day) - 1
+        if index < 0:
+            return None, audit
+        vintage = vintages[index]
+        raw, end = self.rows[pair, vintage], vintage + 6
+        if decision_day > end:
+            return None, audit
+        served = prefix[decision_day + 1] - prefix[vintage]
+        residual = max(0.0, raw["qty_I"] - served)
+        backlog_qty = math.fsum(r.qty for r in requirements if r.requirement_id.startswith("backlog:"))
+        forecast_qty = math.fsum(r.qty for r in requirements
+            if r.requirement_id.startswith("forecast:") and decision_day < r.due_day <= end)
+        extra = max(0.0, residual - backlog_qty - forecast_qty) if decision_day < end else 0.0
+        audit.update(source_node_id=raw["node_id"], status="active" if decision_day < end else "expired",
+            vintage_day=vintage, period_end_day=end, source_row=raw["source_row"], source_I_qty=raw["qty_I"],
+            source_H_qty=raw["qty_H"], served_since_vintage_qty=served, residual_I_qty=residual,
+            model_backlog_qty=backlog_qty, model_remaining_forecast_qty=forecast_qty,
+            extra_planning_qty=extra, expired_residual_qty=residual if decision_day == end else 0.0,
+            requirement_day=decision_day + 1 if extra > LOT_TRACE_EPS else "")
+        requirement = (Requirement(f"current_envelope:{pair[0]}:{pair[1]}:{vintage}", decision_day + 1, extra)
+                       if extra > LOT_TRACE_EPS else None)
+        return requirement, audit
 
 
 class RollingMrpForecast:
     """Source I forecasts known at a decision date, separate from physical demand.
 
-    A missing period stays unknown and uses an explicitly supplied nominal
-    forecast. Explicit zero stays zero. Only one vintage is used per decision;
-    annual repetitions are synthetic scenarios, not new industrial observations.
+    By default a period absent from the latest vintage uses nominal forecast.
+    The opt-in policy retains an older known period, with actual provenance.
+    Explicit zero stays zero; annual repetitions are synthetic scenarios.
     """
 
-    def __init__(self, payload: Any, *, demand_pairs: set[tuple[str, str]], origin_date: str) -> None:
+    def __init__(self, payload: Any, *, demand_pairs: set[tuple[str, str]], origin_date: str,
+                 missing_period_policy: str | None = None, consumption_policy: str | None = None,
+                 annual_projection_policy: str | None = None,
+                 customer_demand_policy: str | None = None) -> None:
+        self.customer_projection = customer_demand_policy == "source_customer_history_v1"
+        if self.customer_projection and (missing_period_policy != "last_known_period_v1"
+                or consumption_policy != "weekly_actual_orders_v1" or annual_projection_policy is not None):
+            raise ValueError("Customer projections require known periods and actual-order consumption, without annual source replacement")
+        if missing_period_policy not in (None, "last_known_period_v1"):
+            raise ValueError("Unknown MRP forecast missing-period policy")
+        self.missing_period_policy = missing_period_policy
+        if annual_projection_policy not in (None, "previous_year_105pct_v1"):
+            raise ValueError("Unknown annual forecast projection policy")
+        if annual_projection_policy is not None and missing_period_policy != "last_known_period_v1":
+            raise ValueError("Annual forecast projection requires last-known source periods")
+        self.annual_projection_policy = annual_projection_policy
+        if consumption_policy not in (None, "weekly_actual_orders_v1"):
+            raise ValueError("Unknown forecast consumption policy")
+        if consumption_policy is not None and missing_period_policy != "last_known_period_v1":
+            raise ValueError("Weekly forecast consumption requires last-known source periods")
+        self.consumption_policy = consumption_policy
+        self.consumption_revision = 0
+        self._observed_demands: dict[tuple[str, str], list[float]] = {}
+        self._consumption_cache: dict = {}
+        self._source_periods: dict = {}
         if not isinstance(payload, dict) or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1:
             raise ValueError("mrp_forecasts requires schema_version 1")
         if payload.get("origin") != origin_date and payload.get("origin_date") != origin_date:
             raise ValueError("MRP forecast origin must match the simulation origin")
-        if payload.get("calendar") != "sunday_start":
-            raise ValueError("MRP forecasts require the declared sunday_start convention")
+        self.calendar = "monday_start" if self.customer_projection else "sunday_start"
+        if payload.get("calendar") != self.calendar:
+            raise ValueError("MRP forecast calendar must match the explicitly selected demand policy")
         repeat = payload.get("repeat_period_days")
         if type(repeat) is not int or repeat <= 0:
             raise ValueError("MRP forecast repeat period must be a positive integer")
         self.repeat_period_days = repeat
+        if annual_projection_policy is not None and (repeat != 365 or origin_date != "2025-01-01"):
+            raise ValueError("This annual projection candidate is explicitly anchored to 2025 with365 calendar days")
         self.origin_date = origin_date
         self.current_bucket_policy = str(payload.get("current_bucket_policy") or "unspecified")
+        if consumption_policy is not None and self.current_bucket_policy != "excluded_unresolved_carry_over":
+            raise ValueError("Forecast consumption accepts only future source periods, not unresolved current I")
         self.demand_pairs = set(demand_pairs)
         self._plans: dict[tuple[int, tuple[str, str]], dict[int, tuple[float, str]]] = {}
         self._selection_cache: dict[int, tuple[int, int] | None] = {}
@@ -2650,9 +4620,13 @@ class RollingMrpForecast:
             if pair not in self.demand_pairs or row.get("uom") != "UN":
                 raise ValueError("MRP forecast must identify a modeled UN finished-good demand pair")
             vintage, start, length = (row.get(key) for key in ("vintage_day", "period_start_day", "period_days"))
-            if (type(vintage) is not int or not 0 <= vintage < repeat
+            if (type(vintage) is not int or not (-6 if self.customer_projection else 0) <= vintage < repeat
                     or type(start) is not int or type(length) is not int or length != 7):
                 raise ValueError("MRP forecast dates must be integer days, with seven-day source periods")
+            if self.customer_projection and (start < vintage + 7
+                    or (date.fromisoformat(origin_date) + timedelta(days=vintage)).weekday() != 0
+                    or (date.fromisoformat(origin_date) + timedelta(days=start)).weekday() != 0):
+                raise ValueError("Customer forecasts require Monday versions and future Monday periods")
             if self.current_bucket_policy == "excluded_unresolved_carry_over" and start <= vintage:
                 raise ValueError("Current and past MRP buckets cannot be treated as new forecast demand")
             quantity = row.get("qty")
@@ -2661,26 +4635,132 @@ class RollingMrpForecast:
             source_row = row.get("source_row")
             if source_row is None or isinstance(source_row, bool) or not str(source_row).strip():
                 raise ValueError("MRP forecast row requires source provenance")
+            if self.customer_projection and not str(row.get("source_file") or "").strip():
+                raise ValueError("Customer forecast requires workbook provenance")
             plan = self._plans.setdefault((vintage, pair), {})
             for target_day in range(start, start + length):
                 if target_day in plan:
                     raise ValueError("Overlapping MRP forecast periods in the same vintage and demand pair")
                 plan[target_day] = (float(quantity) / length, str(source_row))
+                if consumption_policy is not None:
+                    self._source_periods[vintage, pair, target_day] = (start, start + length - 1, float(quantity))
             vintages.add(vintage)
         self.vintages = sorted(vintages)
+        self._plan_target_days = {key: sorted(plan) for key, plan in self._plans.items()}
         self.row_count = len(rows)
+        # Index actual observations, including explicit zero, separately from
+        # the decision-wide vintage. A sparse revision does not cancel an
+        # older forecast for a period that the revision does not contain.
+        self._period_vintages: dict = defaultdict(list)
+        if missing_period_policy is not None:
+            for (vintage, pair), plan in sorted(self._plans.items()):
+                for target_day in plan:
+                    self._period_vintages[pair, target_day].append(vintage)
+        if self.customer_projection and any(not any(v <= 0 and (v, pair) in self._plans
+                for v in self.vintages) for pair in self.demand_pairs):
+            raise ValueError("Every customer must have a forecast known at simulation opening")
+
+    def source_for_day(self, pair, *, selected, target_day):
+        if selected is None:
+            return None, None
+        vintage, cycle = selected
+        selected_absolute = vintage + cycle * self.repeat_period_days
+        if self.missing_period_policy is None:
+            return self._plans.get((vintage, pair), {}).get(target_day - cycle * self.repeat_period_days), selected_absolute
+        for source_cycle in range(cycle, -1, -1):
+            offset = source_cycle * self.repeat_period_days
+            target_local = target_day - offset
+            vintages = self._period_vintages.get((pair, target_local), ())
+            index = bisect_right(vintages, selected_absolute - offset) - 1
+            if index >= 0:
+                known = vintages[index]
+                return self._plans[known, pair][target_local], known + offset
+        return None, None
 
     def selection(self, decision_day: int) -> tuple[int, int] | None:
         if type(decision_day) is not int or decision_day < 0:
             raise ValueError("MRP forecast decision day must be a nonnegative integer")
         if decision_day not in self._selection_cache:
-            cycle, day_in_cycle = divmod(decision_day, self.repeat_period_days)
+            cycle, day_in_cycle = ((0, decision_day) if self.customer_projection else
+                                   divmod(decision_day, self.repeat_period_days))
             index = bisect_right(self.vintages, day_in_cycle) - 1
             if index < 0 and cycle > 0:
                 cycle -= 1
                 index = len(self.vintages) - 1
             self._selection_cache[decision_day] = (self.vintages[index], cycle) if index >= 0 else None
         return self._selection_cache[decision_day]
+
+    def nearest_known_period(self, pair, *, selected, target_day):
+        """Explicit edge fallback from known forecast only, never historical demand."""
+        if selected is None:
+            raise ValueError("Customer planning has no forecast known at the decision date")
+        known = [v for v in self.vintages if v <= selected[0] and (v, pair) in self._plans]
+        if not known:
+            raise ValueError("Customer planning has no known forecast for this customer pair")
+        vintage = known[-1]
+        plan = self._plans[vintage, pair]
+        days = self._plan_target_days[vintage, pair]
+        position = bisect_right(days, target_day)
+        candidates = days[max(0, position - 1):min(len(days), position + 1)]
+        nearest = min(candidates, key=lambda day: (abs(day - target_day), day))
+        return plan[nearest], vintage
+
+    def observe_demand(self, day: int, quantities: dict[tuple[str, str], float]) -> None:
+        """Record arrived scenario orders, before service, once per day. Never record shipments."""
+        if self.consumption_policy is None:
+            return
+        if type(day) is not int or day < 0 or set(quantities) != self.demand_pairs:
+            raise ValueError("Forecast consumption requires all customer pairs at a nonnegative decision day")
+        observed = {pair: float(qty) for pair, qty in quantities.items()}
+        if any(not math.isfinite(qty) or qty < 0 for qty in observed.values()):
+            raise ValueError("Arrived customer demand must be finite and nonnegative")
+        if day == self.consumption_revision - 1:
+            if any(self._observed_demands[pair][day] != qty for pair, qty in observed.items()):
+                raise ValueError("An observed customer demand cannot be revised within the day")
+            return
+        if day != self.consumption_revision:
+            raise ValueError("Forecast consumption requires consecutive observed days from simulation day zero")
+        for pair, qty in observed.items():
+            self._observed_demands.setdefault(pair, []).append(qty)
+        self.consumption_revision += 1
+        self._consumption_cache.clear()
+
+    def consumption_audit(self, pair: tuple[str, str], decision_day: int) -> dict[str, Any]:
+        """Whole current week minus arrived orders; unused forecast expires, never becoming backlog."""
+        key = (pair, decision_day)
+        if key in self._consumption_cache:
+            return self._consumption_cache[key]
+        row = dict.fromkeys(FORECAST_CONSUMPTION_FIELDS, "")
+        row.update(day=decision_day, node_id=pair[0], item_id=pair[1], uom="UN",
+                   policy=self.consumption_policy or "", status="awaiting_today_observation")
+        if self.consumption_policy is not None and 0 <= decision_day < self.consumption_revision:
+            row["today_arrived_qty"] = self._observed_demands[pair][decision_day]
+            selected = self.selection(decision_day)
+            source, vintage = self.source_for_day(pair, selected=selected, target_day=decision_day)
+            row["status"] = ("never_known_period_nearest_known_forecast_fallback" if self.customer_projection else
+                             "never_known_period_nominal_fallback")
+            if source is not None:
+                cycle, local_vintage = ((0, vintage) if self.customer_projection else
+                                        divmod(vintage, self.repeat_period_days))
+                offset = cycle * self.repeat_period_days
+                start, end, quantity = self._source_periods[local_vintage, pair, decision_day - offset]
+                start, end = start + offset, end + offset
+                if vintage >= start:
+                    raise ValueError("The consumed whole-week forecast must be known before its period starts")
+                row.update(period_start_day=start, period_end_day=end, source_vintage_day=vintage,
+                           source_row=source[1], weekly_forecast_qty=quantity)
+                if start < 0:
+                    row["status"] = "prehistory_unknown_nominal_fallback"
+                else:
+                    arrived = sum(self._observed_demands[pair][start:decision_day + 1])
+                    remaining = max(quantity - arrived, 0.0)
+                    future_days = end - decision_day
+                    row.update(status="known_week_consumed", arrived_demand_qty=arrived,
+                               remaining_forecast_qty=remaining if future_days else 0.0,
+                               future_days=future_days, future_daily_qty=remaining / future_days if future_days else 0.0,
+                               expired_forecast_qty=remaining if not future_days else 0.0)
+        self._consumption_cache[key] = row
+        return row
 
     def window(self, pair: tuple[str, str], *, decision_day: int, target_day: int,
                fallback_daily_values: list[float]) -> tuple[float, dict[str, Any]]:
@@ -2691,23 +4771,357 @@ class RollingMrpForecast:
         selected = self.selection(decision_day)
         vintage, cycle = selected if selected is not None else (0, 0)
         offset = cycle * self.repeat_period_days
-        plan = self._plans.get((vintage, pair), {}) if selected is not None else {}
         values: list[float] = []
         source_rows: set[str] = set()
+        source_vintages: set[int] = set()
         source_days = 0
+        fallback_rows, fallback_vintages = set(), set()
+        consumption = self.consumption_audit(pair, decision_day) if self.consumption_policy is not None else None
+        actual_order_days = 0
+        projected_days = 0
         for index, fallback in enumerate(fallback_daily_values):
-            source = plan.get(target_day + index - offset)
+            date = target_day + index
+            projection_years = date // 365 if self.annual_projection_policy is not None and date >= 365 else 0
+            source, actual_vintage = self.source_for_day(pair, selected=selected, target_day=date)
+            if projection_years:
+                # The caller supplies the commercial profile at the same2025
+                # calendar-day index. Source I is an industrial planning flow,
+                # not that commercial forecast; it is not the growth base.
+                source, actual_vintage = None, None
+                fallback *= 1.05 ** projection_years
+                projected_days += 1
+            if consumption is not None and consumption["today_arrived_qty"] != "" and date == decision_day:
+                values.append(consumption["today_arrived_qty"])
+                actual_order_days += 1
+                continue
+            if (not projection_years and consumption is not None and consumption["status"] == "known_week_consumed"
+                    and decision_day < date <= consumption["period_end_day"]):
+                source = (consumption["future_daily_qty"], consumption["source_row"])
+                actual_vintage = consumption["source_vintage_day"]
+            if source is None and self.customer_projection:
+                fallback_source, fallback_vintage = self.nearest_known_period(
+                    pair, selected=selected, target_day=date)
+                fallback = fallback_source[0]
+                fallback_rows.add(fallback_source[1])
+                fallback_vintages.add(fallback_vintage)
             values.append(source[0] if source is not None else fallback)
             if source is not None:
                 source_days += 1
                 source_rows.add(source[1])
+                source_vintages.add(actual_vintage)
         return sum(values) / len(values), {
             "vintage_day": vintage + offset if selected is not None else "",
             "cycle_index": cycle if selected is not None else "",
             "source_days": source_days,
-            "fallback_days": len(values) - source_days,
+            "fallback_days": len(values) - source_days - actual_order_days,
             "source_rows": "|".join(sorted(source_rows)),
+            **({"actual_order_days": actual_order_days} if self.consumption_policy is not None else {}),
+            **({"annual_projection_policy": self.annual_projection_policy,
+                "annual_projected_days": projected_days, "annual_projection_basis": "imported_commercial2025_profile"}
+               if self.annual_projection_policy is not None else {}),
+            **({"source_vintage_days": "|".join(map(str, sorted(source_vintages))),
+                "missing_period_policy": self.missing_period_policy} if self.missing_period_policy is not None else {}),
+            **({"fallback_source_rows": "|".join(sorted(fallback_rows)),
+                "fallback_source_vintage_days": "|".join(map(str, sorted(fallback_vintages)))}
+               if self.customer_projection else {}),
         }
+
+    def customer_dispatch_window(self, pair, *, decision_day, target_day, window_days):
+        """Causal future dispatch profile; never redistribute unused weekly volume.
+
+        Planning ``window`` deliberately keeps its existing consumption rule.
+        Opening observations are a labelled assumption, not a future history read.
+        """
+        if (not self.customer_projection or pair not in self.demand_pairs
+                or type(target_day) is not int or type(window_days) is not int or window_days < 0):
+            raise ValueError("Customer dispatch profile requires its dated customer forecast and a valid window")
+        selected = self.selection(decision_day)
+        if target_day <= decision_day:
+            raise ValueError("Customer dispatch profile accepts future dates only")
+        consumption = self.consumption_audit(pair, decision_day)
+        opening_start = -date.fromisoformat(self.origin_date).weekday()
+        opening_end = opening_start + 6
+        observed = (self._observed_demands.get(pair, [])[:decision_day + 1]
+                    if opening_start < 0 and decision_day <= opening_end
+                    and decision_day < self.consumption_revision else [])
+        opening_mean = math.fsum(observed) / len(observed) if observed else None
+        values, bases = [], set()
+        source_rows, source_vintages, fallback_rows, fallback_vintages = set(), set(), set(), set()
+        source_days = fallback_days = opening_days = capped_days = 0
+        for day in range(target_day, target_day + window_days):
+            source, vintage = self.source_for_day(pair, selected=selected, target_day=day)
+            if source is not None:
+                value = source[0]
+                basis = "known_source_daily"
+                if (consumption["status"] == "known_week_consumed"
+                        and day <= consumption["period_end_day"]
+                        and vintage == consumption["source_vintage_day"]
+                        and source[1] == consumption["source_row"]):
+                    value = min(value, consumption["future_daily_qty"])
+                    capped_days += int(value < source[0])
+                    basis = "known_source_daily_capped_by_remaining"
+                source_days += 1
+                source_rows.add(source[1])
+                source_vintages.add(vintage)
+            elif opening_mean is not None and day <= opening_end:
+                value = opening_mean
+                opening_days += 1
+                basis = "opening_observed_to_date_mean_assumption"
+            else:
+                fallback, vintage = self.nearest_known_period(pair, selected=selected, target_day=day)
+                value = fallback[0]
+                fallback_days += 1
+                fallback_rows.add(fallback[1])
+                fallback_vintages.add(vintage)
+                basis = "nearest_known_forecast_period_fallback"
+            values.append(value)
+            bases.add(basis)
+        return values, {
+            "customer_dispatch_forecast_policy": "dated_source_profile_v1",
+            "customer_dispatch_forecast_basis": "|".join(sorted(bases)),
+            "customer_dispatch_forecast_source_rows": "|".join(sorted(source_rows)),
+            "customer_dispatch_forecast_source_vintage_days": "|".join(map(str, sorted(source_vintages))),
+            "customer_dispatch_forecast_source_days": source_days,
+            "customer_dispatch_forecast_fallback_days": fallback_days,
+            "customer_dispatch_forecast_fallback_source_rows": "|".join(sorted(fallback_rows)),
+            "customer_dispatch_forecast_fallback_vintage_days": "|".join(map(str, sorted(fallback_vintages))),
+            "customer_dispatch_forecast_opening_days": opening_days,
+            "customer_dispatch_forecast_opening_observed_days": len(observed) if opening_days else 0,
+            "customer_dispatch_forecast_opening_daily_qty": opening_mean if opening_days else "",
+            "customer_dispatch_forecast_capped_days": capped_days,
+            "customer_dispatch_forecast_future_qty": math.fsum(values),
+        }
+
+    def projection_audit_rows(self, pair, *, decision_day, horizon_days):
+        """The exact future daily planning window, aggregated on source Monday weeks."""
+        if not self.customer_projection or type(horizon_days) is not int or horizon_days < 1:
+            raise ValueError("Customer forecast audit requires its explicit mode and positive horizon")
+        selected, day, end = self.selection(decision_day), decision_day + 1, decision_day + horizon_days
+        origin = date.fromisoformat(self.origin_date)
+        rows = []
+        while day <= end:
+            start = day - (origin + timedelta(days=day)).weekday()
+            through = min(end, start + 6)
+            average, audit = self.window(pair, decision_day=decision_day, target_day=day,
+                fallback_daily_values=[0.0] * (through - day + 1))
+            raw, vintage = self.source_for_day(pair, selected=selected, target_day=day)
+            weekly = self._source_periods[vintage, pair, day][2] if raw is not None else ""
+            rows.append(dict(day=decision_day, node_id=pair[0], item_id=pair[1], uom="UN",
+                policy="source_customer_projection_v1",
+                status="known_source_period" if audit["fallback_days"] == 0 else "nearest_known_period_fallback",
+                period_start_day=start, period_end_day=start + 6, represented_start_day=day,
+                represented_end_day=through, weekly_source_qty=weekly,
+                used_future_qty=average * (through - day + 1), source_vintage_days=audit["source_vintage_days"],
+                source_rows=audit["source_rows"], source_days=audit["source_days"], fallback_days=audit["fallback_days"],
+                fallback_source_vintage_days=audit["fallback_source_vintage_days"],
+                fallback_source_rows=audit["fallback_source_rows"]))
+            day = through + 1
+        return rows
+
+
+def resolve_manufacturing_closures(payload, *, nodes, produced_pairs, origin_date):
+    if payload is None:
+        return {}
+    if (not isinstance(payload, dict) or payload.get("schema_version") != 1
+            or not isinstance(payload.get("rows"), list) or not payload["rows"]):
+        raise ValueError("Manufacturing closures require schema_version1 and explicit dated rows")
+    factories = {str(n.get("id")) for n in nodes if n.get("type") == "factory"}
+    origin = date.fromisoformat(origin_date)
+    result = defaultdict(set)
+    for row in payload["rows"]:
+        node = row.get("node_id")
+        if node not in factories or not any(pair[0] == node for pair in produced_pairs) or not row.get("provenance"):
+            raise ValueError("Manufacturing closure requires a modeled factory and provenance")
+        start, end = date.fromisoformat(row["start_date"]), date.fromisoformat(row["end_date"])
+        if start < origin or end < start or (end - start).days > 366:
+            raise ValueError("Manufacturing closure must have bounded, nonnegative inclusive dates")
+        for pair in produced_pairs:
+            if pair[0] == node:
+                result[pair].update(range((start - origin).days, (end - origin).days + 1))
+    return {pair: frozenset(days) for pair, days in result.items()}
+
+
+def manufacturing_work_finish(day, work_days, closed_days):
+    """Existing nominal work duration, with only declared closed days removed."""
+    finish, remaining = day, max(1, int(work_days))
+    while remaining:
+        finish += 1
+        if finish not in closed_days:
+            remaining -= 1
+    return finish
+
+
+def manufacturing_day_capacity(capacity, *, day, closed_days):
+    """Closure applies equally to a new campaign and already-started work."""
+    return 0.0 if day in closed_days else capacity
+
+
+def calendarize_manufacturing_plan(plan, *, requirements, firm_receipts, closed_days,
+                                  process_days, receipt_days=0, origin_date="2025-01-01"):
+    """Move new OF before known closure; preserve quantities and every real firm.
+
+    The existing tau is a planning allowance, not an invented physical duration.
+    Its planned start/completion interval must fit outside closure. Physical
+    capacities/materials still decide whether that earlier proposal can execute.
+    """
+    if type(process_days) is not int or process_days < 1:
+        raise ValueError("Manufacturing calendar requires the existing positive planning allowance")
+    changed = []
+    for row in plan.proposals:
+        if not any(d in closed_days for d in range(row.release_day, row.release_day + process_days + 1)):
+            changed.append(row)
+            continue
+        release = row.release_day
+        while any(d in closed_days for d in range(release, release + process_days + 1)):
+            release -= 1
+        if release < plan.decision_day:
+            release = plan.decision_day
+            while any(d in closed_days for d in range(release, release + process_days + 1)):
+                release += 1
+        available = release + process_days
+        if receipt_days:
+            available = supplier_receipt_available_day(available, receipt_days,
+                origin_date=origin_date, calendar="monday_friday")
+        changed.append(replace(row, release_day=release, available_day=available))
+    if tuple(changed) == plan.proposals:
+        return plan
+    return reschedule_dated_plan(plan, requirements=requirements, firm_receipts=firm_receipts, proposals=changed)
+
+
+def manufacturing_protection_balances(plan, protection):
+    levels = {point.day: point.minimum_qty for point in protection}
+    balances = {row.day: row.after_proposals_qty for row in plan.balances}
+    projected, target, rows = plan.opening_available_qty, 0.0, []
+    for day in sorted(set(levels) | set(balances)):
+        target, projected = levels.get(day, target), balances.get(day, projected)
+        rows.append(ProtectionBalance(day, target, projected, max(0.0, target - projected)))
+    return tuple(rows)
+
+
+def dated_supply_release_calendar(*, decision_day, through_day, physical_lead_days,
+                                  receipt_days=0, review_days=1, pair_review_days=1, origin_date="2025-01-01",
+                                  closed_days=()):
+    """Permitted starts -> usable dates, using existing durations and calendars.
+
+    Dispatches must meet both zero-anchored executor review grids. For manufacturing,
+    physical_lead_days is the existing tau planning allowance, not an inferred
+    process duration; its whole interval must avoid the declared closure.
+    Quality may finish during a manufacturing closure. No firm is rescheduled.
+    """
+    if (any(type(v) is not int for v in (decision_day, through_day, physical_lead_days, receipt_days, review_days, pair_review_days))
+            or through_day < decision_day or min(physical_lead_days, receipt_days) < 0
+            or min(review_days, pair_review_days) < 1
+            or any(type(d) is not int for d in closed_days)):
+        raise ValueError("Exact supply calendar requires integer dates and nonnegative durations")
+    closed_days = frozenset(closed_days)
+    release_period = math.lcm(review_days, pair_review_days)
+    rows, release = [], decision_day
+    while not rows or rows[-1][0] < through_day:
+        if (release % release_period == 0
+                and not any(d in closed_days for d in range(release, release + physical_lead_days + 1))):
+            physical = release + physical_lead_days
+            available = (supplier_receipt_available_day(physical, receipt_days,
+                origin_date=origin_date, calendar="monday_friday") if receipt_days else physical)
+            rows.append((release, available))
+        release += 1
+    return tuple(rows)
+
+
+def dated_production_release(*, decision_day, snapshot_day, requirements, available_qty,
+                             firm_receipts, lead_days, lot_sizing, protection=(),
+                             campaign_remaining_qty=0.0, executed_wip_qty=0.0,
+                             manufacturing_calendar=None, availability_by_release=None):
+    """Re-net last evening's dated needs against today's physical availability.
+
+    Only a new launch is requested. Existing campaigns continue through their
+    normal execution path. A proposal is never a firm receipt; late real firm
+    orders retain their dates and do not trigger a duplicate manufacture.
+    """
+    if snapshot_day is None:
+        return 0.0, None
+    if type(decision_day) is not int or snapshot_day != decision_day - 1:
+        raise ValueError("Dated production requires the immediately preceding decision snapshot")
+    if any(not math.isfinite(float(q)) or q < 0 for q in (campaign_remaining_qty, executed_wip_qty)):
+        raise ValueError("Dated campaign quantities must be finite and nonnegative")
+    if campaign_remaining_qty + executed_wip_qty > LOT_TRACE_EPS:
+        return 0.0, None
+    # Receipts due today have already entered available_qty before production.
+    # Keep only still-unavailable commitments; the stock must not be credited twice.
+    receipts = tuple(r for r in firm_receipts if r.available_day > decision_day)
+    result = plan_with_stock_protection(
+        decision_day=decision_day, available_qty=available_qty, requirements=requirements,
+        firm_receipts=receipts, lead_days=lead_days, lot_sizing=lot_sizing, protection=protection,
+        availability_by_release=availability_by_release,
+    )
+    plan = result.plan
+    if manufacturing_calendar is not None:
+        plan = calendarize_manufacturing_plan(plan, requirements=requirements,
+            firm_receipts=receipts, **manufacturing_calendar)
+    due = math.fsum(r.qty for r in plan.proposals if r.release_day <= decision_day)
+    return due, plan
+
+
+def programme_replacement_check(candidate, original_plan, **planning_inputs):
+    """Counterfactual netting only: the real campaign will supply this credit.
+
+    Nothing is inserted into stock, the purchase plan or a future programme book.
+    An early complete batch is credited at its actual quality availability date.
+    """
+    trial = dict(planning_inputs)
+    if candidate["available_day"] <= trial["decision_day"]:
+        trial["available_qty"] += candidate["qty"]
+    else:
+        trial["firm_receipts"] = [*trial["firm_receipts"], FirmReceipt(
+            candidate["programme_id"], candidate["available_day"], candidate["qty"], "confirmed")]
+    _, plan = dated_production_release(**trial)
+    before = math.fsum(p.qty for p in original_plan.proposals)
+    after = math.fsum(p.qty for p in plan.proposals) + candidate["qty"]
+    return dict(status="advanced_existing_lot" if abs(before-after)<=LOT_TRACE_EPS else "rejected_quantity_changed",
+        before_proposed_qty=before, after_with_programme_qty=after,
+        netting_inputs=dict(decision_day=planning_inputs["decision_day"],snapshot_day=planning_inputs["snapshot_day"],
+            available_qty=planning_inputs["available_qty"],lead_days=planning_inputs["lead_days"],
+            requirements=[vars(r) for r in planning_inputs["requirements"]],
+            firm_receipts=[vars(r) for r in planning_inputs["firm_receipts"]],
+            protection=[vars(r) for r in planning_inputs.get("protection",())],
+            lot_sizing=vars(planning_inputs["lot_sizing"]),
+            availability_by_release=planning_inputs.get("availability_by_release"),
+            manufacturing_calendar={k:list(v) if isinstance(v,(set,frozenset,tuple)) else v
+                for k,v in (planning_inputs.get("manufacturing_calendar") or {}).items()}),
+        original_proposals=[dict(proposal_id=p.proposal_id,release_day=p.release_day,
+            available_day=p.available_day,qty=p.qty) for p in original_plan.proposals],
+        remaining_proposals=[dict(proposal_id=p.proposal_id,release_day=p.release_day,
+            available_day=p.available_day,qty=p.qty) for p in plan.proposals],
+        actual_programme_available_day=candidate["available_day"])
+
+
+def programme_current_source_windows(windows_by_pair, programme_rows, *, decision_day,
+                                     weekly_consumed, source_purchase_pairs):
+    """Local promoted-week forecast budget; physical use and other weeks unchanged.
+
+    C8 otherwise freezes its current bucket. This explicit pilot uses the
+    known current programme budget only for promoted components already under
+    source-authoritative purchasing, net of this week's executed model usage.
+    """
+    result={pair:tuple(windows) for pair,windows in windows_by_pair.items()};audit=[]
+    for row in programme_rows:
+        start,end=row["period_start_day"],row["period_end_day_exclusive"]
+        if row["state"] not in {"engaged","executed"} or not start<=decision_day<end-1:continue
+        if row["source_known_day"]>decision_day:raise ValueError("Future programme source cannot revise a current budget")
+        for budget in row["source_budgets"]:
+            pair=(row["node_id"],budget["item_id"])
+            if pair not in source_purchase_pairs:continue
+            consumed=weekly_consumed.get((start,pair),0.0)
+            remainder=max(0.0,budget["qty"]-consumed)
+            old=[w for w in result.get(pair,()) if w.period_start_day==start]
+            result[pair]=tuple(sorted([w for w in result.get(pair,()) if w.period_start_day!=start]+[
+                IndustrialPlanningWindow(start,decision_day+1,end,remainder,row["source_known_day"],
+                    budget["source_file"],budget["source_cells"])],key=lambda w:w.first_day))
+            audit.append(dict(day=decision_day,node_id=pair[0],item_id=pair[1],programme_id=row["programme_id"],
+                known_day=row["source_known_day"],period_start_day=start,period_end_day_exclusive=end,
+                source_full_week_qty=budget["qty"],model_week_consumed_qty=consumed,remaining_forecast_qty=remainder,
+                previous_windows=[[w.first_day,w.end_day_exclusive,w.qty,w.known_day,w.source_cells] for w in old],
+                source_file=budget["source_file"],source_cells=budget["source_cells"]))
+    return result,audit
 
 
 def production_mrp_safety_target(
@@ -2789,15 +5203,30 @@ def source_boundary_supply_policies(
         for field in ("lead_days", "review_period_days"):
             if type(row.get(field)) is not int or row[field] <= 0:
                 raise ValueError("Source boundary lead and review periods must be positive integer days")
-        if row.get("lead_calendar") != "calendar_days_assumption" or row.get("capacity_status") != "unknown_not_modeled":
+        if row.get("lead_calendar") not in {"calendar_days_assumption", "monday_friday"} or row.get("capacity_status") != "unknown_not_modeled":
             raise ValueError("Source boundary must declare its calendar convention and unknown capacity")
         if any(not isinstance(row.get(field), dict) or not row[field] for field in ("lot_source", "lead_source")):
             raise ValueError("Source boundary lot and receipt lead require source provenance")
+        if row["lead_calendar"] == "monday_friday" and (
+                not isinstance(row["lead_source"].get("calendar_confirmation"), str)
+                or not row["lead_source"]["calendar_confirmation"].strip()):
+            raise ValueError("Source boundary working-day calendar requires explicit confirmation provenance")
         lot = float(row.get("fixed_lot_qty"))
         source_boundary_order_quantity(0.0, 0.0, 0.0, lot)
         require_physical_integer(lot, row["uom"])
         policies[pair] = dict(row, fixed_lot_qty=lot)
     return policies
+
+
+def source_boundary_available_day(decision_day, policy, *, origin_date):
+    """Aggregate availability only; do not infer an earlier manufacturing/physical G."""
+    if type(decision_day) is not int or decision_day < 0 or type(policy.get("lead_days")) is not int or policy["lead_days"] <= 0:
+        raise ValueError("Source boundary decision and source lead require nonnegative/positive whole days")
+    if policy.get("lead_calendar") == "calendar_days_assumption":
+        return decision_day + policy["lead_days"]
+    if policy.get("lead_calendar") == "monday_friday":
+        return supplier_receipt_available_day(decision_day, policy["lead_days"], origin_date=origin_date)
+    raise ValueError("Unknown source boundary lead calendar")
 
 
 def mrp_opening_order_cover_days(
@@ -2998,6 +5427,33 @@ class OpeningPurchaseAvailability:
         self.by_marker[row["marker"]] = row
         self.by_delivery_day[row["physical_delivery_day"]].append(row)
 
+    def hold_production_lot(self, *, marker, node_id, item_id, quantity, lot_id, physical_day,
+                            available_day, ledger, source_kind, production_event=None):
+        """Hold an already materialized production lot; create no second lot or order."""
+        if (not marker or marker in self.by_marker or type(physical_day) is not int
+                or type(available_day) is not int or not 0 <= physical_day <= available_day
+                or source_kind not in {"opening_production_order", "production_output"}):
+            raise ValueError("Invalid or repeated production release identity or date")
+        qty = require_physical_integer(quantity, self.item_unit_map[item_id])
+        if qty <= 0 or lot_id not in ledger.lots or ledger.lots[lot_id]["node_id"] != node_id or ledger.lots[lot_id]["item_id"] != item_id:
+            raise ValueError("Production hold requires its existing physical lot")
+        physical_lot = ledger.lots[lot_id]
+        if qty > physical_lot["qty_remaining"] - physical_lot.get("qty_held", 0.0) + LOT_TRACE_EPS:
+            raise ValueError("Production hold exceeds its existing available physical quantity")
+        row = {"marker": marker, "node_id": node_id, "item_id": item_id, "quantity": qty,
+               "uom": normalize_unit(self.item_unit_map[item_id]), "lot_id": lot_id,
+               "physical_delivery_day": physical_day, "arrival_day": available_day,
+               "order_type": "finished_goods_production_release", "source_kind": source_kind,
+               "received": True, "released": False, "production_event": production_event}
+        ledger.change_stock_availability(day=physical_day, node_id=node_id, item_id=item_id, qty=qty,
+            allocations=[{"lot_id": lot_id, "qty": qty}], source_id=marker,
+            source_type="finished_goods_release", notes=json.dumps({"available_day": available_day,
+                "physical_day": physical_day, "availability_state": "held", "source_kind": source_kind}))
+        self.rows.append(row)
+        self.by_marker[marker] = row
+        self.held_by_pair[node_id, item_id] += qty
+        return row
+
     def receive_physical(self, day: int, *, ledger: LotLedger) -> dict[tuple[str, str], float]:
         if type(day) is not int or day < 0:
             raise ValueError("Opening purchase physical receipt day must be a nonnegative integer")
@@ -3062,7 +5518,8 @@ class OpeningPurchaseAvailability:
         ledger.change_stock_availability(
             day=day, node_id=pair[0], item_id=pair[1], qty=qty, release=True,
             allocations=[{"lot_id": row["lot_id"], "qty": qty}], source_id=marker,
-            source_type=("internal_transfer_availability" if row["order_type"] == "internal_transfer_delivery" else
+            source_type=("finished_goods_release" if row["order_type"] == "finished_goods_production_release" else
+                         "internal_transfer_availability" if row["order_type"] == "internal_transfer_delivery" else
                          "supplier_delivery_availability" if row["order_type"] == "external_procurement_supplier_delivery" else "opening_purchase_availability"),
             notes="Availability I of the same received lot; no receipt, procurement or transport.",
         )
@@ -3151,6 +5608,356 @@ def supplier_receipt_available_day(physical_day: int, receipt_days: int, *, orig
         if current.weekday() < 5 and current not in nonworking_dates:
             remaining -= 1
     return (current - origin).days
+
+
+
+def resolve_initial_purchase_book_completion(payload, *, pair_uoms, lanes_by_dest_item,
+        receipt_policies, origin_date, dated, warmup_days=0):
+    """Validate documentary candidates; register only when their plan is known."""
+    if payload is None:
+        return {}
+    if (not isinstance(payload,dict) or payload.get("schema_version")!=1
+            or type(payload.get("schema_version")) is not int
+            or payload.get("mode")!="first_known_mrp_near_horizon_v1"
+            or payload.get("boundary_policy") not in {"full_week_before_earliest_new_receipt","week_start_before_earliest_new_receipt"}
+            or payload.get("physical_week_convention")!="monday_after_sunday_marker"
+            or payload.get("within_week_date")!="thursday"
+            or not isinstance(payload.get("rows"),list) or not dated or warmup_days):
+        raise ValueError("Initial book completion requires an explicit dated documentary scenario")
+    result=defaultdict(list); seen=set()
+    for raw in payload["rows"]:
+        if not isinstance(raw,dict): raise ValueError("Initial book row must be an object")
+        pair=(raw.get("node_id"),raw.get("item_id")); supplier=raw.get("supplier_id")
+        if (pair not in pair_uoms or pair not in receipt_policies or raw.get("uom")!=pair_uoms[pair]
+                or len([l for l in lanes_by_dest_item.get(pair,()) if l["src"]==supplier])!=1):
+            raise ValueError("Initial book row needs one documented supplier route and coherent units")
+        if (any(type(raw.get(k)) is not int for k in ("known_day","physical_delivery_day","available_day","receipt_workdays"))
+                or not 0<=raw["known_day"]<=raw["physical_delivery_day"]<=raw["available_day"]
+                or raw["receipt_workdays"]!=receipt_policies[pair]["receipt_days"]
+                or supplier_receipt_available_day(raw["physical_delivery_day"],raw["receipt_workdays"],
+                    origin_date=origin_date)!=raw["available_day"]):
+            raise ValueError("Initial book dates must be causal and use the source receipt calendar")
+        if (isinstance(raw.get("quantity"),bool) or not isinstance(raw.get("quantity"),(int,float))
+                or not math.isfinite(raw["quantity"]) or raw["quantity"]<=0
+                or normalize_unit(raw["uom"])=="UN" and int(raw["quantity"])!=raw["quantity"]):
+            raise ValueError("Initial book physical quantity must be positive and integer for UN")
+        if (any(not isinstance(raw.get(k),str) or not raw[k].strip() for k in
+                ("source_file","source_row","assumption","source_vintage","source_period_marker"))
+                or raw.get("source_status")!="planned_weekly_H_not_proven_firm"
+                or (date.fromisoformat(raw["source_vintage"])-date.fromisoformat(origin_date)).days!=raw["known_day"]):
+            raise ValueError("Initial book completion requires dated source provenance and an explicit hypothesis")
+        dedup=raw.get("deduplication",{})
+        if (not isinstance(dedup,dict) or not isinstance(dedup.get("matched_opening_orders"),list)
+                or any(isinstance(dedup.get(k),bool) or not isinstance(dedup.get(k),(int,float))
+                    or not math.isfinite(dedup[k]) or dedup[k]<0 for k in ("source_H_qty","represented_opening_qty"))
+                or abs(dedup["source_H_qty"]-dedup["represented_opening_qty"]-raw["quantity"])>1e-8):
+            raise ValueError("Initial book completion must explicitly net represented opening quantities")
+        identity="INITIAL_BOOK_COMPLETION|"+json.dumps([raw["source_file"],raw["source_row"],*pair],ensure_ascii=False)
+        if identity in seen: raise ValueError("Repeated initial book source identity")
+        seen.add(identity)
+        lane=next(l for l in lanes_by_dest_item[pair] if l["src"]==supplier)
+        result[raw["known_day"]].append(dict(raw,mrp_order_id=identity,edge_id=lane["edge_id"]))
+    return dict(result)
+
+
+def resolve_supplier_promise_postponement(payload, *, dated, warmup_days=0):
+    """Explicit scenario permission, never evidence that a truck has not left."""
+    if payload is None:
+        return None
+    if (not isinstance(payload, dict)
+            or set(payload)-{"pairs"} != {"schema_version", "mode", "review_weekday", "assumption"}
+            or type(payload["schema_version"]) is not int or payload["schema_version"] != 1
+            or payload["mode"] != "known_need_and_protection_v1"
+            or (payload["review_weekday"] is not None and
+                (type(payload["review_weekday"]) is not int or not 0 <= payload["review_weekday"] <= 6))
+            or not isinstance(payload["assumption"], str) or not payload["assumption"].strip()
+            or not dated or warmup_days):
+        raise ValueError("Supplier promise revision requires explicit dated zero-warmup scenario permission")
+    if "pairs" in payload:
+        pairs=payload["pairs"]
+        if (not isinstance(pairs,list) or not pairs or any(not isinstance(r,dict)
+                or set(r)!={"node_id","item_id"} or any(not isinstance(v,str) or not v.strip() for v in r.values()) for r in pairs)
+                or len({(r["node_id"],r["item_id"]) for r in pairs})!=len(pairs)):
+            raise ValueError("Supplier promise scope requires distinct explicit article/site pairs")
+    return dict(payload)
+
+
+def apply_supplier_promise_postponement(*, policy, decision_day, origin_date, horizon_day,
+        availability, stock, firm_snapshot, requirements_by_pair, plan_audits,
+        external_pipeline, commitments, order_rows, promise_book, audit_rows, total_days,
+        nonworking_dates_by_pair=None):
+    """Delay unreceived boundary promises; no shipment, quantity or cost changes.
+
+    The opt-in permission expires at the ORIGINAL physical date. A later promise
+    never renews that permission. Missing/physical shipment states are frozen.
+    The complete dated model horizon is the coverage assumption, not an assertion
+    that absent industrial spreadsheet rows are zero. Recompute the network after
+    applying this function, before placing any new purchase.
+    """
+    if policy is None or (policy["review_weekday"] is not None and
+            (date.fromisoformat(origin_date)+timedelta(days=decision_day)).weekday() != policy["review_weekday"]):
+        return False
+    selected = defaultdict(dict)
+    for order in order_rows:
+        identity = order.get("mrp_order_id")
+        if (order.get("order_type") != "external_procurement_supplier_delivery"
+                or identity not in promise_book or identity not in availability.by_marker
+                or promise_book[identity].get("initial_documentary_completion", False)):
+            continue
+        row = availability.by_marker[identity]
+        if "pairs" in policy and {"node_id":row["node_id"],"item_id":row["item_id"]} not in policy["pairs"]:
+            continue
+        book = promise_book[identity]
+        original_g = book.setdefault("original_physical_day", row["physical_delivery_day"])
+        book.setdefault("original_available_day", row["arrival_day"])
+        if (row["received"] or row["released"] or order.get("shipment_id")
+                or order.get("release_status") != "order_placed_departure_unknown"
+                or decision_day >= original_g):
+            continue
+        selected[(row["node_id"], row["item_id"])][identity] = order
+    changed = False
+    for pair, matching in sorted(selected.items()):
+        receipts = tuple(firm_snapshot.get(pair, ()))
+        receipt_ids = {r.receipt_id for r in receipts}
+        matching = {k:v for k,v in matching.items() if k in receipt_ids}
+        if not matching:
+            continue
+        audit = plan_audits[pair]
+        needs = tuple(audit.get("anticipated_requirements", requirements_by_pair.get(pair, ())))
+        protection = tuple(audit.get("protection_points", ()))
+        statuses = [ReceiptReplanningStatus(k, True, False, False, decision_day) for k in matching]
+        plan = postpone_initial_receipts(decision_day=decision_day, available_qty=stock.get(pair, 0.0),
+            requirements=needs, firm_receipts=receipts, protection=protection,
+            coverage_days=range(decision_day+1, horizon_day+1), horizon_day=horizon_day,
+            statuses=statuses, policy=policy["mode"],
+            earliest_available_by_id={k:promise_book[k]["original_available_day"] for k in matching})
+        snapshot = json.dumps(dict(available_qty=stock.get(pair,0.0), horizon_day=horizon_day,
+            requirements=[[r.requirement_id,r.due_day,r.qty] for r in needs],
+            firm_receipts=[[r.receipt_id,r.available_day,r.qty,r.state] for r in receipts],
+            protection=[[p.protection_id,p.day,p.minimum_qty] for p in protection]), separators=(",",":"))
+        for decision in plan.decisions:
+            identity=decision.receipt_id
+            if identity not in matching:
+                continue
+            order=matching[identity]; row=availability.by_marker[identity]; book=promise_book[identity]
+            old_g,old_i,qty=row["physical_delivery_day"],row["arrival_day"],row["quantity"]
+            new_g,new_i=old_g,old_i
+            candidates=[(g,supplier_receipt_available_day(g,book["receipt_days"],origin_date=origin_date,
+                nonworking_dates=(nonworking_dates_by_pair or {}).get(pair,frozenset())))
+                for g in range(max(decision_day+1,book["original_physical_day"]),decision.new_available_day+1)]
+            candidates=[(g,i) for g,i in candidates if book["original_available_day"]<=i<=decision.new_available_day]
+            if candidates and decision.new_available_day!=old_i:
+                new_g,new_i=candidates[-1]
+                entry=(pair[0],pair[1],qty,"","",identity)
+                current=commitments.get(pair,{}).get(identity)
+                if external_pipeline.get(old_i,[]).count(entry)!=1 or current is None or current[:2]!=(old_i,qty):
+                    raise ValueError("Supplier promise must have exactly one unchanged receipt and commitment")
+                external_pipeline[old_i].remove(entry); external_pipeline[new_i].append(entry)
+                availability.by_delivery_day[old_g].remove(row)
+                row.update(physical_delivery_day=new_g,arrival_day=new_i)
+                availability.by_delivery_day[new_g].append(row)
+                commitments[pair][identity]=(new_i,qty,current[2])
+                firm_snapshot[pair]=[replace(r,available_day=new_i) if r.receipt_id==identity else r
+                                     for r in firm_snapshot[pair]]
+                order.update(physical_delivery_day=new_g,available_day=new_i,arrival_day=new_i,
+                    actual_physical_receipt_day=new_g if new_g<total_days else "",
+                    actual_available_day=new_i if new_i<total_days else "",
+                    actual_receipt_day=new_i if new_i<total_days else "",
+                    receipt_status="firm_receipt" if new_i<total_days else "firm_receipt_outside_horizon",
+                    order_status_end_of_run="available" if new_i<total_days else
+                        "held_pending_availability" if new_g<total_days else "awaiting_physical_delivery")
+                changed=True
+            audit_rows.append(dict(day=decision_day,node_id=pair[0],item_id=pair[1],receipt_id=identity,
+                qty=qty,original_physical_day=book["original_physical_day"],
+                original_available_day=book["original_available_day"],old_physical_day=old_g,old_available_day=old_i,
+                new_physical_day=new_g,new_available_day=new_i,reason=decision.reason,applied=int(new_i!=old_i),
+                assumption=policy["assumption"],planning_snapshot_json=snapshot))
+            snapshot=""
+    return changed
+
+
+def resolve_opening_purchase_postponement(payload, *, availability, origin_date, warmup_days=0):
+    """Validate explicit experimental permissions; infer no transport status."""
+    if payload is None:
+        return {}
+    fields = {"schema_version", "mode", "review_weekday", "source_file", "rows", "assumption"}
+    if (not isinstance(payload, dict) or not fields <= set(payload)
+            or set(payload) - fields - {"coverage_basis", "allow_return_to_original"}
+            or type(payload["schema_version"]) is not int or payload["schema_version"] != 1
+            or payload["mode"] != "known_need_and_protection_v1"
+            or payload["review_weekday"] != 6 or type(payload["review_weekday"]) is not int
+            or warmup_days != 0 or availability is None
+            or not isinstance(payload["assumption"], str) or not payload["assumption"].strip()
+            or not isinstance(payload["rows"], list) or not payload["rows"]):
+        raise ValueError("Postponement requires explicit schema1 dated, zero-warmup Sunday-review assumptions")
+    coverage_basis = payload.get("coverage_basis", "source_windows")
+    allow_return = payload.get("allow_return_to_original", False)
+    if (coverage_basis not in {"source_windows", "model_projection"}
+            or type(allow_return) is not bool
+            or (allow_return and coverage_basis != "model_projection")):
+        raise ValueError("Opening revision requires a documented coverage basis and explicit return permission")
+    origin = date.fromisoformat(origin_date)
+    result = {}
+    expected = {"source_row", "replannable", "transport_departed", "receipt_executed", "replannable_until_day"}
+    for raw in payload["rows"]:
+        if not isinstance(raw, dict) or set(raw) != expected:
+            raise ValueError("Postponement source status requires explicit identity and original-date expiry")
+        if any(type(raw[k]) is not bool for k in ("replannable", "transport_departed", "receipt_executed")):
+            raise ValueError("Postponement physical status must be explicitly boolean")
+        marker = OpeningPurchaseAvailability.marker_for(payload["source_file"], raw["source_row"])
+        row = availability.by_marker.get(marker)
+        if marker in result or row is None or row["order_type"] != "opening_purchase_order":
+            raise ValueError("Postponement must identify a unique existing opening purchase")
+        original_g, original_i = row["physical_delivery_day"], row["arrival_day"]
+        expiry = raw["replannable_until_day"]
+        if type(expiry) is not int or expiry != original_g - 1:
+            raise ValueError("Experimental permission must expire before the ORIGINAL physical due date")
+        workdays = sum((origin + timedelta(days=d)).weekday() < 5
+                       for d in range(original_g + 1, original_i + 1))
+        if supplier_receipt_available_day(original_g, workdays, origin_date=origin_date,
+                                         calendar="monday_friday") != original_i:
+            raise ValueError("Postponement requires source G/I consistent with the weekday receipt calendar")
+        result[marker] = dict(raw, marker=marker, node_id=row["node_id"], item_id=row["item_id"],
+            original_physical_day=original_g, original_available_day=original_i,
+            receipt_workdays=workdays, assumption=payload["assumption"],
+            coverage_basis=coverage_basis, allow_return_to_original=allow_return)
+    return result
+
+
+def apply_opening_purchase_postponement(
+    *, permissions, decision_day, origin_date, horizon_day, availability,
+    stock, firm_snapshot, requirements_by_pair, plan_audits, industrial_windows,
+    pipeline, pending_receipt_calendar, commitments, order_rows, shipment_rows, audit_rows,
+    total_days, safety_source_days_by_pair,
+):
+    """Revise explicit future promises, then let the caller rebuild the MRP plan.
+
+    Supplier-book shipment rows retain their original order-release day. Their
+    revised arrival is a planning hypothesis, not a measured transport duration.
+    Only dated physical receipt execution creates a stock movement.
+    """
+    if not permissions or (date.fromisoformat(origin_date) + timedelta(days=decision_day)).weekday() != 6:
+        return False
+    changed = False
+    pairs = sorted({(r["node_id"], r["item_id"]) for r in permissions.values()})
+    for pair in pairs:
+        originals = tuple(firm_snapshot.get(pair, ()))
+        original_ids = {r.receipt_id for r in originals}
+        selected = {k: v for k, v in permissions.items()
+                    if (v["node_id"], v["item_id"]) == pair and k in original_ids}
+        if not selected:
+            continue
+        audit = plan_audits[pair]
+        needs = tuple(audit.get("anticipated_requirements", requirements_by_pair.get(pair, ())))
+        protection = tuple(audit.get("protection_points", ()))
+        covered = sorted({d for w in industrial_windows.get(pair, ())
+                          for d in range(w.first_day, w.end_day_exclusive)})
+        coverage_basis = next(iter(selected.values())).get("coverage_basis", "source_windows")
+        if coverage_basis == "model_projection":
+            covered = list(range(decision_day + 1, horizon_day + 1))
+        statuses = []
+        for marker, permission in selected.items():
+            actual = availability.by_marker[marker]
+            statuses.append(ReceiptReplanningStatus(marker,
+                permission["replannable"] and decision_day <= permission["replannable_until_day"],
+                permission["transport_departed"],
+                permission["receipt_executed"] or actual["received"], 0))
+        plan = postpone_initial_receipts(decision_day=decision_day, available_qty=stock.get(pair, 0.0),
+            requirements=needs, firm_receipts=originals, protection=protection, coverage_days=covered,
+            horizon_day=horizon_day, statuses=statuses, policy="known_need_and_protection_v1",
+            earliest_available_by_id={k: v["original_available_day"] for k, v in selected.items()
+                if v.get("allow_return_to_original", False)} or None)
+        snapshot = json.dumps({
+            "horizon_day": horizon_day,
+            "available_qty": stock.get(pair, 0.0),
+            "requirements": [[r.requirement_id, r.due_day, r.qty] for r in needs],
+            "firm_receipts": [[r.receipt_id, r.available_day, r.qty, r.state] for r in originals],
+            "protection": [[p.protection_id, p.day, p.minimum_qty] for p in protection],
+            "coverage_days": covered,
+            "coverage_basis": coverage_basis,
+            "source_windows": [[w.first_day, w.end_day_exclusive, w.known_day,
+                                w.source_file, w.source_cells] for w in industrial_windows.get(pair, ())],
+            "statuses": [[s.receipt_id, s.replannable, s.transport_departed,
+                          s.receipt_executed, s.known_day] for s in statuses],
+        }, separators=(",", ":"), ensure_ascii=False)
+        for decision in plan.decisions:
+            marker = decision.receipt_id
+            if marker not in selected:
+                continue
+            permission = selected[marker]
+            row = availability.by_marker[marker]
+            old_g, old_i, qty = row["physical_delivery_day"], row["arrival_day"], row["quantity"]
+            new_g, new_i = old_g, old_i
+            reason = decision.reason
+            allow_return = permission.get("allow_return_to_original", False)
+            if decision.new_available_day > old_i or (allow_return and decision.new_available_day < old_i):
+                if row["received"] or row["released"] or permission["transport_departed"]:
+                    raise ValueError("Cannot postpone a received, released or dispatched order")
+                choices = [(g, supplier_receipt_available_day(g, permission["receipt_workdays"],
+                             origin_date=origin_date, calendar="monday_friday"))
+                           for g in range(max(decision_day + 1,
+                               permission["original_physical_day"] if allow_return else old_g + 1),
+                               decision.new_available_day + 1)]
+                choices = [(g, i) for g, i in choices if
+                    (permission["original_available_day"] <= i if allow_return else old_i < i)
+                    and i <= decision.new_available_day]
+                if choices:
+                    new_g, new_i = choices[-1]
+                    entry = (pair[0], pair[1], qty, marker)
+                    if pipeline.get(old_i, []).count(entry) != 1:
+                        raise ValueError("Postponed order must occur exactly once in its receipt pipeline")
+                    existing = commitments.get(pair, {}).get(marker)
+                    if existing is None or existing[:2] != (old_i, qty):
+                        raise ValueError("Postponement stock/commitment snapshot is inconsistent")
+                    matching_orders = [o for o in order_rows if o.get("mrp_order_id") == marker]
+                    matching_shipments = [s for s in shipment_rows
+                        if s.get("src_node_id") == row["src_node_id"]
+                        and s.get("dst_node_id") == pair[0] and s.get("item_id") == pair[1]
+                        and s.get("shipped_qty") == qty and s.get("arrival_day") == old_g
+                        and s.get("transport_cost_basis") == "opening_order_book"]
+                    if len(matching_orders) != 1 or len(matching_shipments) != 1:
+                        raise ValueError("Postponement needs unique order and source-book shipment records")
+                    if pending_receipt_calendar is not None:
+                        pending_receipt_calendar.remove(pair, old_i, qty)
+                        pending_receipt_calendar.add(pair, new_i, qty)
+                    pipeline[old_i].remove(entry)
+                    pipeline[new_i].append(entry)
+                    availability.by_delivery_day[old_g].remove(row)
+                    row.update(physical_delivery_day=new_g, arrival_day=new_i)
+                    availability.by_delivery_day[new_g].append(row)
+                    commitments[pair][marker] = (new_i, qty, existing[2])
+                    firm_snapshot[pair] = [replace(r, available_day=new_i) if r.receipt_id == marker else r
+                                           for r in firm_snapshot[pair]]
+                    order = matching_orders[0]
+                    order.update(physical_delivery_day=new_g, available_day=new_i, arrival_day=new_i,
+                        actual_physical_receipt_day=new_g if new_g < total_days else "",
+                        actual_available_day=new_i if new_i < total_days else "",
+                        actual_receipt_day=new_i if new_i < total_days else "",
+                        implied_cover_need_day=supplier_receipt_available_day(new_i,
+                            int(safety_source_days_by_pair.get(pair, 0)), origin_date=origin_date),
+                        receipt_status="firm_receipt" if new_i < total_days else "firm_receipt_outside_horizon",
+                        order_status_end_of_run=("available" if new_i < total_days else
+                            "held_pending_availability" if new_g < total_days else "awaiting_physical_delivery"))
+                    shipment = matching_shipments[0]
+                    shipment.update(arrival_day=new_g, lead_days=new_g-shipment["day"])
+                    changed = True
+                else:
+                    reason = "no_later_calendar_feasible_availability"
+            audit_rows.append(dict(day=decision_day, node_id=pair[0], item_id=pair[1],
+                receipt_id=marker, source_row=permission["source_row"], qty=qty,
+                original_physical_day=permission["original_physical_day"],
+                original_available_day=permission["original_available_day"],
+                replannable_until_day=permission["replannable_until_day"],
+                old_physical_day=old_g, old_available_day=old_i,
+                proposed_available_day=decision.new_available_day,
+                new_physical_day=new_g, new_available_day=new_i,
+                receipt_workdays=permission["receipt_workdays"],
+                coverage_end_day=decision.coverage_end_day,
+                first_deficit_day=decision.first_deficit_day if decision.first_deficit_day is not None else "",
+                reason=reason, applied=int(new_i != old_i), assumption=permission["assumption"],
+                planning_snapshot_json=snapshot))
+            snapshot = ""
+    return changed
 
 
 class InitialStockAvailability:
@@ -3288,6 +6095,16 @@ def require_physical_integer(value: Any, uom: Any) -> float:
             raise ValueError(f"Physical UN quantity must be integral: {quantity}")
         return float(round(quantity))
     return quantity
+
+
+def canonical_production_batch_target_qty(campaign_remaining_qty: float, lot_policy: dict[str, Any], uom: Any) -> float:
+    """One validated physical target for WIP, released stock, pipeline and lots.
+
+    Fractional daily work can leave machine residue in a later batch's campaign
+    remainder. Reuse the ledger's integer validation at batch creation; a real
+    UN fraction still fails, while mass quantities and fractional work remain.
+    """
+    return require_physical_integer(physical_batch_target_qty(campaign_remaining_qty, lot_policy), uom)
 
 
 def physical_execution_quantity(value: Any, uom: Any) -> float:
@@ -4770,6 +7587,10 @@ def sample_lead_days(
     stochastic: bool,
     distribution_mode: str = "erlang",
 ) -> int:
+    if "physical_transport_days" in lane:
+        # Explicit internal transport scenario; the FIA procurement reference
+        # and its stochastic distribution are not a physical travel-time law.
+        return lane["physical_transport_days"]
     deterministic = int(round(max(1.0, to_float(lane.get("lead_days"), 1.0))))
     if not stochastic:
         return deterministic
@@ -4915,6 +7736,11 @@ def lead_time_reference_days(lane: dict[str, Any]) -> int:
     return int(round(max(1.0, to_float(lane.get("lead_days_mean"), lane.get("lead_days", 1.0)))))
 
 
+def operational_transport_days(lane: dict[str, Any]) -> int:
+    """Planning transport only; receipt processing is applied separately."""
+    return lane.get("physical_transport_days", lead_time_reference_days(lane))
+
+
 def lead_time_cover_days(
     lane: dict[str, Any],
     stochastic: bool,
@@ -4924,6 +7750,8 @@ def lead_time_cover_days(
     Return conservative lead-time coverage in days for stock sizing.
     With stochastic lead-times, use an approximate p95.
     """
+    if "physical_transport_days" in lane:
+        return lane["physical_transport_days"]
     mean = max(1.0, to_float(lane.get("lead_days_mean"), lane.get("lead_days", 1.0)))
     if not stochastic:
         cover = int(round(max(1.0, to_float(lane.get("lead_days"), mean))))
@@ -5141,6 +7969,7 @@ def lotified_mps_component_signal(
     mps_open_campaign_qty_by_pair: dict[tuple[str, str], float],
     mps_started_lots_by_week_pair: dict[tuple[int, tuple[str, str]], int],
     expand_internal_outputs: bool = True,
+    closed_output_pairs: set | None = None,
 ) -> tuple[dict[tuple[str, str], float], dict[tuple[str, str], float]]:
     """
     Build component demand from a lotified master production schedule.
@@ -5173,6 +8002,8 @@ def lotified_mps_component_signal(
             break
         out_pair = pending.popleft()
         required_qty = pending_qty.pop(out_pair, 0.0)
+        if out_pair in (closed_output_pairs or ()):
+            continue
         if required_qty <= 1e-9:
             continue
         input_requirements = process_input_requirements_by_output_pair.get(out_pair)
@@ -6666,6 +9497,7 @@ def seed_open_orders_from_metadata(
     opening_purchase_order_risk_warnings: list[str] | None = None,
     supplier_risk_applied_rows: list[dict[str, Any]] | None = None,
     dated_purchase_availability: bool = False,
+    production_availability_pairs: set | None = None,
 ) -> tuple[float, list[dict[str, Any]], dict[tuple[str, str], int]]:
     rows = opening_open_orders_payload.get("rows") if isinstance(opening_open_orders_payload, dict) else []
     if not isinstance(rows, list) or not rows:
@@ -6683,6 +9515,7 @@ def seed_open_orders_from_metadata(
     for metadata_index, raw in enumerate(rows, start=1):
         if not isinstance(raw, dict):
             continue
+        row_source_file = str(raw.get("source_file") or opening_open_orders_payload.get("source_file") or "")
         dst = str(raw.get("dst_node_id") or "")
         item_id = str(raw.get("item_id") or "")
         src = str(raw.get("src_node_id") or "")
@@ -6816,9 +9649,7 @@ def seed_open_orders_from_metadata(
                 opening_purchase_order_risk_audit_rows.append(
                     {
                         "source_row": raw.get("source_row", ""),
-                        "source_file": str(
-                            opening_open_orders_payload.get("source_file") or ""
-                        ),
+                        "source_file": row_source_file,
                         "shipment_id": opening_purchase_order_shipment,
                         "risk_decision_day": int(planned_physical_delivery_day),
                         "supplier_id": src,
@@ -6947,7 +9778,7 @@ def seed_open_orders_from_metadata(
         ):
             source_marker = make_opening_purchase_order_lot_marker(
                 source_row=raw.get("source_row", ""),
-                source_file=str(opening_open_orders_payload.get("source_file") or ""),
+                source_file=row_source_file,
                 supplier_id=src,
                 edge_id=edge_id,
                 shipment_id=opening_purchase_order_shipment,
@@ -6956,9 +9787,10 @@ def seed_open_orders_from_metadata(
             )
         if dated_purchase_availability and source_mode == "opening_purchase_order":
             source_marker = OpeningPurchaseAvailability.marker_for(
-                str(opening_open_orders_payload.get("source_file") or ""), raw.get("source_row", ""),
+                row_source_file, raw.get("source_row", ""),
             )
-        if actual_receipt_day != "" or (dated_purchase_availability and source_mode == "opening_purchase_order"):
+        dated_production_availability = source_mode == "opening_production_order" and pair in (production_availability_pairs or set())
+        if actual_receipt_day != "" or (dated_purchase_availability and source_mode == "opening_purchase_order") or dated_production_availability:
             pipeline[arrival_day].append((dst, item_id, qty, source_marker))
             in_transit[pair] += qty
             seeded_total_qty += qty
@@ -7016,9 +9848,7 @@ def seed_open_orders_from_metadata(
             row.update(
                 {
                     "source_row": raw.get("source_row", ""),
-                    "source_file": str(
-                        opening_open_orders_payload.get("source_file") or ""
-                    ),
+                    "source_file": row_source_file,
                     "shipment_id": opening_purchase_order_shipment,
                     "risk_decision_day": int(planned_physical_delivery_day),
                     "risk_event_ids": opening_purchase_order_event_ids,
@@ -7032,13 +9862,13 @@ def seed_open_orders_from_metadata(
                     ),
                 }
             )
-        if dated_purchase_availability and source_mode == "opening_purchase_order":
+        if (dated_purchase_availability and source_mode == "opening_purchase_order") or dated_production_availability:
             row.update({
                 "physical_delivery_day": physical_delivery_day, "available_day": usable_day,
                 "actual_physical_receipt_day": physical_delivery_day if physical_delivery_day < total_timeline_days else "",
                 "actual_available_day": actual_receipt_day,
                 "source_row": raw.get("source_row", ""),
-                "source_file": str(opening_open_orders_payload.get("source_file") or ""),
+                "source_file": row_source_file,
                 "mrp_order_id": source_marker, "baseline_reference_id": source_marker,
                 "order_status_end_of_run": (
                     "available" if actual_receipt_day != "" else
@@ -7084,10 +9914,10 @@ def seed_open_orders_from_metadata(
             "node_id": dst,
             "item_id": item_id,
             "category": "opening_open_order_book_real",
-            "seeded_pipeline_qty": round(qty, 6) if actual_receipt_day != "" or (dated_purchase_availability and source_mode == "opening_purchase_order") else 0.0,
+            "seeded_pipeline_qty": round(qty, 6) if actual_receipt_day != "" or (dated_purchase_availability and source_mode == "opening_purchase_order") or dated_production_availability else 0.0,
             "lead_days": int(lead_days),
             "lane_src": src,
-            "source_file": str(opening_open_orders_payload.get("source_file") or ""),
+            "source_file": row_source_file,
             "planning_element": str(raw.get("planning_element") or ""),
             "physical_delivery_day": int(physical_delivery_day),
             "usable_day": int(usable_day),
@@ -7123,8 +9953,9 @@ def seed_open_orders_from_metadata(
                 "lead_reference_days": int(lead_reference_days),
                 "receipt_release_days": int(receipt_release_days),
                 "source_row": raw.get("source_row", ""),
-                "source_file": str(opening_open_orders_payload.get("source_file") or ""),
+                "source_file": row_source_file,
                 "order_type": source_mode,
+                **({"source_marker": source_marker} if dated_production_availability else {}),
             }
         if opening_purchase_order_overlay is not None:
             open_order_row.update(
@@ -7149,7 +9980,7 @@ def seed_open_orders_from_metadata(
                 "node_id": dst,
                 "item_id": item_id,
                 "edge_id": edge_id,
-                "source": str(opening_open_orders_payload.get("source_file") or "opening_open_orders_metadata"),
+                "source": row_source_file or "opening_open_orders_metadata",
                 "payload_json": json.dumps(init_row, ensure_ascii=False, sort_keys=True),
             }
         )
@@ -7338,6 +10169,7 @@ def derive_unmodeled_supplier_source_policies(
     stochastic_lead_times: bool,
     lead_time_distribution_mode: str,
     dynamic_requirement_pair_keys: set[str] | None = None,
+    safety_days_by_pair: dict | None = None,
 ) -> tuple[dict[tuple[str, str], dict[str, Any]], list[dict[str, Any]]]:
     node_by_id = {str(n.get("id")): n for n in nodes}
     policies: dict[tuple[str, str], dict[str, Any]] = {}
@@ -7365,12 +10197,12 @@ def derive_unmodeled_supplier_source_policies(
         )
         replenishment_lead_days = int(min(21.0, max(2.0, math.ceil(raw_replenishment_lead_days))))
         target_cover_days = max(
-            int(math.ceil(safety_stock_days)),
+            int(math.ceil((safety_days_by_pair or {}).get(src_pair, safety_stock_days))),
             replenishment_lead_days + review_days,
             order_frequency_days,
         )
         external_procurement_target_cover_days = max(
-            int(math.ceil(safety_stock_days)),
+            int(math.ceil((safety_days_by_pair or {}).get(src_pair, safety_stock_days))),
             int(math.ceil(planned_material_lead_days)) + review_days,
             order_frequency_days,
         )
@@ -8451,6 +11283,10 @@ def main() -> None:
     nodes = data.get("nodes", []) or []
     edges = data.get("edges", []) or []
     graph_meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    net_requirement_rounding_policy = graph_meta.get("mrp_net_requirement_rounding_policy")
+    mrp_mass_net_rounding_quantum(net_requirement_rounding_policy, "KG")
+    if net_requirement_rounding_policy is not None and args.mrp_execution_mode != "dated":
+        raise ValueError("Mass net rounding requires dated MRP execution")
     opening_open_orders_payload = (
         graph_meta.get("opening_open_orders")
         if isinstance(graph_meta.get("opening_open_orders"), dict)
@@ -8524,6 +11360,19 @@ def main() -> None:
     reset_backlog_after_warmup = scenario_policy_bool(scenario, "reset_backlog_after_warmup", False)
     total_timeline_days = warmup_days + sim_days
     safety_stock_days = max(0.0, scenario_policy_value(scenario, "safety_stock_days", 7.0))
+    source_stock_policy_precedence = bool(isinstance(graph_meta.get("selected_stock_policy_source"), dict)
+        and graph_meta["selected_stock_policy_source"].get("historical_overrides_superseded") is True)
+    explicit_source_policy_pairs = {
+        (str(node.get("id")), str(state.get("item_id")))
+        for node in nodes for state in ((node.get("inventory") or {}).get("states") or [])
+        if isinstance(state.get("mrp_policy"), dict)
+        and ("safety_time_days" in state["mrp_policy"] or "safety_stock_qty" in state["mrp_policy"])
+    }
+
+    def generic_safety_days(pair):
+        return generic_safety_days_for_pair(pair, source_policy_pairs=explicit_source_policy_pairs,
+            default_days=safety_stock_days, source_precedence=source_stock_policy_precedence)
+
     review_period_days = max(1, int(round(scenario_policy_value(scenario, "review_period_days", 1.0))))
     mrp_review_period_days = (
         max(1, int(args.mrp_review_period_days))
@@ -8677,6 +11526,89 @@ def main() -> None:
     forecast_production_signal = args.production_signal_source == "forecast"
     dated_mrp_execution = args.mrp_execution_mode != "historical"
     dated_component_planning = args.mrp_execution_mode == "dated"
+    production_execution_policy = graph_meta.get("production_execution_policy")
+    if production_execution_policy not in (None, "dated_releases_v1"):
+        raise ValueError("Unknown production execution policy")
+    if production_execution_policy is not None and (
+            not dated_component_planning or not forecast_production_signal
+            or graph_meta.get("mrp_planning_horizon_days") != 364
+            or graph_meta.get("production_depot_feedback_policy") is not None):
+        raise ValueError("Dated production releases require dated MRP, forecast,364 days and no SD depot feedback")
+    chain_planning_policy = graph_meta.get("chain_planning_policy")
+    if chain_planning_policy not in (None, "dated_relation_consistent_v1"):
+        raise ValueError("Unknown chain planning policy")
+    if chain_planning_policy is not None and production_execution_policy != "dated_releases_v1":
+        raise ValueError("Consistent dated relations require dated production execution")
+    chain_safety_projection_policy = graph_meta.get("chain_safety_projection_policy")
+    if chain_safety_projection_policy not in (None, "rolling_source_workdays_v1"):
+        raise ValueError("Unknown chain safety projection policy")
+    if chain_safety_projection_policy is not None and chain_planning_policy is None:
+        raise ValueError("Rolling source safety requires the consistent dated chain")
+    allocated_supplier_policy = graph_meta.get("allocated_supplier_policy")
+    if allocated_supplier_policy not in (None, "allocated_supplier_plan_v1"):
+        raise ValueError("Unknown allocated supplier policy")
+    if allocated_supplier_policy is not None and (
+            not dated_component_planning or args.supplier_delivery_mode != "source"
+            or warmup_days or args.stochastic_lead_times):
+        raise ValueError("Allocated offers require dated source-delivery planning without stochastic leads or warmup")
+    dated_supply_calendar_policy = graph_meta.get("dated_supply_calendar_policy")
+    if dated_supply_calendar_policy not in (None, "exact_release_calendar_v1"):
+        raise ValueError("Unknown dated supply calendar policy")
+    if dated_supply_calendar_policy is not None and (
+            not dated_component_planning or warmup_days or args.stochastic_lead_times):
+        raise ValueError("Exact supply calendars require dated MRP without warmup or stochastic transport")
+    internal_transfer_commitment_policy = graph_meta.get("internal_transfer_commitment_policy")
+    if internal_transfer_commitment_policy not in (None, "upstream_launch_pegged_v1"):
+        raise ValueError("Unknown internal transfer commitment policy")
+    if internal_transfer_commitment_policy is not None and (
+            chain_planning_policy != "dated_relation_consistent_v1"
+            or dated_supply_calendar_policy != "exact_release_calendar_v1" or sim_days > 365):
+        raise ValueError("Pegged transfer experiment requires consistent dated production, exact calendars and at most365days")
+    internal_transfer_rescheduling_policy = graph_meta.get("internal_transfer_rescheduling_policy")
+    if internal_transfer_rescheduling_policy not in (None, "advance_on_executable_need_v1"):
+        raise ValueError("Unknown internal transfer rescheduling policy")
+    if internal_transfer_rescheduling_policy is not None and internal_transfer_commitment_policy is None:
+        raise ValueError("Internal transfer rescheduling requires existing pegged commitments")
+    missing_forecast_period_policy = graph_meta.get("mrp_forecast_missing_period_policy")
+    if missing_forecast_period_policy not in (None, "last_known_period_v1"):
+        raise ValueError("Unknown MRP missing-period policy")
+    if missing_forecast_period_policy is not None and args.mrp_forecast_source != "source":
+        raise ValueError("Known-period conservation requires source MRP forecasts")
+    forecast_consumption_policy = graph_meta.get("forecast_consumption_policy")
+    annual_projection_policy = graph_meta.get("forecast_annual_projection_policy")
+    current_envelope_policy = graph_meta.get("current_requirement_envelope_policy")
+    if annual_projection_policy not in (None, "previous_year_105pct_v1"):
+        raise ValueError("Unknown annual forecast projection policy")
+    if current_envelope_policy not in (None, "gross_current_residual_v1"):
+        raise ValueError("Unknown current requirement envelope policy")
+    if (annual_projection_policy is not None or current_envelope_policy is not None) and (
+            args.mrp_forecast_source != "source" or missing_forecast_period_policy != "last_known_period_v1"
+            or production_execution_policy != "dated_releases_v1" or forecast_consumption_policy != "weekly_actual_orders_v1"
+            or sim_days > 365):
+        raise ValueError("Forward forecast candidates require source/LKG/weekly consumption/dated production and at most365days")
+    purchase_need_date_policy = graph_meta.get("purchase_need_date_policy")
+    if purchase_need_date_policy not in (None, "source_safety_backwards_v1", "source_safety_additive_v2"):
+        raise ValueError("Unknown purchase_need_date_policy")
+    anticipated_purchase_dates = purchase_need_date_policy is not None
+    unified_purchase_rules = purchase_need_date_policy == "source_safety_additive_v2"
+    purchase_grouping_days = graph_meta.get("purchase_grouping_days", 1)
+    if (type(purchase_grouping_days) is not int or purchase_grouping_days < 1
+            or ("purchase_grouping_days" in graph_meta and not unified_purchase_rules)):
+        raise ValueError("Common purchase grouping requires additive v2 and a positive explicit day period")
+    purchase_proposal_lot_policy = graph_meta.get("purchase_proposal_lot_policy")
+    if purchase_proposal_lot_policy not in (None, "minimum_admissible_standard_until_release_v1"):
+        raise ValueError("Unknown purchase_proposal_lot_policy")
+    provisional_purchase_lots = purchase_proposal_lot_policy is not None
+    if provisional_purchase_lots and (not dated_component_planning or args.supplier_delivery_mode != "source"):
+        raise ValueError("Provisional purchase lots require dated MRP and nominal source delivery")
+    purchase_planning_lot_policy = graph_meta.get("purchase_planning_lot_policy")
+    if purchase_planning_lot_policy not in (None, "execution_standard_for_unambiguous_offer_v1"):
+        raise ValueError("Unknown purchase_planning_lot_policy")
+    if purchase_planning_lot_policy is not None and (not dated_component_planning or args.supplier_delivery_mode != "source"):
+        raise ValueError("Purchase lot alignment requires dated MRP and nominal source delivery")
+    purchase_planning_lot_audit = []
+    if anticipated_purchase_dates and (not dated_component_planning or args.safety_time_calendar != "weekdays"):
+        raise ValueError("Anticipated purchases require dated MRP and Monday-Friday safety")
     if args.supplier_delivery_mode in {"source", "empirical"} and not dated_component_planning:
         raise ValueError("Source/empirical delivery modes require dated aggregate external purchases")
     if args.supplier_delivery_mode == "empirical" and warmup_days:
@@ -9254,7 +12186,7 @@ def main() -> None:
     )
     internal_component_policies = resolve_internal_component_policies(
         graph_meta.get("internal_component_policy"), execution_mode=args.mrp_execution_mode,
-        lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map,
+        lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map, nodes=nodes,
     )
     supplier_planning_policies = resolve_supplier_planning_policies(
         graph_meta.get("supplier_planning_policy"), execution_mode=args.mrp_execution_mode,
@@ -9267,13 +12199,14 @@ def main() -> None:
                                      "dated_stock_floor_with_coverage", "dated_requirements_with_coverage"}}
     prospective_safety_pairs = {pair for pair, policy in supplier_planning_policies.items()
                                if policy.get("protection_mode") == "dated_requirements_with_coverage"}
-    if prospective_safety_pairs and args.safety_time_calendar != "weekdays":
+    if anticipated_purchase_dates:
+        coverage_protection_pairs = set()
+        prospective_safety_pairs = set()
+    prospective_safety_export_enabled = bool(prospective_safety_pairs or chain_safety_projection_policy)
+    if prospective_safety_export_enabled and args.safety_time_calendar != "weekdays":
         raise ValueError("Prospective source safety requires the confirmed Monday-Friday calendar")
-    for policy_pair, policy in internal_component_policies.items():
-        if "transfer_multiple_qty" in policy:
-            lane = lanes_by_dest_item[policy_pair][0]
-            lane["standard_order_qty"] = float(policy["transfer_multiple_qty"])
-            lane["standard_order_qty_note"] = "Explicit source-backed 693055 candidate; supersedes historical 50 KG grouping"
+    apply_internal_component_lane_policies(internal_component_policies, lanes_by_dest_item,
+        schema_version=(graph_meta.get("internal_component_policy") or {}).get("schema_version"))
     lanes_with_fallback_transport_cost = sum(1 for l in lanes if bool(l.get("transport_cost_is_fallback")))
     lanes_with_explicit_transport_cost = len(lanes) - lanes_with_fallback_transport_cost
     lanes_by_src_item: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -9642,6 +12575,8 @@ def main() -> None:
             eligible_pairs={pair for pair in externally_sourced_pairs if pair[0] in process_node_ids},
             item_unit_map=item_unit_map,
         )
+    source_boundary_working_calendar = any(
+        row["lead_calendar"] == "monday_friday" for row in source_boundary_policies.values())
     source_boundary_order_ids: set[str] = set()
     demand_rows = scenario.get("demand", []) or []
     demand_pairs = [(str(d.get("node_id")), str(d.get("item_id"))) for d in demand_rows]
@@ -9650,6 +12585,30 @@ def main() -> None:
         (str(d.get("node_id")), str(d.get("item_id"))): (d.get("profile") or [])
         for d in demand_rows
     }
+    forecast_consumption_pairs = resolve_forecast_consumption(
+        forecast_consumption_policy, source_forecast=args.mrp_forecast_source == "source",
+        missing_period_policy=missing_forecast_period_policy,
+        production_execution_policy=production_execution_policy, nodes=nodes,
+        demand_pairs=demand_pairs, produced_pairs=produced_pairs, lanes_by_dest_item=lanes_by_dest_item,
+        target_bucket_days=mrp_target_bucket_days,
+    )
+    forecast_consumption_rows: list[dict[str, Any]] = []
+    current_envelope = None
+    current_envelope_rows: list[dict[str, Any]] = []
+    annual_projection_rows: list[dict[str, Any]] = []
+    customer_forecast_projection_rows: list[dict[str, Any]] = []
+    if current_envelope_policy is not None:
+        source_to_customer = {}
+        for pair in forecast_consumption_pairs:
+            incoming = lanes_by_dest_item.get(pair, ())
+            if len(incoming) != 1:
+                raise ValueError("Current requirement envelope requires one depot source per finished customer")
+            source_pair = (incoming[0]["src"], pair[1])
+            if source_pair in source_to_customer:
+                raise ValueError("Current requirement envelope cannot allocate one source I among multiple customers")
+            source_to_customer[source_pair] = pair
+        current_envelope = CurrentRequirementEnvelope(graph_meta.get("mrp_current_requirements"),
+            source_to_customer=source_to_customer, origin_date=safety_calendar["start_date"])
     # Fresh for every run, including repeated main() calls in one process.
     # Profiles are retained by demand_profiles and are not mutated during a run.
     demand_profile_value_cache: dict[tuple[int, int], float] = {}
@@ -9670,6 +12629,10 @@ def main() -> None:
         mrp_source_forecasts = RollingMrpForecast(
             graph_meta.get("mrp_forecasts"), demand_pairs=set(demand_pairs),
             origin_date=safety_calendar["start_date"],
+            missing_period_policy=missing_forecast_period_policy,
+            consumption_policy=forecast_consumption_policy,
+            annual_projection_policy=annual_projection_policy,
+            customer_demand_policy=graph_meta.get("customer_demand_policy"),
         )
 
     def planning_forecast_window(
@@ -9677,10 +12640,12 @@ def main() -> None:
     ) -> tuple[float, dict[str, Any]]:
         """Planning-only overlay: never write to the physical demand profiles."""
         assert mrp_source_forecasts is not None
-        fallback = [
-            max(0.0, _cached_profile_value(demand_profiles[pair], target_day + offset, demand_profile_value_cache))
+        fallback = ([0.0] * window_days if mrp_source_forecasts.customer_projection else [
+            max(0.0, _cached_profile_value(demand_profiles[pair],
+                (target_day + offset) % 365 if annual_projection_policy is not None and target_day + offset >= 365
+                else target_day + offset, demand_profile_value_cache))
             for offset in range(window_days)
-        ]
+        ])
         return mrp_source_forecasts.window(
             pair, decision_day=decision_day, target_day=target_day, fallback_daily_values=fallback,
         )
@@ -9709,6 +12674,31 @@ def main() -> None:
         )
     except DemandPerturbationError as exc:
         raise SystemExit(f"Invalid --demand-perturbation-csv: {exc}") from exc
+    customer_replenishment_policy = graph_meta.get("customer_replenishment_policy")
+    customer_physical_cover_routes = resolve_customer_physical_cover(customer_replenishment_policy,
+        nodes=nodes, demand_pairs=demand_pairs, lanes_by_dest_item=lanes_by_dest_item,
+        dated_planning=dated_component_planning, stochastic_leads=args.stochastic_lead_times,
+        warmup_days=warmup_days, demand_perturbation=demand_perturbation.enabled,
+        controls=bool(control_provider.enabled or control_probe is not None), review_days=review_period_days)
+    customer_demand_policy = graph_meta.get("customer_demand_policy")
+    customer_demand_calendar = None
+    customer_demand_policy_rows: list[dict[str, Any]] = []
+    if resolve_customer_demand_policy(customer_demand_policy, demand_pairs=demand_pairs,
+            forecast_consumption_pairs=forecast_consumption_pairs,
+            customer_cover_pairs=customer_physical_cover_routes,
+            current_envelope_policy=current_envelope_policy, sim_days=sim_days):
+        customer_demand_calendar = (SourceCustomerHistory(graph_meta.get("customer_demand_history"),
+            demand_pairs=set(demand_pairs), origin_date=safety_calendar["start_date"], sim_days=sim_days)
+            if customer_demand_policy == "source_customer_history_v1" else
+            SourcePriorWeekCustomerDemand(graph_meta.get("mrp_forecasts"),
+                nominal_profiles=demand_profiles, origin_date=safety_calendar["start_date"]))
+    customer_dispatch_forecast_pairs = resolve_customer_dispatch_forecast_policy(
+        graph_meta.get("customer_dispatch_forecast_policy"),
+        customer_cover_pairs=customer_physical_cover_routes, customer_demand_policy=customer_demand_policy,
+        forecast=mrp_source_forecasts, demand_calendar=customer_demand_calendar)
+    customer_known_demand_pairs = (customer_dispatch_forecast_pairs
+        if (graph_meta.get("customer_dispatch_forecast_policy") or {}).get("mode") == "known_demand_only_v1"
+        else frozenset())
     demand_perturbation_sha256 = (
         hashlib.sha256(demand_perturbation_path.read_bytes()).hexdigest()
         if demand_perturbation_path is not None
@@ -9918,6 +12908,71 @@ def main() -> None:
                 production_input_pairs.append(old_key)
     production_input_pairs = sorted(production_input_pairs)
     production_output_pairs = sorted(production_output_pairs)
+    common_internal_safety_policy = graph_meta.get("internal_component_safety_policy")
+    common_internal_safety_pairs = resolve_common_internal_safety_pairs(
+        common_internal_safety_policy, execution_mode=args.mrp_execution_mode, nodes=nodes,
+        component_pairs=set(production_input_pairs) - set(production_output_pairs),
+        lanes_by_dest_item=lanes_by_dest_item,
+    )
+    if common_internal_safety_pairs and args.safety_time_calendar != "weekdays":
+        raise ValueError("Common internal source safety requires the confirmed Monday-Friday calendar")
+    anticipated_internal_pairs = (common_internal_safety_pairs
+        if common_internal_safety_policy == "source_safety_additive_v2" else set())
+    stock_protection_active = stock_protection_active or bool(common_internal_safety_pairs)
+    finished_goods_dispatch_policy = graph_meta.get("finished_goods_dispatch_policy")
+    finished_goods_push_sources = resolve_finished_goods_push_sources(
+        finished_goods_dispatch_policy, nodes=nodes, produced_pairs=produced_pairs,
+        finished_item_ids=finished_good_item_ids, lanes_by_dest_item=lanes_by_dest_item)
+    production_depot_policy = graph_meta.get("production_depot_feedback_policy")
+    production_depots_by_output = resolve_production_depot_feedback(
+        production_depot_policy, execution_mode=args.mrp_execution_mode,
+        forecast_signal=forecast_production_signal, nodes=nodes,
+        produced_pairs=produced_pairs, finished_item_ids=finished_good_item_ids,
+        lanes_by_dest_item=lanes_by_dest_item,
+    )
+    finished_goods_release_policies = resolve_finished_goods_release_policy(
+        graph_meta.get("finished_goods_release_policy"), nodes=nodes, produced_pairs=produced_pairs,
+        finished_item_ids=finished_good_item_ids, lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map,
+        receipt_netting_mode=args.mrp_receipt_netting_mode)
+    legacy_finished_goods_release_policies = dict(finished_goods_release_policies)
+    production_release_policies = resolve_production_release_policy(
+        graph_meta.get("production_release_policy"), nodes=nodes, produced_pairs=produced_pairs,
+        item_unit_map=item_unit_map, receipt_netting_mode=args.mrp_receipt_netting_mode)
+    if finished_goods_release_policies.keys() & production_release_policies.keys():
+        raise ValueError("A manufactured item cannot have two production release policies")
+    for pair in production_release_policies:
+        # Validate the unknown-capacity fallback before any simulation work.
+        production_campaign_work_days(1.0, capacity_qty=process_capacity_by_output_pair.get(pair, 0.0),
+            fixed_lot_qty=production_lot_policy_by_pair.get(pair, {}).get("fixed_lot_qty", 0.0))
+    finished_goods_release_policies.update(production_release_policies)
+    manufacturing_closed_days = resolve_manufacturing_closures(graph_meta.get("manufacturing_closures"),
+        nodes=nodes, produced_pairs=produced_pairs, origin_date=safety_calendar["start_date"])
+    if manufacturing_closed_days and production_execution_policy != "dated_releases_v1":
+        raise ValueError("Manufacturing closure candidate requires dated production execution")
+    manufacturing_calendar_by_pair = {pair: dict(closed_days=closed,
+        process_days=max(1, int(math.ceil(process_tau_days_by_pair.get(pair, 0.0)))),
+        receipt_days=finished_goods_release_policies.get(pair, {}).get("receipt_days", 0),
+        origin_date=safety_calendar["start_date"]) for pair, closed in manufacturing_closed_days.items()}
+    manufacturing_calendar_rows = []
+    if finished_goods_release_policies and (not dated_component_planning or not args.lot_trace
+            or initialization_policy["opening_production_order_bom_issue_mode"] != "wip"):
+        raise ValueError("Production release requires dated lot tracing and opening production WIP convention")
+    opening_production_availability_policy = graph_meta.get("opening_production_availability_policy")
+    opening_production_availability_pairs = resolve_opening_production_availability(
+        opening_production_availability_policy, opening_orders=opening_open_orders_payload,
+        nodes=nodes, dated_execution=dated_mrp_execution, lot_trace=args.lot_trace,
+        bom_issue_mode=initialization_policy["opening_production_order_bom_issue_mode"])
+    opening_production_availability_pairs |= set(finished_goods_release_policies)
+    feedback_depot_pairs = {pair for pairs in production_depots_by_output.values() for pair in pairs}
+    depot_safety_protection_policy = graph_meta.get("depot_safety_protection_policy")
+    depot_safety_protection_pairs = resolve_depot_safety_protection(
+        depot_safety_protection_policy, source_policy_pairs=mrp_snapshot_pairs,
+        execution_mode=args.mrp_execution_mode, forecast_signal=forecast_production_signal,
+        nodes=nodes, produced_pairs=produced_pairs, finished_item_ids=finished_good_item_ids,
+        lanes_by_dest_item=lanes_by_dest_item)
+    if depot_safety_protection_pairs & feedback_depot_pairs:
+        raise ValueError("Source-only depot protection cannot overlap the older full-position feedback protection")
+    stock_protection_active = stock_protection_active or bool(feedback_depot_pairs | depot_safety_protection_pairs)
     external_component_calendar: ExternalComponentDemandCalendar | None = None
     external_component_backlogs: dict = {}
     external_component_daily_rows: list[dict[str, Any]] = []
@@ -9931,7 +12986,57 @@ def main() -> None:
         )
         if any(pair[1] in finished_good_item_ids for pair in external_component_calendar.pairs):
             raise ValueError("External component uses cannot introduce an extra finished-good demand")
+    managed_inventory_pairs = resolve_managed_inventory_pairs(
+        graph_meta.get("managed_inventory_pairs"), stock_pairs=stock_pairs,
+        production_pairs=set(production_input_pairs) | set(production_output_pairs) | set(demand_pairs),
+        inbound_pairs=set(lanes_by_dest_item),
+    )
+    external_planning_calendar = resolve_external_planning_forecasts(
+        graph_meta.get("external_component_planning_forecasts"), production_input_pairs=production_input_pairs,
+        managed_pairs=managed_inventory_pairs, finished_good_item_ids=finished_good_item_ids,
+        item_unit_map=item_unit_map, origin_date=safety_calendar["start_date"],
+        horizon_days=sim_days + (configured_mrp_horizon_days or 0))
+    if external_planning_calendar is not None and (not dated_component_planning or not args.lot_trace):
+        raise ValueError("Planning-only component forecasts require dated planning and lot tracing")
+    managed_supply_policies, managed_forecast_calendar = resolve_managed_supply_policies(
+        graph_meta.get("managed_inventory_pairs"), managed_pairs=managed_inventory_pairs,
+        lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map, supplier_node_ids=supplier_node_ids,
+        forecast_payload=graph_meta.get("managed_inventory_forecasts"), origin_date=safety_calendar["start_date"],
+        horizon_days=sim_days + (configured_mrp_horizon_days or 0))
+    if managed_supply_policies and (not dated_component_planning or not args.lot_trace
+            or args.supplier_delivery_mode != "source" or not anticipated_purchase_dates or not 0 < sim_days <= 365):
+        raise ValueError("Managed supply requires dated planning, lot tracing, source delivery, dated protection and a year-one scenario")
+    observed_component_execution = None
+    external_execution_pairs = set(external_component_calendar.pairs) if external_component_calendar else set()
+    if "observed_external_component_demands" in graph_meta:
+        if external_component_calendar is None:
+            raise ValueError("Observed component uses require a separate existing forecast calendar")
+        observed_component_execution = ObservedExternalComponentExecution(
+            graph_meta["observed_external_component_demands"],
+            pair_uoms={pair: item_unit_map.get(pair[1], "")
+                       for pair in set(production_input_pairs) | managed_inventory_pairs},
+            origin_date=safety_calendar["start_date"], horizon_days=sim_days,
+        )
+        if any(pair[1] in finished_good_item_ids for pair in observed_component_execution.pairs):
+            raise ValueError("Observed other uses cannot introduce finished-good demand")
+        external_execution_pairs.update(observed_component_execution.pairs)
+    if managed_supply_policies and (observed_component_execution is None
+            or not set(managed_supply_policies) <= set(observed_component_execution.pairs)):
+        raise ValueError("Managed supply requires separate observed physical uses; forecasts never execute as uses")
     industrial_planning_calendar = None
+    industrial_forecast_revision_policy = graph_meta.get("industrial_forecast_revision_policy")
+    industrial_missing_period_policy = industrial_forecast_missing_policy(
+        industrial_forecast_revision_policy, missing_forecast_period_policy)
+    if industrial_forecast_revision_policy is not None and "industrial_component_planning" not in graph_meta:
+        raise ValueError("Industrial revision policy requires an industrial planning calendar")
+    industrial_requirement_reconciliation_policy = graph_meta.get("industrial_requirement_reconciliation_policy")
+    if industrial_requirement_reconciliation_policy not in (None, "covered_horizon_net_complement_v1",
+                                                            "covered_cumulative_envelope_v1",
+                                                            "separate_own_and_other_v1"):
+        raise ValueError("Unknown industrial requirement reconciliation policy")
+    if industrial_requirement_reconciliation_policy is not None and (
+            not dated_component_planning or "industrial_component_planning" not in graph_meta):
+        raise ValueError("Covered-horizon reconciliation requires an explicit dated industrial forecast calendar")
     if "industrial_component_planning" in graph_meta:
         if not dated_component_planning:
             raise ValueError("Industrial total planning requires dated execution")
@@ -9939,6 +13044,7 @@ def main() -> None:
             graph_meta["industrial_component_planning"],
             pair_uoms={pair: item_unit_map.get(pair[1], "") for pair in production_input_pairs},
             origin_date=safety_calendar["start_date"],
+            missing_period_policy=industrial_missing_period_policy,
         )
     mrp_trace_pairs = sorted(
         stock_pairs
@@ -9952,6 +13058,24 @@ def main() -> None:
     )
     cum_output_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     prev_production_command_by_pair: dict[tuple[str, str], float] = {}
+    production_execution_snapshots: dict = {}
+    production_execution_snapshot_rows: list[dict] = []
+    production_programme_book = None
+    programme_weekly_consumed = defaultdict(float)
+    programme_decision_rows = []
+    programme_source_budget_rows = []
+    if graph_meta.get("production_programme_policy") is not None:
+        if (chain_planning_policy is None or production_execution_policy!="dated_releases_v1" or warmup_days
+                or industrial_planning_calendar is None or safety_calendar["start_date"]!="2025-01-01"):
+            raise ValueError("Weekly production programmes require the existing dated source-year chain")
+        production_programme_book=WeeklyProductionProgramme(graph_meta["production_programme_policy"],
+            bom_by_pair=process_input_requirements_by_output_pair,
+            pair_uoms={p:normalize_unit(item_unit_map[p[1]]) for p in produced_pairs|set(production_input_pairs)})
+    internal_transfer_commitment_pairs = internal_transfer_commitment_scope(
+        internal_transfer_commitment_policy, lanes_by_dest_item=lanes_by_dest_item,
+        produced_pairs=produced_pairs, production_input_pairs=production_input_pairs,
+        push_destinations=set(finished_goods_push_sources))
+    internal_transfer_commitments = InternalTransferCommitments() if internal_transfer_commitment_policy else None
     open_production_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     open_production_campaign_id_by_pair: dict[tuple[str, str], str] = {}
     production_campaign_started_day_by_pair: dict[tuple[str, str], int] = {}
@@ -9968,7 +13092,7 @@ def main() -> None:
     pair_max_lead_days: dict[tuple[str, str], int] = {}
     pair_stock_cover_days: dict[tuple[str, str], int] = {}
     for pair, lane_list in lanes_by_dest_item.items():
-        pair_max_lead_days[pair] = max(int(to_float(l.get("lead_days"), 1.0)) for l in lane_list) if lane_list else 1
+        pair_max_lead_days[pair] = max(l.get("physical_transport_days", int(to_float(l.get("lead_days"), 1.0))) for l in lane_list) if lane_list else 1
         max_cover = (
             max(lead_time_cover_days(l, args.stochastic_lead_times, lead_time_distribution_mode) for l in lane_list)
             if lane_list
@@ -9999,6 +13123,8 @@ def main() -> None:
         cache_key = (profile_day_int, effective_window_days, bool(include_cutover_context))
         if mrp_source_forecasts is not None:
             cache_key += (mrp_source_forecasts.selection(output_day),)
+            if forecast_consumption_policy is not None:
+                cache_key += (output_day, mrp_source_forecasts.consumption_revision)
         cached = mrp_target_demand_floor_cache.get(cache_key)
         if cached is not None:
             return cached
@@ -10207,7 +13333,7 @@ def main() -> None:
             target = max(
                 base_stock.get(pair, 0.0),
                 daily_req * float(cover_days),
-                safety_stock_days * daily_req,
+                generic_safety_days(pair) * daily_req,
             )
             current = stock.get(pair, 0.0)
             target *= opening_stock_bootstrap_scale
@@ -10252,7 +13378,7 @@ def main() -> None:
             cover_days = max(
                 downstream_cover_days + review_period_days,
                 int(math.ceil(process_tau_days)) + review_period_days,
-                int(math.ceil(safety_stock_days)),
+                int(math.ceil(generic_safety_days(pair))),
             )
             target = max(base_stock.get(pair, 0.0), daily_signal * float(cover_days))
             target *= opening_stock_bootstrap_scale
@@ -10334,6 +13460,8 @@ def main() -> None:
         stochastic_lead_times=args.stochastic_lead_times,
         lead_time_distribution_mode=lead_time_distribution_mode,
         dynamic_requirement_pair_keys=dynamic_requirement_pair_keys,
+        safety_days_by_pair=({pair: generic_safety_days(pair) for pair in externally_sourced_pairs}
+                             if source_stock_policy_precedence else None),
     )
     estimated_source_policy_rows_by_pair = {
         (str(row.get("node_id") or ""), str(row.get("item_id") or "")): row
@@ -10649,6 +13777,7 @@ def main() -> None:
                 ),
                 supplier_risk_applied_rows=supplier_risk_applied_rows,
                 dated_purchase_availability=dated_mrp_execution,
+                production_availability_pairs=opening_production_availability_pairs,
             )
             opening_open_order_source = str(opening_open_orders_payload.get("source_file") or "metadata")
         else:
@@ -10677,6 +13806,48 @@ def main() -> None:
             opening_open_order_source = "reconstructed_january_snapshot"
         total_initialization_pipeline_seeded += total_opening_open_order_qty
         initialization_pipeline_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"], r.get("lane_src", "")))
+    opening_pack_orders = None
+    opening_pack_event_rows, opening_pack_capacity_rows = [], []
+    if graph_meta.get("opening_production_pack_policy") is not None:
+        if warmup_days or production_execution_policy != "dated_releases_v1":
+            raise ValueError("Opening Pack requires dated production execution without warmup")
+        opening_pack_orders = OpeningPackOrders(graph_meta["opening_production_pack_policy"],
+            opening_orders=opening_open_order_rows, nodes=nodes,
+            bom_by_pair=process_input_requirements_by_output_pair, item_unit_map=item_unit_map,
+            origin_date=safety_calendar["start_date"], dated_execution=dated_component_planning,
+            lot_trace=args.lot_trace, bom_issue_mode=opening_production_order_bom_issue_mode,
+            closed_days_by_pair=manufacturing_closed_days)
+        if opening_pack_orders.pairs - opening_production_availability_pairs:
+            raise ValueError("Opening Pack requires source G/I availability for every selected OF")
+        if any(c["pair"] not in stock for cs in opening_pack_orders.components.values() for c in cs):
+            raise ValueError("Opening Pack requires modeled stock for each explicitly classified component")
+        # These OF are manufacturing commitments, not unconditional physical receipts.
+        for arrival, rows in list(pipeline.items()):
+            retained = []
+            for receipt in rows:
+                if receipt[3] in opening_pack_orders.rows:
+                    in_transit[receipt[0], receipt[1]] -= receipt[2]
+                    total_initialization_pipeline_seeded -= receipt[2]
+                else:
+                    retained.append(receipt)
+            pipeline[arrival] = retained
+        for source in opening_pack_orders.rows.values():
+            pair = source["pair"]
+            packs = {c["pair"] for c in opening_pack_orders.components[pair]}
+            for component_pair, ratio in process_input_requirements_by_output_pair[pair]:
+                if component_pair in packs:
+                    continue
+                required = source["target_qty"] * ratio
+                opening_production_consumption_rows.append(dict(day=-1, issue_day=-1,
+                    receipt_day=source["physical_delivery_day"], node_id=pair[0], output_item_id=pair[1],
+                    component_node_id=component_pair[0], component_item_id=component_pair[1], bom_issue_mode="wip_non_pack",
+                    opening_production_qty=source["target_qty"], required_component_qty=required,
+                    consumed_from_stock_qty=0.0, assumed_initial_wip_qty=required,
+                    shortage_assumed_wip_or_source_gap_qty=0.0, source_id=source["source_marker"]))
+        for row in initialization_pipeline_rows:
+            if ((row.get("node_id"), row.get("item_id")) in opening_pack_orders.pairs
+                    and row.get("category") == "opening_open_order_book_real"):
+                row.update(category="opening_pack_manufacturing_commitment_not_physical_pipeline", seeded_pipeline_qty=0.0)
     apply_supplier_stock_floor_overrides()
     simulated_opening_stock_snapshot = dict(stock)
     if pending_receipt_calendar is not None:
@@ -10735,6 +13906,7 @@ def main() -> None:
                 raise ValueError(f"Initial stock availability requires unchanged physical opening stock: {pair}")
         initial_stock_availability.initialize(stock=stock, ledger=lot_ledger)
     opening_purchase_availability: OpeningPurchaseAvailability | None = None
+    opening_finished_goods_physical_by_day: dict = defaultdict(list)
     if dated_mrp_execution:
         if (warmup_days or opening_observed_stock_scale_requested
                 or measurement_start_stock_scale_csv_path or measurement_start_in_transit_scale_csv_path
@@ -10748,13 +13920,34 @@ def main() -> None:
         opening_purchase_availability = OpeningPurchaseAvailability(
             opening_open_order_rows, item_unit_map=item_unit_map,
         )
+        for row in opening_open_order_rows:
+            if row["order_type"] == "opening_production_order" and (row["node_id"], row["item_id"]) in opening_production_availability_pairs:
+                if row["physical_delivery_day"] < 0 or row["arrival_day"] < row["physical_delivery_day"]:
+                    raise ValueError("Opening PF physical/usable source dates must satisfy0<=G<=I")
+                if opening_pack_orders is None or row["source_marker"] not in opening_pack_orders.rows:
+                    opening_finished_goods_physical_by_day[row["physical_delivery_day"]].append(row)
+    if graph_meta.get("opening_purchase_postponement_policy") is not None and not dated_component_planning:
+        raise ValueError("Opening purchase postponement requires dated component planning")
+    opening_purchase_postponement_permissions = resolve_opening_purchase_postponement(
+        graph_meta.get("opening_purchase_postponement_policy"), availability=opening_purchase_availability,
+        origin_date=safety_calendar.get("start_date"), warmup_days=warmup_days)
+    opening_purchase_replanning_rows: list[dict[str, Any]] = []
+    supplier_promise_postponement_policy = resolve_supplier_promise_postponement(
+        graph_meta.get("supplier_promise_postponement_policy"), dated=dated_component_planning,
+        warmup_days=warmup_days)
+    supplier_promise_replanning_rows: list[dict[str, Any]] = []
     network_transport_sources: dict = {}
     network_leads: dict = {}
     network_lots: dict = {}
+    internal_transfer_planning_lot_policy = graph_meta.get("internal_transfer_planning_lot_policy")
+    internal_transfer_planning_lots: dict = {}
+    if internal_transfer_planning_lot_policy is not None and not dated_component_planning:
+        raise ValueError("Internal transfer lot alignment requires dated component planning")
     network_covers: dict = {}
     aggregate_supplier_pairs: set = set()
     aggregate_delivery_pairs: set = set()
     supplier_receipt_policies: dict = {}
+    anticipated_receipt_cache: dict = {}
     sourcing_policies = resolve_sourcing_policies(
         graph_meta.get("sourcing_policy"), execution_mode=args.mrp_execution_mode,
         lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map,
@@ -10764,7 +13957,15 @@ def main() -> None:
         graph_meta.get("procurement_batching"), execution_mode=args.mrp_execution_mode,
         lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map,
     )
-    dated_action_pairs = (set(production_input_pairs) & set(lanes_by_dest_item)) | set(source_boundary_policies)
+    dated_action_pairs = ((set(production_input_pairs) | set(managed_supply_policies))
+                          & set(lanes_by_dest_item)) | set(source_boundary_policies)
+    allocated_supplier_pairs = set()
+    def dated_action_scope_for_pair(pair):
+        if pair in dated_action_pairs:
+            return "component_procurement"
+        if production_execution_policy is not None and pair in produced_pairs:
+            return "manufacturing_next_day_revalidated_release"
+        return "planning_only_SD_execution_preserved"
     if dated_component_planning:
         if unmodeled_supplier_source_mode != "external_procurement":
             raise ValueError("Dated component planning requires explicit external procurement boundaries")
@@ -10784,7 +13985,7 @@ def main() -> None:
                     ((lane["src"], pair[1]), weight / sum(weights))
                     for lane, weight in zip(incoming, weights) if weight > 0
                 ]
-            network_leads[pair] = max(lead_time_reference_days(lane) for lane in incoming)
+            network_leads[pair] = max(operational_transport_days(lane) for lane in incoming)
         receipt_payload = graph_meta.get("supplier_delivery_receipt_policy")
         if (not isinstance(receipt_payload, dict) or type(receipt_payload.get("schema_version")) is not int or receipt_payload.get("schema_version") != 1
                 or receipt_payload.get("calendar") != "monday_friday" or not isinstance(receipt_payload.get("rows"), list)):
@@ -10803,13 +14004,28 @@ def main() -> None:
             raise ValueError(f"Missing supplier receipt policy: {sorted(aggregate_delivery_pairs - set(supplier_receipt_policies))}")
         if set(sourcing_policies) - aggregate_delivery_pairs:
             raise ValueError("Sourcing policy requires an aggregate supplier delivery boundary")
+        if (set(managed_supply_policies) - aggregate_delivery_pairs
+                or set(managed_supply_policies) & (set(sourcing_policies) | set(supplier_planning_policies)
+                                                   | set(procurement_batching_policies))):
+            raise ValueError("Managed supply requires a dedicated aggregate delivery boundary without another purchase policy")
+        for pair, policy in managed_supply_policies.items():
+            capacity = supplier_daily_capacity_by_pair.get((policy["supplier_id"], pair[1]), 0.0)
+            if capacity < policy["lot_multiple_qty"]:
+                raise ValueError("Managed supply lot exceeds the configured supplier daily capacity")
         if set(procurement_batching_policies) - aggregate_delivery_pairs:
             raise ValueError("Procurement batching requires an aggregate supplier delivery boundary")
         if (set(supplier_planning_policies) - aggregate_delivery_pairs
                 or set(supplier_planning_policies) & (set(sourcing_policies) | set(procurement_batching_policies))):
             raise ValueError("Supplier planning candidates require aggregate purchase leaves without another purchase policy")
-        if industrial_planning_calendar is not None and set(industrial_planning_calendar.pairs) - aggregate_delivery_pairs:
-            raise ValueError("Total industrial forecasts require aggregate external purchase leaves")
+        if industrial_planning_calendar is not None and set(industrial_planning_calendar.pairs) - (
+                aggregate_delivery_pairs | common_internal_safety_pairs):
+            raise ValueError("Total industrial forecasts require external purchase leaves or source-protected internal components")
+        allocated_supplier_pairs = allocated_supplier_scope(allocated_supplier_policy,
+            purchase_pairs=aggregate_delivery_pairs, lanes_by_dest_item=lanes_by_dest_item,
+            excluded_pairs=(set(sourcing_policies) | set(supplier_planning_policies)
+                            | set(procurement_batching_policies) | set(managed_supply_policies)))
+        if allocated_supplier_pairs and not anticipated_purchase_dates:
+            raise ValueError("Allocated supplier planning requires the existing dated purchase anticipation")
         if args.supplier_delivery_mode in {"source", "empirical"}:
             for pair in sorted(aggregate_delivery_pairs):
                 for lane in lanes_by_dest_item[pair]:
@@ -10826,7 +14042,7 @@ def main() -> None:
                 integer=normalize_unit(item_unit_map.get(pair[1], "")) == "UN",
             )
         for pair, boundary in source_boundary_policies.items():
-            network_leads[pair] = boundary["lead_days"]
+            network_leads[pair] = source_boundary_available_day(0, boundary, origin_date=safety_calendar["start_date"])
             network_lots[pair] = LotSizing(minimum=boundary["fixed_lot_qty"], multiple=boundary["fixed_lot_qty"])
         for pair in set(network_leads) | set(process_input_requirements_by_output_pair):
             network_lots.setdefault(pair, LotSizing(integer=normalize_unit(item_unit_map.get(pair[1], "")) == "UN"))
@@ -10835,12 +14051,37 @@ def main() -> None:
             network_lots[pair] = LotSizing(multiple=batch_policy["rounding_multiple_qty"])
         for pair, internal_policy in internal_component_policies.items():
             if "transfer_multiple_qty" in internal_policy:
-                network_lots[pair] = LotSizing(multiple=internal_policy["transfer_multiple_qty"])
+                network_lots[pair] = LotSizing(multiple=internal_policy["transfer_multiple_qty"],
+                    integer=normalize_unit(item_unit_map.get(pair[1], "")) == "UN")
+        aligned_lots, purchase_planning_lot_audit = resolve_purchase_planning_lots(
+            purchase_planning_lot_policy, purchase_pairs=aggregate_delivery_pairs,
+            lanes_by_dest_item=lanes_by_dest_item,
+            selected_suppliers={pair: policy["selected_supplier_id"] for pair, policy in supplier_planning_policies.items()},
+            protected_pairs=(set(sourcing_policies) | set(procurement_batching_policies)
+                             | set(source_boundary_policies) | set(internal_component_policies)),
+            nonbinding_pairs={pair for pair in aggregate_delivery_pairs
+                              if policy_pair_key(*pair) in nonbinding_standard_order_pair_keys},
+            item_unit_map=item_unit_map,
+        )
+        network_lots.update(aligned_lots)
+        internal_transfer_planning_lots = resolve_internal_transfer_planning_lots(
+            internal_transfer_planning_lot_policy, execution_mode=args.mrp_execution_mode,
+            nodes=nodes, component_pairs=set(production_input_pairs) - produced_pairs,
+            lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map, current_lots=network_lots)
+        network_lots.update(internal_transfer_planning_lots)
+        for pair, policy in managed_supply_policies.items():
+            network_lots[pair] = managed_supply_lot(policy)
+        if net_requirement_rounding_policy is not None:
+            network_lots = {pair: replace(policy, net_rounding_quantum=mrp_mass_net_rounding_quantum(
+                net_requirement_rounding_policy, item_unit_map.get(pair[1], "")))
+                for pair, policy in network_lots.items()}
         for calendar_name, calendar in (("lane", pipeline), ("external", external_pipeline), ("estimated", estimated_source_pipeline)):
             for receipt_day, rows in calendar.items():
                 for ordinal, receipt in enumerate(rows):
                     marker = str(receipt[3]) if calendar_name == "lane" else ""
-                    receipt_id = marker if marker in opening_purchase_availability.by_marker else f"initial:{calendar_name}:{receipt_day}:{ordinal}"
+                    receipt_id = initial_planning_receipt_identity(calendar_name, receipt_day, ordinal, receipt,
+                        availability_markers=opening_purchase_availability.by_marker,
+                        opening_production_pairs=opening_production_availability_pairs)
                     origin = "production" if marker.startswith(OPENING_PRODUCTION_ORDER_LANE_PREFIX) else calendar_name
                     planning_commitments_by_pair[(receipt[0], receipt[1])][receipt_id] = (receipt_day, receipt[2], origin)
         if initial_stock_availability is not None:
@@ -10848,10 +14089,40 @@ def main() -> None:
                 planning_commitments_by_pair[(row["node_id"], row["item_id"])]["held:" + row["source_row"]] = (
                     row["release_day"], row["quantity"], "held",
                 )
+        if opening_pack_orders is not None:
+            sync_opening_pack_commitments(opening_pack_orders, decision_day=-1,
+                commitments=planning_commitments_by_pair)
     supplier_receipt_nonworking_dates_by_pair = resolve_supplier_receipt_nonworking_dates(
         graph_meta.get("supplier_delivery_receipt_policy"), execution_mode=args.mrp_execution_mode,
         eligible_pairs=aggregate_delivery_pairs,
     )
+    exact_supply_calendar_contexts = {}
+    if dated_supply_calendar_policy is not None:
+        for pair, incoming in lanes_by_dest_item.items():
+            if pair in aggregate_delivery_pairs or any(lane["src"] in supplier_node_ids for lane in incoming):
+                # External suppliers already have their own exact offer calendars.
+                continue
+            if len(incoming) != 1:
+                raise ValueError("Exact internal calendars require a single incoming route per pair")
+            lane = incoming[0]
+            policy = internal_component_policies.get(pair, {})
+            exact_supply_calendar_contexts[pair] = dict(
+                physical_lead_days=operational_transport_days(lane), receipt_days=policy.get("receipt_days", 0),
+                review_days=int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0)))),
+                pair_review_days=(mrp_review_period_days
+                    if pair[0] in process_node_ids and pair not in demand_pairs else review_period_days),
+                origin_date=safety_calendar["start_date"])
+        for pair in produced_pairs:
+            exact_supply_calendar_contexts[pair] = dict(
+                physical_lead_days=max(1, int(math.ceil(process_tau_days_by_pair.get(pair, 0.0)))),
+                receipt_days=finished_goods_release_policies.get(pair, {}).get("receipt_days", 0),
+                origin_date=safety_calendar["start_date"], closed_days=manufacturing_closed_days.get(pair, ()))
+        for pair, policy in source_boundary_policies.items():
+            working = policy["lead_calendar"] == "monday_friday"
+            exact_supply_calendar_contexts[pair] = dict(
+                physical_lead_days=0 if working else policy["lead_days"],
+                receipt_days=policy["lead_days"] if working else 0,
+                review_days=policy["review_period_days"], origin_date=safety_calendar["start_date"])
     empirical_delivery_policy = (resolve_empirical_supplier_delivery_policy(
         graph_meta.get("empirical_supplier_delivery_policy"), origin_date=safety_calendar["start_date"])
         if args.supplier_delivery_mode == "empirical" else None)
@@ -11345,6 +14616,40 @@ def main() -> None:
             "causal_status": causal_status(event_ids, root_ids=root_ids),
         }
 
+    supplier_purchase_review_policy = resolve_purchase_calendar_or_source_policy(
+        graph_meta.get("supplier_purchase_review_policy"),mode="weekly_calendar_v1",
+        eligible_pairs=aggregate_delivery_pairs,origin_date=safety_calendar.get("start_date"))
+    industrial_purchase_need_policy = resolve_purchase_calendar_or_source_policy(
+        graph_meta.get("industrial_purchase_need_policy"),mode="source_weekly_with_committed_floor_v1",
+        eligible_pairs=aggregate_delivery_pairs,origin_date=safety_calendar.get("start_date"))
+    industrial_purchase_source_pairs = ({(r["node_id"],r["item_id"]) for r in industrial_purchase_need_policy["pairs"]}
+                                       if industrial_purchase_need_policy else set())
+    if industrial_purchase_need_policy and (industrial_requirement_reconciliation_policy!="separate_own_and_other_v1"
+            or industrial_forecast_revision_policy!="latest_vintage_v1" or industrial_planning_calendar is None
+            or not industrial_purchase_source_pairs<=set(industrial_planning_calendar.pairs)):
+        raise ValueError("Source purchase planning requires latest known industrial vintages and separate-use fallback")
+    if supplier_purchase_review_policy and not anticipated_purchase_dates:
+        raise ValueError("Weekly purchases require the existing exact dated supplier planner")
+    industrial_horizon_coverage = None
+    industrial_unreported_coverage_rows = []
+    industrial_purchase_envelope_rows = []
+    industrial_purchase_envelope_pairs = (industrial_purchase_source_pairs if industrial_purchase_need_policy
+        and industrial_purchase_need_policy.get("forecast_envelope_policy") else set())
+    if industrial_purchase_need_policy and (industrial_purchase_need_policy.get("unreported_weeks_policy")
+            or industrial_purchase_envelope_pairs):
+        if warmup_days:
+            raise ValueError("Declared industrial horizon interpretation requires the dated source year without warmup")
+        industrial_horizon_coverage = IndustrialPlanningHorizonCoverage(
+            graph_meta.get("industrial_planning_horizon_coverage"), calendar=industrial_planning_calendar,
+            eligible_pairs=industrial_purchase_source_pairs, origin_date=safety_calendar["start_date"])
+    elif graph_meta.get("industrial_planning_horizon_coverage") is not None:
+        raise ValueError("Industrial coverage payload requires an explicit horizon scenario policy")
+    initial_purchase_book_completion = resolve_initial_purchase_book_completion(
+        graph_meta.get("initial_purchase_book_completion"),
+        pair_uoms={p:normalize_unit(item_unit_map[p[1]]) for p in aggregate_delivery_pairs},
+        lanes_by_dest_item=lanes_by_dest_item, receipt_policies=supplier_receipt_policies,
+        origin_date=safety_calendar.get("start_date"), dated=dated_component_planning, warmup_days=warmup_days)
+    initial_purchase_book_completion_rows = []
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
         output_day = day - warmup_days
@@ -11385,6 +14690,7 @@ def main() -> None:
             shipment_id: str = "",
             causal_event_ids: Any = "",
             causal_root_ids: Any = "",
+            count_new_order: bool = True,
         ) -> str:
             resolved_mrp_order_id = str(mrp_order_id or next_mrp_order_identity(
                 source_mode=source_mode,
@@ -11396,17 +14702,18 @@ def main() -> None:
                 if resolved_mrp_order_id in planning_commitments_by_pair[trace_pair]:
                     raise ValueError("Dated MRP commitment identity is already registered")
                 planning_commitments_by_pair[trace_pair][resolved_mrp_order_id] = (arrival_day, receipt_qty, source_mode)
-            planned_release_today_by_pair[trace_pair] += max(0.0, release_qty)
-            planned_receipt_today_by_pair[trace_pair] += max(0.0, receipt_qty)
-            planned_order_count_by_pair[trace_pair] += 1
-            previous_min = planned_receipt_min_day_by_pair.get(trace_pair)
-            previous_max = planned_receipt_max_day_by_pair.get(trace_pair)
-            planned_receipt_min_day_by_pair[trace_pair] = (
-                arrival_day if previous_min is None else min(previous_min, arrival_day)
-            )
-            planned_receipt_max_day_by_pair[trace_pair] = (
-                arrival_day if previous_max is None else max(previous_max, arrival_day)
-            )
+            if count_new_order:
+                planned_release_today_by_pair[trace_pair] += max(0.0, release_qty)
+                planned_receipt_today_by_pair[trace_pair] += max(0.0, receipt_qty)
+                planned_order_count_by_pair[trace_pair] += 1
+                previous_min = planned_receipt_min_day_by_pair.get(trace_pair)
+                previous_max = planned_receipt_max_day_by_pair.get(trace_pair)
+                planned_receipt_min_day_by_pair[trace_pair] = (
+                    arrival_day if previous_min is None else min(previous_min, arrival_day)
+                )
+                planned_receipt_max_day_by_pair[trace_pair] = (
+                    arrival_day if previous_max is None else max(previous_max, arrival_day)
+                )
             if not record_day:
                 return resolved_mrp_order_id
             safety_days_int = int(math.ceil(max(0.0, safety_time_days)))
@@ -11467,6 +14774,37 @@ def main() -> None:
                 )
             return resolved_mrp_order_id
 
+        # These documentary candidates become known today, never retroactively
+        # at J0. They use the aggregate receipt boundary, not a fabricated truck.
+        for documented in initial_purchase_book_completion.get(day, ()):
+            pair=(documented["node_id"],documented["item_id"])
+            identity=documented["mrp_order_id"]; qty=documented["quantity"]
+            g,i=documented["physical_delivery_day"],documented["available_day"]
+            if identity in supplier_delivery_orders or identity in planning_commitments_by_pair[pair]:
+                raise ValueError("Initial book completion cannot be registered twice")
+            receipt_policy=supplier_receipt_policies[pair]
+            supplier_delivery_orders[identity]=dict(receipt_policy,supplier_id=documented["supplier_id"],
+                edge_id=documented["edge_id"],original_physical_day=g,original_available_day=i,
+                initial_documentary_completion=True)
+            opening_purchase_availability.add_order(dict(order_type="external_procurement_supplier_delivery",
+                mrp_order_id=identity,node_id=pair[0],item_id=pair[1],src_node_id=documented["supplier_id"],
+                edge_id=documented["edge_id"],receipt_qty=qty,physical_delivery_day=g,arrival_day=i,
+                source_file=documented["source_file"],source_row=documented["source_row"]))
+            external_pipeline[i].append((pair[0],pair[1],qty,"","",identity))
+            external_in_transit[pair]+=qty
+            register_mrp_order(pair,source_mode="external_procurement_supplier_delivery",
+                src_node_id=documented["supplier_id"],dst_node_id=pair[0],item_id=pair[1],
+                release_qty=qty,receipt_qty=qty,arrival_day=i,safety_time_days=pair_mrp_safety_time_days.get(pair,0.0),
+                lead_days=max(1,i-day),lead_reference_days=network_leads[pair],edge_id=documented["edge_id"],
+                mrp_order_id=identity,source_inventory_reserved=False,count_new_order=False)
+            mrp_order_rows[-1].update(physical_delivery_day=g,available_day=i,
+                actual_physical_receipt_day=g if g<total_timeline_days else "",
+                actual_available_day=i if i<total_timeline_days else "",
+                source_file=documented["source_file"],source_row=documented["source_row"],
+                planning_status="initial_documentary_promise_candidate",release_status="order_placed_departure_unknown",
+                receipt_source_days=documented["receipt_workdays"],receipt_calendar="monday_friday",
+                delivery_reference_days="",delivery_sampled_days="")
+            initial_purchase_book_completion_rows.append(dict(documented,registered_day=day))
         output_prod_day_start = len(output_prod_rows)
         production_constraint_day_start = len(production_constraint_rows)
         supplier_capacity_day_start = len(supplier_capacity_daily_rows)
@@ -12003,6 +15341,16 @@ def main() -> None:
                 output_day,
                 demand_target_today,
             )
+        if customer_demand_calendar is not None:
+            # Inject arrived scenario orders before both consumption of the
+            # forecast and physical service. Keep demand_profiles unchanged.
+            raw_demand_target_today = {}
+            for pair in demand_pairs:
+                quantity, demand_audit = customer_demand_calendar.quantity(
+                    pair, decision_day=output_day, target_day=output_day)
+                raw_demand_target_today[pair] = quantity
+                if record_day:
+                    customer_demand_policy_rows.append(demand_audit)
         mrp_target_profile_day = (
             (profile_day // mrp_target_bucket_days) * mrp_target_bucket_days
             if mrp_target_bucket_days > 1
@@ -12088,23 +15436,95 @@ def main() -> None:
                     )
                 )
         if mrp_source_forecasts is not None:
+            if forecast_consumption_policy is not None:
+                # Same raw orders later used by service/backlog; observe once,
+                # after perturbations and before any daily planning window.
+                mrp_source_forecasts.observe_demand(output_day, raw_demand_target_today)
+                if record_day:
+                    forecast_consumption_rows.extend(dict(mrp_source_forecasts.consumption_audit(pair, output_day))
+                                                     for pair in sorted(forecast_consumption_pairs))
             mrp_raw_demand_target_today = planning_demand_targets_for_day(
                 output_day, mrp_target_profile_day, window_days=1,
             )
             mrp_demand_target_today = planning_demand_targets_for_day(
                 output_day, mrp_target_profile_day, window_days=mrp_signal_smoothing_days,
             )
+        def mrp_target_requirement_for_pair(
+            pair: tuple[str, str],
+            current_daily_req: float,
+            pair_review_period_days: int,
+        ) -> tuple[float, float, int, float]:
+            effective_cover_days = float(pair_stock_cover_days.get(pair, pair_review_period_days + 1))
+            if initialization_policy["seed_open_orders_from_january_snapshot"]:
+                effective_cover_days = mrp_opening_order_cover_days(
+                    effective_cover_days,
+                    opening_open_order_bridge_days_by_pair.get(pair, 0),
+                    quantity_netting_only=forecast_production_signal,
+                )
+            target_window_days = max(
+                1,
+                int(math.ceil(effective_cover_days)),
+                int(math.ceil(max(0.0, pair_mrp_safety_time_days.get(pair, 0.0)))),
+                int(math.ceil(max(0.0, generic_safety_days(pair)))),
+                int(math.ceil(max(0.0, demand_stock_target_days))) if pair in demand_pairs else 1,
+            )
+            floor_req = max(
+                0.0,
+                mrp_target_demand_floor_by_pair(mrp_target_profile_day, target_window_days).get(pair, 0.0),
+            )
+            # Dynamic component targets use the cover mean, not one lotified MPS spike.
+            target_daily_req = max(max(0.0, current_daily_req), floor_req)
+            if smoothed_cover_requirement_for_pair(pair) and floor_req > 1e-9:
+                target_daily_req = floor_req
+            return target_daily_req, floor_req, target_window_days, effective_cover_days
+
         production_reference_signal_today = (
             propagate_supply_demand_rates(
                 mrp_demand_target_today, lanes, process_input_requirements_by_output_pair,
             ) if forecast_production_signal else output_daily_signal_by_pair
         )
+        feedback_depot_targets: dict = {}
+        if feedback_depot_pairs:
+            depot_signals = propagate_demand_rates(mrp_demand_target_today, lanes)
+            for depot_pair in feedback_depot_pairs:
+                current_req = max(0.0, depot_signals.get(depot_pair, 0.0))
+                if static_requirement_for_pair(depot_pair) or (
+                    current_req <= 1e-9 and not (
+                        initialization_policy["use_bom_demand_signal_for_mrp"]
+                        and not initialization_policy["mrp_static_fallback_for_propagated_pairs"]
+                        and depot_pair in propagated_mrp_signal_pairs)):
+                    current_req = max(0.0, required_daily_input_by_pair.get(depot_pair, 0.0))
+                rate, _, _, cover = mrp_target_requirement_for_pair(depot_pair, current_req, review_period_days)
+                depot_control = resolve_daily_control(node_id=depot_pair[0], dst_node_id=depot_pair[0], item_id=depot_pair[1])
+                safety_multiplier = depot_control.safety_stock_multiplier if depot_control is not None else 1.0
+                target = 0.0 if initialization_policy["mrp_strict_safety_floor_from_safety_time"] else max(
+                    0.0, base_stock.get(depot_pair, 0.0)) * base_stock_floor_factor_for_pair(depot_pair)
+                target = max(target, pair_mrp_safety_stock_qty.get(depot_pair, 0.0) * safety_multiplier,
+                    rate * pair_mrp_safety_time_days.get(depot_pair, 0.0) * soft_safety_factor_for_pair(depot_pair) * safety_multiplier,
+                    rate * generic_safety_days(depot_pair) * safety_multiplier)
+                if depot_pair in demand_pairs:
+                    target = max(target, rate * demand_stock_target_days)
+                if depot_pair not in mrp_snapshot_pairs or dynamic_requirement_for_pair(depot_pair):
+                    target = max(target, rate * cover)
+                feedback_depot_targets[depot_pair] = max(0.0, target)
+
+        def production_feedback_for_pair(out_pair, local_target, *, before_receipts):
+            wip = production_batch_wip_by_pair.get(out_pair)
+            return production_depot_position(
+                output_pair=out_pair, depot_pairs=production_depots_by_output[out_pair],
+                decision_day=day, before_receipts=before_receipts, stock_by_pair=stock,
+                commitments_by_pair=planning_commitments_by_pair,
+                depot_targets=feedback_depot_targets, backlog_by_pair=backlog,
+                local_target_qty=local_target,
+                remaining_qty=open_production_campaign_qty_by_pair.get(out_pair, 0.0),
+                executed_wip_qty=wip.executed_qty if wip is not None else 0.0,
+            )
         external_production_signal_today: dict = {}
-        if external_component_calendar is not None:
+        if external_component_calendar is not None or external_planning_calendar is not None:
             # Keep this separate from the MPS reference: external requirements
             # are already injected once into the dated purchasing network.
             extra_window = max(1, mrp_signal_smoothing_days)
-            extra_known = external_component_calendar.requirements(
+            extra_known = component_planning_requirements(external_component_calendar, external_planning_calendar,
                 decision_day=output_day, first_day=output_day,
                 through_day=output_day + extra_window - 1,
             )
@@ -12186,7 +15606,18 @@ def main() -> None:
                         0.0,
                         mps_capacity_today[out_pair] * capacity_multiplier,
                     )
-                raw_command = out_signal + production_gap_gain * (out_target - out_stock)
+                    mps_capacity_today[out_pair] = manufacturing_day_capacity(mps_capacity_today[out_pair],
+                        day=day, closed_days=manufacturing_closed_days.get(out_pair, ()))
+                command_target, command_position = out_target, out_stock
+                if out_pair in production_depots_by_output:
+                    feedback = production_feedback_for_pair(out_pair, out_target, before_receipts=True)
+                    command_target = feedback["network_target_qty"]
+                    command_position = feedback["network_position_qty"]
+                    feedback["raw_command_qty"] = out_signal + production_gap_gain * feedback["gap_qty"]
+                    production_safety_decisions.setdefault(out_pair, {}).update({
+                        "mps_depot_" + field: round(value, 6) if isinstance(value, float) else value
+                        for field, value in feedback.items()})
+                raw_command = out_signal + production_gap_gain * (command_target - command_position)
                 if out_signal <= 1e-9 and out_pair not in lanes_by_src_item:
                     raw_command = 0.0
                 prev_cmd = mps_prev_production_command_by_pair.get(out_pair, raw_command)
@@ -12202,8 +15633,8 @@ def main() -> None:
                         or should_defer_new_lot_for_stock_position(
                             desired_qty=desired_qty,
                             lot_policy=lot_policy,
-                            stock_qty=out_stock,
-                            target_qty=out_target,
+                            stock_qty=command_position,
+                            target_qty=command_target,
                         )
                     )
                 ):
@@ -12257,6 +15688,7 @@ def main() -> None:
                 mps_open_campaign_qty_by_pair=mps_open_campaign_qty_by_pair,
                 mps_started_lots_by_week_pair=mps_started_lots_by_week_pair,
                 expand_internal_outputs=not forecast_production_signal,
+                closed_output_pairs={pair for pair, closed in manufacturing_closed_days.items() if day in closed},
             )
             propagated_demand_today = dict(same_item_demand_today)
             for pair, qty in propagate_demand_rates(mps_component_signal_today, lanes).items():
@@ -12276,43 +15708,12 @@ def main() -> None:
             raw_propagated_demand_today = propagate_demand_rates(mrp_raw_demand_target_today, lanes)
             propagated_demand_today = propagate_demand_rates(mrp_demand_target_today, lanes)
 
-        def mrp_target_requirement_for_pair(
-            pair: tuple[str, str],
-            current_daily_req: float,
-            pair_review_period_days: int,
-        ) -> tuple[float, float, int, float]:
-            effective_cover_days = float(pair_stock_cover_days.get(pair, pair_review_period_days + 1))
-            if initialization_policy["seed_open_orders_from_january_snapshot"]:
-                effective_cover_days = mrp_opening_order_cover_days(
-                    effective_cover_days,
-                    opening_open_order_bridge_days_by_pair.get(pair, 0),
-                    quantity_netting_only=forecast_production_signal,
-                )
-            target_window_days = max(
-                1,
-                int(math.ceil(effective_cover_days)),
-                int(math.ceil(max(0.0, pair_mrp_safety_time_days.get(pair, 0.0)))),
-                int(math.ceil(max(0.0, safety_stock_days))),
-                int(math.ceil(max(0.0, demand_stock_target_days))) if pair in demand_pairs else 1,
-            )
-            floor_req = max(
-                0.0,
-                mrp_target_demand_floor_by_pair(mrp_target_profile_day, target_window_days).get(pair, 0.0),
-            )
-            # For explicitly dynamic component pairs, the current lotified MPS
-            # signal can be a large one-day batch.  Sizing the whole lead-time
-            # cover from that single spike repeatedly over-orders and builds a
-            # fictitious multi-year buffer.  Use the forward cover-window mean
-            # for the stock target; the daily signal still drives order cadence.
-            target_daily_req = max(max(0.0, current_daily_req), floor_req)
-            if smoothed_cover_requirement_for_pair(pair) and floor_req > 1e-9:
-                target_daily_req = floor_req
-            return target_daily_req, floor_req, target_window_days, effective_cover_days
-
         arrivals_today = pipeline.pop(day, [])
         external_arrivals_today = external_pipeline.pop(day, [])
         estimated_source_arrivals_today = estimated_source_pipeline.pop(day, [])
         dated_receipt_decisions: dict[tuple[str, str], dict[str, Any]] = {}
+        finished_goods_dispatch_decisions: dict = {}
+        customer_physical_cover_decisions: dict = {}
         if pending_receipt_calendar is not None:
             # These receipts are credited to physical stock below, before MRP
             # decisions. Removing them now prevents counting them twice.
@@ -12579,7 +15980,8 @@ def main() -> None:
                 )
             return parent_allocations
 
-        def record_opening_production_order_receipt(dst_node_id: str, item_id: str, qty: float, source_id: str) -> None:
+        def record_opening_production_order_receipt(dst_node_id: str, item_id: str, qty: float, source_id: str,
+                                                  *, available_day: int | None = None) -> None:
             """Materialize an opening production order output receipt.
 
             The BOM issue can be handled at receipt (legacy), at release date
@@ -12608,7 +16010,7 @@ def main() -> None:
                     receipt_day_for_record=output_day_for_lot,
                     mode=opening_production_order_bom_issue_mode,
                 )
-            lot_ledger.create_child_lot(
+            opening_lot_id = lot_ledger.create_child_lot(
                 day=output_day_for_lot,
                 node_id=output_pair[0],
                 item_id=output_pair[1],
@@ -12618,8 +16020,18 @@ def main() -> None:
                 parent_allocations=parent_allocations,
                 link_type="production",
                 uom=item_unit_map.get(output_pair[1], ""),
-                notes="Opening production order received from source order book.",
+                notes=(json.dumps({"available_day": available_day, "physical_day": output_day_for_lot,
+                    "availability_state": "held", "source_kind": "opening_production_order",
+                    "date_basis": "source_G_I_unchanged_no_second_receipt_delay"}) if available_day is not None else
+                    "Opening production order received from source order book."),
             )
+            if available_day is not None:
+                opening_purchase_availability.hold_production_lot(
+                    marker=source_id, node_id=output_pair[0], item_id=output_pair[1], quantity=qty,
+                    lot_id=opening_lot_id, physical_day=output_day_for_lot, available_day=available_day,
+                    ledger=lot_ledger, source_kind="opening_production_order")
+                planning_commitments_by_pair[output_pair][source_id] = (available_day, qty, "held")
+                return
             produced_today += qty
             produced_today_by_pair[output_pair] += qty
 
@@ -12635,6 +16047,9 @@ def main() -> None:
             )
 
         opening_usable_releases_today: dict[tuple[str, str], float] = defaultdict(float)
+        for opening_fg in opening_finished_goods_physical_by_day.pop(output_day, ()):
+            record_opening_production_order_receipt(opening_fg["node_id"], opening_fg["item_id"],
+                opening_fg["receipt_qty"], opening_fg["source_marker"], available_day=opening_fg["arrival_day"])
         if opening_purchase_availability is not None:
             for receipt_pair, received_qty in opening_purchase_availability.receive_physical(
                 output_day, ledger=lot_ledger,
@@ -12648,10 +16063,17 @@ def main() -> None:
                 external_arrivals_today_by_pair[receipt_pair] += aggregate_qty
         for dst, item_id, qty, _lane_id in arrivals_today:
             if opening_purchase_availability is not None and _lane_id in opening_purchase_availability.by_marker:
+                release_row = opening_purchase_availability.by_marker[_lane_id]
                 opening_purchase_availability.release(_lane_id, output_day, qty, ledger=lot_ledger)
                 stock[(dst, item_id)] += qty
                 in_transit[(dst, item_id)] -= qty
                 opening_usable_releases_today[(dst, item_id)] += qty
+                if release_row["order_type"] == "finished_goods_production_release":
+                    produced_today += qty
+                    produced_today_by_pair[dst, item_id] += qty
+                    if release_row.get("production_event") is not None:
+                        production_plan_event_rows.append(finished_goods_quality_release_event(
+                            release_row["production_event"], day=output_day, lot_id=release_row["lot_id"], qty=qty))
                 continue
             is_opening_production_receipt = str(_lane_id).startswith(OPENING_PRODUCTION_ORDER_LANE_PREFIX)
             is_opening_purchase_receipt = str(_lane_id).startswith(
@@ -12718,7 +16140,9 @@ def main() -> None:
                     baseline_reference_id=arrival_planned_order_id,
                     **({"trace_status": "untraced_before_boundary",
                         "trace_reason": "upstream_manufacturing_bom_and_capacity_not_modeled",
-                        "notes": "Aggregate source boundary receipt; source fixed lot; calendar-day receipt convention; not modeled fabrication."}
+                        "notes": ("Aggregate source boundary receipt; source fixed lot; Monday-Friday availability convention; physical ingress represented only at availability, no upstream fabrication or quality hold modeled."
+                            if source_boundary_policies[(src, item_id)]["lead_calendar"] == "monday_friday" else
+                            "Aggregate source boundary receipt; source fixed lot; calendar-day receipt convention; not modeled fabrication.")}
                        if is_source_boundary else {}),
                 )
         for src, item_id, qty in estimated_source_arrivals_today:
@@ -12973,6 +16397,45 @@ def main() -> None:
                     }
                 )
 
+        opening_pack_capacity_today = {}
+        if opening_pack_orders is not None:
+            sync_opening_pack_commitments(opening_pack_orders, decision_day=day - 1,
+                commitments=planning_commitments_by_pair)
+
+        def consume_opening_pack(component_pair, qty, fragment):
+            # Feasibility uses this exact Pack stock, not an inferred substitution.
+            allocations = consume_bom_input_with_reference_transition(
+                output_day=output_day, node_id=component_pair[0], item_id=component_pair[1],
+                qty=qty, event_type="production_consume", source_id=fragment["fragment_id"],
+                production_campaign_id="", consumed_today_by_pair=consumed_today_by_pair)
+            opening_production_consumption_rows.append(dict(day=output_day, issue_day=output_day,
+                receipt_day=output_day, node_id=fragment["pair"][0], output_item_id=fragment["pair"][1],
+                component_node_id=component_pair[0], component_item_id=component_pair[1], bom_issue_mode="pack_at_G",
+                opening_production_qty=fragment["qty"], required_component_qty=qty,
+                consumed_from_stock_qty=qty, assumed_initial_wip_qty=0.0,
+                shortage_assumed_wip_or_source_gap_qty=0.0, source_id=fragment["fragment_id"]))
+            return allocations
+
+        def materialize_opening_pack(source, fragment, parents):
+            nonlocal produced_today
+            usable_qty = materialize_opening_pack_fragment(source, fragment, parents,
+                ledger=lot_ledger, availability=opening_purchase_availability, stock=stock,
+                pipeline=pipeline, in_transit=in_transit, commitments=planning_commitments_by_pair,
+                receipt_calendar=pending_receipt_calendar)
+            produced_today += usable_qty
+            produced_today_by_pair[fragment["pair"]] += usable_qty
+            opening_usable_releases_today[fragment["pair"]] += usable_qty
+            opening_pack_event_rows.append(dict(day=output_day, node_id=fragment["pair"][0],
+                item_id=fragment["pair"][1], source_row=source["source_row"], order_id=fragment["order_id"],
+                fragment_id=fragment["fragment_id"], lot_id=fragment["lot_id"],
+                source_G=source["physical_delivery_day"], source_I=source["arrival_day"],
+                source_G_I_workdays=source["source_workdays"], available_day=fragment["available_day"],
+                conditioned_qty=fragment["qty"], completed_before_qty=fragment["completed_before"],
+                completed_after_qty=fragment["completed_before"] + fragment["qty"],
+                remaining_after_qty=fragment["remaining_after"], capacity_before_qty=fragment["capacity_before"],
+                capacity_after_qty=fragment["capacity_after"], components_json=json.dumps([
+                    dict(node_id=p[0], item_id=p[1], consumed_qty=q) for p, q in fragment["components"].items()])))
+
         # Production/transformation
         for n in nodes:
             nid = str(n.get("id"))
@@ -12999,6 +16462,26 @@ def main() -> None:
                     if has_capacity_limit
                     else float("inf")
                 )
+                closed_production_day = day in manufacturing_closed_days.get((nid, out_item), ())
+                cap = manufacturing_day_capacity(cap, day=day, closed_days=manufacturing_closed_days.get((nid, out_item), ()))
+                if closed_production_day:
+                    has_capacity_limit = True
+                if record_day and (nid, out_item) in manufacturing_closed_days:
+                    manufacturing_calendar_rows.append(dict(day=output_day, node_id=nid, item_id=out_item,
+                        closed=int(closed_production_day), nominal_capacity_qty=cap_raw, effective_capacity_qty=cap))
+
+                if opening_pack_orders is not None and (nid, out_item) in opening_pack_orders.pairs:
+                    shared_capacity = cap
+                    pack_stock = {c["pair"]: max(0.0, stock[c["pair"]])
+                                  for c in opening_pack_orders.components[nid, out_item]}
+                    cap, conditioned = execute_opening_pack_fifo(opening_pack_orders, (nid, out_item),
+                        day=day, capacity=cap, available=pack_stock,
+                        consume=consume_opening_pack, materialize=materialize_opening_pack)
+                    opening_pack_capacity_today[nid, out_item] = (shared_capacity, sum(f["qty"] for f in conditioned))
+                    # Normal fabrication below sees the held fragments plus the
+                    # unconditioned remainder exactly once, with updated dates.
+                    sync_opening_pack_commitments(opening_pack_orders, decision_day=day,
+                        commitments=planning_commitments_by_pair)
 
                 batch_size = to_float(p.get("batch_size"), 1000.0)
                 if batch_size <= 0:
@@ -13042,7 +16525,7 @@ def main() -> None:
                     propagated_demand_today.get(out_pair, 0.0),
                     production_reference_signal_today.get(out_pair, 0.0),
                 )
-                if external_component_calendar is not None:
+                if external_component_calendar is not None or external_planning_calendar is not None:
                     out_signal += external_production_signal_today.get(out_pair, 0.0)
                 out_stock = max(0.0, stock[out_pair])
                 if initial_stock_availability is not None:
@@ -13085,11 +16568,20 @@ def main() -> None:
                         "production_reference_signal_basis": "multilevel_forecast" if forecast_production_signal else "historical_capacity",
                         "production_reference_signal_qty": round(production_reference_signal_today.get(out_pair, 0.0), 6),
                     })
-                    if external_component_calendar is not None:
+                    if external_component_calendar is not None or external_planning_calendar is not None:
                         production_safety_decisions[out_pair]["production_external_signal_qty"] = round(
                             external_production_signal_today.get(out_pair, 0.0), 6,
                         )
-                out_gap = out_target - out_stock
+                command_target, command_position = out_target, out_stock
+                if out_pair in production_depots_by_output:
+                    feedback = production_feedback_for_pair(out_pair, out_target, before_receipts=False)
+                    command_target = feedback["network_target_qty"]
+                    command_position = feedback["network_position_qty"]
+                    feedback["raw_command_qty"] = out_signal + production_gap_gain * feedback["gap_qty"]
+                    production_safety_decisions.setdefault(out_pair, {}).update({
+                        "production_depot_" + field: round(value, 6) if isinstance(value, float) else value
+                        for field, value in feedback.items()})
+                out_gap = command_target - command_position
                 raw_command = out_signal + production_gap_gain * out_gap
 
                 if out_signal <= 1e-9 and out_pair not in lanes_by_src_item:
@@ -13101,7 +16593,122 @@ def main() -> None:
                 desired_qty = production_smoothing * prev_cmd + (1.0 - production_smoothing) * raw_command
                 desired_qty = max(0.0, desired_qty)
                 campaign_remaining_start_qty = max(0.0, open_production_campaign_qty_by_pair.get(out_pair, 0.0))
+                refreshed_plan = None
+                programme_launch = False
+                if production_execution_policy is not None:
+                    snapshot = production_execution_snapshots.get(out_pair, {})
+                    active_wip = production_batch_wip_by_pair.get(out_pair)
+                    current_firms = [FirmReceipt(receipt_id, available_day, qty,
+                        "held" if origin == "held" else "confirmed")
+                        for receipt_id, (available_day, qty, origin) in planning_commitments_by_pair.get(out_pair, {}).items()
+                        if available_day > day]
+                    execution_lead = network_leads.get(out_pair, 1)
+                    if out_pair in finished_goods_release_policies:
+                        release_policy = finished_goods_release_policies[out_pair]
+                        base_lead = max(1, int(math.ceil(process_tau_days_by_pair.get(out_pair, 0.0))))
+                        execution_lead = supplier_receipt_available_day(day + base_lead, release_policy["receipt_days"],
+                            origin_date=safety_calendar["start_date"], calendar="monday_friday") - day
+                    desired_qty, refreshed_plan = dated_production_release(
+                        decision_day=day, snapshot_day=snapshot.get("decision_day"),
+                        requirements=snapshot.get("requirements", ()), available_qty=max(0.0, stock[out_pair]),
+                        firm_receipts=current_firms, lead_days=execution_lead,
+                        lot_sizing=network_lots.get(out_pair, LotSizing()), protection=snapshot.get("protection", ()),
+                        campaign_remaining_qty=campaign_remaining_start_qty,
+                        executed_wip_qty=active_wip.executed_qty if active_wip is not None else 0.0,
+                        manufacturing_calendar=manufacturing_calendar_by_pair.get(out_pair),
+                        availability_by_release=(dated_supply_release_calendar(
+                            decision_day=day, through_day=max(day, max((r.due_day for r in snapshot.get("requirements", ())), default=day),
+                                max((p.day for p in snapshot.get("protection", ())), default=day)),
+                            **exact_supply_calendar_contexts[out_pair])
+                            if out_pair in exact_supply_calendar_contexts else None),
+                    )
+                    # Local pilot: accept only at the physical execution instant.
+                    # Until this point no programme credit or component has entered planning.
+                    if (production_programme_book is not None and refreshed_plan is not None
+                            and out_pair in production_programme_book.series and out_pair not in production_programme_book.rows
+                            and desired_qty<=LOT_TRACE_EPS and campaign_remaining_start_qty<=LOT_TRACE_EPS
+                            and active_wip is None and lot_policy["enabled"]):
+                        period_start=day-((day-4)%7)
+                        components=process_input_requirements_by_output_pair[out_pair]
+                        consumed={c:programme_weekly_consumed.get((period_start,c),0.0)+consumed_today_by_pair.get(c,0.0)
+                            for c,_ in components}
+                        committed=defaultdict(float)
+                        for active_pair,remaining in open_production_campaign_qty_by_pair.items():
+                            for c,ratio in process_input_requirements_by_output_pair.get(active_pair,()):
+                                committed[c]+=max(0.0,remaining)*ratio
+                        pending_pack=0.0
+                        if opening_pack_orders is not None:
+                            # Without industrial OF identities, any pending initial Pack
+                            # order for this process makes a new source programme ambiguous.
+                            pending_pack=sum(max(0,row["target_qty"]-row["completed_qty"])
+                                for row in opening_pack_orders.rows.values() if row["pair"]==out_pair)
+                            opening_needs,_=opening_pack_orders.planning(day)
+                            for c,needs in opening_needs.items():
+                                committed[c]+=math.fsum(r.qty for r in needs if period_start<=r.due_day<period_start+7)
+                        supply_calendar=(dated_supply_release_calendar(decision_day=day,through_day=day,
+                            **exact_supply_calendar_contexts[out_pair]) if out_pair in exact_supply_calendar_contexts else ())
+                        release_policy=finished_goods_release_policies.get(out_pair)
+                        physical_available=(supplier_receipt_available_day(output_day,release_policy["receipt_days"],
+                            origin_date=safety_calendar["start_date"],calendar=release_policy["receipt_calendar"])
+                            if release_policy is not None else day)
+                        feasible_qty=production_wip_execution_quantity(production_input_feasible_execution_quantity(
+                            max(0.0,min(cap,max_from_inputs)),component_limits=integer_input_limits))
+                        programme=production_programme_book.select(pair=out_pair,decision_day=day,
+                            proposals=refreshed_plan.proposals,
+                            calendar=[(day,physical_available)] if any(r==day for r,a in supply_calendar) else (),
+                            consumed=consumed,committed=committed,
+                            available={c:available_bom_input_qty(c[0],c[1],output_day) for c,_ in components},
+                            capacity_qty=feasible_qty,opening_pack_pending_qty=pending_pack)
+                        if programme is not None:
+                            limit=int(lot_policy.get("max_lots_per_week",0) or 0)
+                            started=started_production_lots_by_week_pair.get((production_week_index(output_day),out_pair),0)
+                            room=(not limit or started+campaign_lot_count(programme["qty"],lot_policy)<=limit)
+                            whole=(abs(launch_campaign_qty(programme["qty"],lot_policy)-programme["qty"])<=LOT_TRACE_EPS
+                                and abs(canonical_production_batch_target_qty(programme["qty"],lot_policy,
+                                    item_unit_map.get(out_item,""))-programme["qty"])<=LOT_TRACE_EPS)
+                            if room and whole:
+                                programme["feasibility"]=dict(pending_initial_Pack_qty=pending_pack,
+                                    actual_capacity_qty=cap,component_feasible_PF_qty=max_from_inputs,
+                                    integer_feasible_PF_qty=feasible_qty,weekly_lot_limit=limit,
+                                    already_started_lots_this_week=started,normal_release_due_qty=desired_qty,
+                                    component_available=[dict(node_id=c[0],item_id=c[1],
+                                        available_qty=available_bom_input_qty(c[0],c[1],output_day),ratio=ratio)
+                                        for c,ratio in components])
+                                conservation=programme_replacement_check(programme,refreshed_plan,
+                                    decision_day=day,snapshot_day=snapshot.get("decision_day"),
+                                    requirements=snapshot.get("requirements",()),available_qty=max(0.0,stock[out_pair]),
+                                    firm_receipts=current_firms,lead_days=execution_lead,
+                                    lot_sizing=network_lots.get(out_pair,LotSizing()),protection=snapshot.get("protection",()),
+                                    manufacturing_calendar=manufacturing_calendar_by_pair.get(out_pair),
+                                    availability_by_release=(dated_supply_release_calendar(decision_day=day,
+                                        through_day=max(day,max((r.due_day for r in snapshot.get("requirements",())),default=day),
+                                            max((p.day for p in snapshot.get("protection",())),default=day)),
+                                        **exact_supply_calendar_contexts[out_pair]) if out_pair in exact_supply_calendar_contexts else None))
+                                programme_decision_rows.append(dict(day=output_day,node_id=out_pair[0],item_id=out_pair[1],
+                                    programme_id=programme["programme_id"],**conservation))
+                                if conservation["status"]=="advanced_existing_lot":
+                                    programme.update(conservation)
+                                    production_programme_book.accept(programme)
+                                    desired_qty=programme["qty"]
+                                    programme_launch=True
+                    if chain_planning_policy is not None:
+                        applied_floor = max((p.minimum_qty for p in snapshot.get("protection", ())
+                                             if p.day <= day), default=0.0)
+                        production_safety_decisions.setdefault(out_pair, {}).update({
+                            "production_applied_target_qty": applied_floor,
+                            "production_safety_floor_qty": applied_floor,
+                        })
+                    production_safety_decisions.setdefault(out_pair, {}).update({
+                        "production_execution_policy": production_execution_policy,
+                        "production_dated_snapshot_day": snapshot.get("decision_day", ""),
+                        "production_dated_new_release_qty": desired_qty,
+                        "production_dated_late_qty": refreshed_plan.late_qty if refreshed_plan is not None else 0.0,
+                        "production_dated_release_proposal_ids": "|".join(r.proposal_id for r in refreshed_plan.proposals
+                            if r.release_day <= day) if refreshed_plan is not None else "",
+                    })
                 if (
+                    production_execution_policy is None
+                    and
                     lot_policy["enabled"]
                     and campaign_remaining_start_qty <= 1e-9
                     and (
@@ -13109,8 +16716,8 @@ def main() -> None:
                         or should_defer_new_lot_for_stock_position(
                             desired_qty=desired_qty,
                             lot_policy=lot_policy,
-                            stock_qty=out_stock,
-                            target_qty=out_target,
+                            stock_qty=command_position,
+                            target_qty=command_target,
                         )
                     )
                 ):
@@ -13165,6 +16772,10 @@ def main() -> None:
                             production_campaign_started_day_by_pair[out_pair] = output_day
                             production_campaign_requested_qty_by_pair[out_pair] = campaign_requested_qty
                             production_campaign_target_qty_by_pair[out_pair] = campaign_started_qty
+                            if programme_launch:
+                                if abs(campaign_started_qty-programme["qty"])>LOT_TRACE_EPS:
+                                    raise ArithmeticError("A promoted programme must retain its complete original lot")
+                                production_programme_book.engage(out_pair,output_day,campaign_id)
                         if actual_lot_starts > 0:
                             started_production_lots_by_week_pair[week_key] = started_lots_this_week + actual_lot_starts
                             started_lots_this_week = int(started_production_lots_by_week_pair[week_key])
@@ -13181,7 +16792,8 @@ def main() -> None:
                         )
                     if batch_wip is None:
                         production_batch_sequence_by_campaign[campaign_id] += 1
-                        batch_target_qty = physical_batch_target_qty(campaign_remaining_start_qty, lot_policy)
+                        batch_target_qty = canonical_production_batch_target_qty(
+                            campaign_remaining_start_qty, lot_policy, item_unit_map.get(out_item, ""))
                         batch_wip = ProductionBatchWip(
                             campaign_id=campaign_id,
                             batch_id=make_batch_id(
@@ -13417,6 +17029,7 @@ def main() -> None:
                                     6,
                                 ),
                                 "released_lot_id": "",
+                                **({"physical_completed_qty": 0.0} if out_pair in finished_goods_release_policies else {}),
                                 "is_day_zero_carry_in": int(
                                     output_day == 0
                                     and batch_wip is not None
@@ -13672,7 +17285,12 @@ def main() -> None:
                     released_qty = qty
 
                 if released_qty > LOT_TRACE_EPS:
-                    stock[out_pair] += released_qty
+                    release_policy = finished_goods_release_policies.get(out_pair)
+                    usable_day = (supplier_receipt_available_day(output_day, release_policy["receipt_days"],
+                        origin_date=safety_calendar["start_date"], calendar=release_policy["receipt_calendar"])
+                        if release_policy is not None else output_day)
+                    if release_policy is None:
+                        stock[out_pair] += released_qty
                     released_lot_id = lot_ledger.create_child_lot(
                         day=output_day,
                         node_id=nid,
@@ -13689,17 +17307,36 @@ def main() -> None:
                         causal_event_ids=campaign_causality.get("causal_event_ids", ""),
                         causal_root_ids=campaign_causality.get("causal_root_ids", ""),
                         causal_status_value=campaign_causality.get("causal_status", ""),
-                        notes=(
+                        notes=(json.dumps({"semantics": LOT_EXECUTION_SEMANTICS_VERSION,
+                            "batch_id": release_batch_id, "physical_day": output_day, "available_day": usable_day,
+                            "availability_state": "held", "source_kind": "production_output",
+                            "receipt_calendar": "monday_friday", "location_basis": release_policy["location_basis"]})
+                            if release_policy is not None else
                             f"semantics={LOT_EXECUTION_SEMANTICS_VERSION};batch_id={release_batch_id};"
                             "released_only_after_physical_batch_completion"
                         ),
                     )
-                    produced_today += released_qty
-                    produced_today_by_pair[out_pair] += released_qty
+                    if release_policy is not None:
+                        marker = ("PRODUCTION_RELEASE|" if out_pair in production_release_policies
+                                  else "FINISHED_GOODS_RELEASE|") + release_batch_id
+                        opening_purchase_availability.hold_production_lot(marker=marker, node_id=nid, item_id=out_item,
+                            quantity=released_qty, lot_id=released_lot_id, physical_day=output_day,
+                            available_day=usable_day, ledger=lot_ledger, source_kind="production_output",
+                            production_event=dict(production_plan_row) if production_plan_row is not None else None)
+                        pipeline[usable_day].append((nid, out_item, released_qty, marker))
+                        in_transit[out_pair] += released_qty
+                        planning_commitments_by_pair[out_pair][marker] = (usable_day, released_qty, "held")
+                    else:
+                        produced_today += released_qty
+                        produced_today_by_pair[out_pair] += released_qty
 
                 if production_plan_row is not None:
-                    production_plan_row["released_qty"] = round(released_qty, 6)
+                    production_plan_row.update(production_completion_quantities(
+                        released_qty, retained_for_quality=out_pair in finished_goods_release_policies))
                     production_plan_row["released_lot_id"] = released_lot_id
+                    if out_pair in finished_goods_release_policies:
+                        production_plan_row["release_gate_mode"] = "physical_completion_then_source_weekday_quality"
+                        production_plan_row["notes"] += "; quality availability is recorded separately at stock_availability_release"
                     production_plan_row["wip_end_qty"] = round(
                         production_batch_wip_by_pair[out_pair].executed_qty
                         if out_pair in production_batch_wip_by_pair
@@ -13707,6 +17344,13 @@ def main() -> None:
                         6,
                     )
                 if lot_policy["enabled"]:
+                    if internal_transfer_commitments is not None:
+                        record_started_transfer_campaign(internal_transfer_commitments, day=day,
+                            campaign_id=campaign_id, source_pair=out_pair, campaign_qty=campaign_started_qty,
+                            executed_qty=qty, new_plan=refreshed_plan, snapshot=snapshot,
+                            uom=item_unit_map.get(out_item, ""))
+                    if production_programme_book is not None:
+                        production_programme_book.execute(out_pair,output_day,campaign_id,qty)
                     open_production_campaign_qty_by_pair[out_pair] = max(0.0, campaign_remaining_start_qty - qty)
                     if open_production_campaign_qty_by_pair[out_pair] <= 1e-9:
                         open_production_campaign_id_by_pair.pop(out_pair, None)
@@ -13716,6 +17360,14 @@ def main() -> None:
                         pending_production_campaign_id_by_pair.pop(out_pair, None)
                 else:
                     production_campaign_started_day_by_pair.pop(out_pair, None)
+
+        for pack_pair, (shared_capacity, pack_qty) in opening_pack_capacity_today.items():
+            new_qty = production_executed_today_by_pair[pack_pair]
+            if pack_qty + new_qty > shared_capacity + LOT_TRACE_EPS:
+                raise RuntimeError("Opening Pack and new fabrication exceeded their shared capacity")
+            opening_pack_capacity_rows.append(dict(day=output_day, node_id=pack_pair[0], item_id=pack_pair[1],
+                effective_capacity_qty=shared_capacity, opening_pack_conditioned_qty=pack_qty,
+                new_fabrication_executed_qty=new_qty, remaining_capacity_qty=max(0.0, shared_capacity - pack_qty - new_qty)))
 
         if record_day:
             total_produced += produced_today
@@ -13756,6 +17408,7 @@ def main() -> None:
         # Demand satisfaction
         demand_today = 0.0
         served_today = 0.0
+        envelope_service_today = {}
         for pair in demand_pairs:
             # Only the planning signal is smoothed. Physical customer demand
             # retains the source day, including fractional forecast remainders.
@@ -13776,6 +17429,8 @@ def main() -> None:
             backlog[pair] = required - served
             demand_today += dval
             served_today += served
+            if current_envelope is not None:
+                envelope_service_today[pair] = served
             if record_day:
                 demand_pair_rows.append(
                     {
@@ -13790,6 +17445,8 @@ def main() -> None:
                     }
                 )
 
+        if current_envelope is not None:
+            current_envelope.observe_service(output_day, envelope_service_today)
         if record_day:
             total_demand += demand_today
             total_served += served_today
@@ -13801,7 +17458,9 @@ def main() -> None:
         external_component_today: dict = {}
         if external_component_calendar is not None:
             external_due = external_component_calendar.due(output_day)
-            for component_pair in external_component_calendar.pairs:
+            if observed_component_execution is not None:
+                external_due = observed_component_execution.merge_due(output_day, external_due)
+            for component_pair in sorted(external_execution_pairs):
                 component_uom = item_unit_map[component_pair[1]]
                 available_before = stock.get(component_pair, 0.0)
                 external_service = serve_external_component_requirements(
@@ -13810,12 +17469,17 @@ def main() -> None:
                     due=external_due.get(component_pair, ()), uom=component_uom,
                 )
                 for allocation in external_service.allocations:
-                    provenance = external_component_calendar.provenance(allocation.requirement_id)
+                    provenance = (observed_component_execution.provenance(
+                        allocation.requirement_id, external_component_calendar)
+                        if observed_component_execution is not None else
+                        external_component_calendar.provenance(allocation.requirement_id))
                     lot_ledger.consume(
                         day=output_day, node_id=component_pair[0], item_id=component_pair[1],
                         qty=allocation.qty, event_type="external_component_consume",
                         source_id=allocation.requirement_id, uom=component_uom,
-                        notes=json.dumps({"scope": "estimated_non_modelled_component_use",
+                        notes=json.dumps({"scope": ("observed_non_modelled_component_use"
+                            if provenance.get("physical_demand_source") == "observed_other_uses"
+                            else "estimated_non_modelled_component_use"),
                                           "due_day": allocation.due_day, **provenance},
                                          ensure_ascii=False, sort_keys=True),
                     )
@@ -13833,10 +17497,14 @@ def main() -> None:
                     "core_consumed_qty": core_consumed,
                     "total_component_consumed_qty": core_consumed + external_service.consumed_qty,
                 }
-                if external_component_calendar.has_revisions:
+                if (external_component_calendar.has_revisions
+                        and component_pair in external_component_calendar.pairs):
                     external_component_today[component_pair].update(
                         external_component_calendar.day_audit(component_pair, decision_day=output_day)
                     )
+                if observed_component_execution is not None:
+                    external_component_today[component_pair].update(
+                        observed_component_execution.day_audit(component_pair, output_day))
                 if record_day:
                     external_component_daily_rows.append({
                         key: round(value, 6) if isinstance(value, float) else value
@@ -13948,7 +17616,13 @@ def main() -> None:
 
         dated_plans, dated_requirements, dated_plan_audits = {}, {}, {}
         dated_plan_decisions: dict = {}
+        transfer_advancement_requests: dict = {}
         sourced_plans_today: dict = {}
+        if production_programme_book is not None:
+            period_start=output_day-((output_day-4)%7)
+            for component_pair in production_input_pairs:
+                programme_weekly_consumed[(period_start,component_pair)]+=(consumed_today_by_pair.get(component_pair,0.0)
+                    +external_component_today.get(component_pair,{}).get("consumed_qty",0.0))
         if dated_component_planning:
             # One snapshot after actual production and customer service, before
             # the remaining purchases and lane dispatches of this same day.
@@ -13958,6 +17632,8 @@ def main() -> None:
                 decision_day=day, execution_days=total_timeline_days, configured_days=configured_mrp_horizon_days,
                 execution_mode=args.mrp_execution_mode,
             )
+            anticipated_need_context = {}
+            purchase_review_calendars = {}
             for delivery_pair, receipt_policy in supplier_receipt_policies.items():
                 delivery_lanes = lanes_by_dest_item[delivery_pair]
                 if delivery_pair in sourcing_policies:
@@ -13971,13 +17647,60 @@ def main() -> None:
                     physical_day, receipt_policy["receipt_days"], origin_date=safety_calendar["start_date"],
                     nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(delivery_pair, frozenset()),
                 ) - day
+                if anticipated_purchase_dates:
+                    managed_policy = managed_supply_policies.get(delivery_pair)
+                    source_days = (managed_policy["effective_protection_workdays"] if managed_policy is not None
+                                   else pair_mrp_safety_source_days.get(delivery_pair, 0.0))
+                    if not float(source_days).is_integer():
+                        raise ValueError("Anticipated purchases require whole source working days")
+                    delivery_days = max(lead_time_reference_days(lane) for lane in delivery_lanes)
+                    end_release = day + max(horizon, network_leads[delivery_pair])
+                    if purchase_policy_applies(supplier_purchase_review_policy,delivery_pair):
+                        end_release=max(end_release,supplier_purchase_review_policy["first_review_day"])+7
+                    calendar = ()
+                    if delivery_pair not in sourcing_policies and delivery_pair not in allocated_supplier_pairs:
+                        # Policies are fixed for this run. Cache the immutable
+                        # calendar, not quantities, forecasts or decisions.
+                        cached = anticipated_receipt_cache.setdefault((delivery_pair, delivery_days), {})
+                        for release in range(max(day, max(cached, default=day - 1) + 1), end_release + 1):
+                            cached[release] = supplier_receipt_available_day(release + delivery_days,
+                                receipt_policy["receipt_days"], origin_date=safety_calendar["start_date"],
+                                nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(delivery_pair, frozenset()))
+                        calendar = tuple((release, cached[release]) for release in range(day, end_release + 1))
+                        if purchase_policy_applies(supplier_purchase_review_policy,delivery_pair):
+                            purchase_review_calendars[delivery_pair]=purchase_review_calendar(calendar,
+                                policy=supplier_purchase_review_policy,pair=delivery_pair,
+                                origin_date=safety_calendar["start_date"],through_day=day+horizon)
+                            calendar=()
+                    anticipated_need_context[delivery_pair] = {
+                        "source_working_days": int(source_days), "origin_weekday": safety_calendar["weekday"],
+                        "fixed_floor_qty": (managed_policy["effective_buffer_qty"] if managed_policy is not None
+                                            else pair_mrp_safety_stock_qty.get(delivery_pair, 0.0)),
+                        "availability_by_release": calendar,
+                        **({"fixed_floor_mode": "additive"} if unified_purchase_rules or managed_policy is not None else {}),
+                    }
             for delivery_pair, internal_policy in internal_component_policies.items():
                 if "receipt_days" in internal_policy:
                     network_leads[delivery_pair] = supplier_receipt_available_day(
-                        day + lead_time_reference_days(lanes_by_dest_item[delivery_pair][0]), internal_policy["receipt_days"],
+                        day + operational_transport_days(lanes_by_dest_item[delivery_pair][0]), internal_policy["receipt_days"],
                         origin_date=safety_calendar["start_date"], calendar=internal_policy["receipt_calendar"],
                     ) - day
+            for output_pair, release_policy in finished_goods_release_policies.items():
+                physical_lead = max(1, int(math.ceil(process_tau_days_by_pair.get(output_pair, 0.0))))
+                network_leads[output_pair] = supplier_receipt_available_day(day + physical_lead,
+                    release_policy["receipt_days"], origin_date=safety_calendar["start_date"], calendar="monday_friday") - day
+            for delivery_pair in anticipated_internal_pairs:
+                anticipated_need_context[delivery_pair] = {
+                    "source_working_days": int(pair_mrp_safety_source_days.get(delivery_pair, 0.0)),
+                    "origin_weekday": safety_calendar["weekday"],
+                    "fixed_floor_qty": pair_mrp_safety_stock_qty.get(delivery_pair, 0.0),
+                    "fixed_floor_mode": "additive",
+                }
             forecast_requirements: dict = {pair: [] for pair in demand_pairs}
+            if record_day and customer_demand_policy == "source_customer_history_v1" and horizon:
+                for forecast_pair in sorted(demand_pairs):
+                    customer_forecast_projection_rows.extend(mrp_source_forecasts.projection_audit_rows(
+                        forecast_pair, decision_day=output_day, horizon_days=horizon))
             for offset in range(1, horizon + 1):
                 future_forecast = planning_demand_targets_for_day(output_day, profile_day + offset, window_days=1)
                 for forecast_pair, quantity in future_forecast.items():
@@ -13986,20 +17709,56 @@ def main() -> None:
                             f"forecast:{forecast_pair[0]}:{forecast_pair[1]}:{day + offset}", day + offset, quantity,
                         ))
             for forecast_pair in demand_pairs:
+                if annual_projection_policy is not None and record_day:
+                    first, last = max(365, day + 1), day + horizon
+                    source_values = [mrp_source_forecasts.source_for_day(forecast_pair,
+                        selected=mrp_source_forecasts.selection(day), target_day=d)[0]
+                        for d in range(first, last + 1)]
+                    annual_projection_rows.append(dict(day=output_day, node_id=forecast_pair[0], item_id=forecast_pair[1],
+                        first_projected_day=first if first <= last else "", last_projected_day=last if first <= last else "",
+                        projected_days=max(0, last - first + 1), factor=1.05,
+                        commercial_projected_qty=math.fsum(r.qty for r in forecast_requirements[forecast_pair] if r.due_day >= 365),
+                        replaced_known_source_days=sum(value is not None for value in source_values),
+                        replaced_known_source_qty=math.fsum(value[0] for value in source_values if value is not None)))
                 if backlog.get(forecast_pair, 0.0) > LOT_TRACE_EPS:
                     forecast_requirements[forecast_pair].append(Requirement(
                         "backlog:" + "|".join(forecast_pair), day + 1, backlog[forecast_pair],
                     ))
+                if current_envelope is not None:
+                    extra_requirement, envelope_audit = current_envelope.requirement(forecast_pair,
+                        decision_day=output_day, requirements=forecast_requirements[forecast_pair])
+                    if extra_requirement is not None:
+                        forecast_requirements[forecast_pair].append(extra_requirement)
+                    if record_day:
+                        current_envelope_rows.append(envelope_audit)
             external_future_requirements: dict = {}
             industrial_windows = ({pair: industrial_planning_calendar.windows(pair,
                 decision_day=day, first_day=day + 1, through_day=day + horizon)
                 for pair in industrial_planning_calendar.pairs} if industrial_planning_calendar is not None and horizon else {})
-            if external_component_calendar is not None:
+            industrial_unreported_windows = {}
+            if industrial_horizon_coverage is not None and horizon:
+                for pair in sorted(industrial_purchase_source_pairs):
+                    industrial_windows[pair], industrial_unreported_windows[pair] = industrial_horizon_coverage.select(
+                        pair, decision_day=day, first_day=day+1, through_day=day+horizon)
+            if external_component_calendar is not None or external_planning_calendar is not None:
                 if horizon:
-                    external_future_requirements = external_component_calendar.requirements(
+                    external_future_requirements = component_planning_requirements(external_component_calendar, external_planning_calendar,
                         decision_day=output_day, first_day=output_day + 1, through_day=output_day + horizon,
                     )
-                for component_pair in external_component_calendar.pairs:
+                    if managed_forecast_calendar is not None:
+                        # A local total I is entirely outside our BOM for these
+                        # explicit stocks. Read known forecasts only for planning;
+                        # never call this calendar's due() for physical execution.
+                        external_future_requirements.update(managed_forecast_calendar.requirements(
+                            decision_day=output_day, first_day=output_day + 1, through_day=output_day + horizon))
+                planning_external_pairs = external_execution_pairs | (
+                    set(external_planning_calendar.pairs) if external_planning_calendar is not None else set())
+                for component_pair in sorted(planning_external_pairs):
+                    if component_pair in managed_inventory_pairs and component_pair not in managed_supply_policies:
+                        # Keep unmet physical uses in their execution ledger.
+                        # An unconfigured supply route cannot turn this backlog
+                        # into the planner's default one-day purchase proposal.
+                        continue
                     # Today's executed quantities are gone. Only its remaining
                     # backlog and known future incremental uses enter the plan.
                     forecast_requirements.setdefault(component_pair, []).extend(
@@ -14022,6 +17781,11 @@ def main() -> None:
                             f"opening_production:{opening_order.get('source_row', '')}:{output_pair}:{component_pair}",
                             issue_day, opening_order["receipt_qty"] * ratio,
                         ))
+            if opening_pack_orders is not None:
+                pack_requirements = sync_opening_pack_commitments(opening_pack_orders, decision_day=day,
+                    commitments=planning_commitments_by_pair)
+                for component_pair, requirements in pack_requirements.items():
+                    forecast_requirements.setdefault(component_pair, []).extend(requirements)
             firm_snapshot: dict = {}
             for receipt_pair, commitments in planning_commitments_by_pair.items():
                 for receipt_id in list(commitments):
@@ -14046,8 +17810,26 @@ def main() -> None:
                     if abs(complete_qty - round(complete_qty)) <= LOT_TRACE_EPS:
                         complete_qty = float(round(complete_qty))
                     complete_qty = require_physical_integer(complete_qty, "UN")
-                work_days = math.ceil(remaining / max(process_capacity_by_output_pair.get(output_pair, 0.0), 1e-9))
+                work_days = (production_campaign_work_days(remaining,
+                    capacity_qty=process_capacity_by_output_pair.get(output_pair, 0.0),
+                    fixed_lot_qty=production_lot_policy_by_pair.get(output_pair, {}).get("fixed_lot_qty", 0.0))
+                    if output_pair in production_release_policies or (
+                        chain_planning_policy is not None
+                        and process_capacity_by_output_pair.get(output_pair, 0.0) <= 0) else
+                    math.ceil(remaining / max(process_capacity_by_output_pair.get(output_pair, 0.0), 1e-9)))
                 finish_day = day + max(1, work_days, network_leads.get(output_pair, 1))
+                if output_pair in finished_goods_release_policies:
+                    physical_finish = day + max(1, work_days, int(math.ceil(process_tau_days_by_pair.get(output_pair, 0.0))))
+                    if output_pair in manufacturing_closed_days:
+                        physical_finish = manufacturing_work_finish(day,
+                            max(1, work_days, int(math.ceil(process_tau_days_by_pair.get(output_pair, 0.0)))),
+                            manufacturing_closed_days[output_pair])
+                    finish_day = supplier_receipt_available_day(physical_finish,
+                        finished_goods_release_policies[output_pair]["receipt_days"],
+                        origin_date=safety_calendar["start_date"], calendar="monday_friday")
+                elif output_pair in manufacturing_closed_days:
+                    finish_day = manufacturing_work_finish(day, max(1, work_days, network_leads.get(output_pair, 1)),
+                        manufacturing_closed_days[output_pair])
                 campaigns[output_pair] = (
                     open_production_campaign_id_by_pair.get(output_pair) or f"active:{output_pair}",
                     remaining, max(0.0, complete_qty - remaining), finish_day,
@@ -14060,18 +17842,34 @@ def main() -> None:
             for planning_pair in set(network_leads) | set(process_input_requirements_by_output_pair):
                 if planning_pair in aggregate_supplier_pairs:
                     continue
+                if planning_pair in managed_supply_policies:
+                    # Only the explicitly declared candidate protection applies.
+                    # Do not infer safety from initial stock, generic coverage or
+                    # another site's safety days. The dated context owns it once.
+                    reserve_targets[planning_pair] = 0.0
+                    continue
                 if planning_pair in produced_pairs:
                     reserve_targets[planning_pair] = max(
                         base_stock.get(planning_pair, 0.0),
                         fg_target_days * max(0.0, production_reference_signal_today.get(planning_pair, 0.0)),
                     )
+                    if unified_purchase_rules:
+                        # The physical SD controller already computed this target
+                        # today. Preserve it through projected withdrawals instead
+                        # of cancelling it against total horizon consumption.
+                        # These are revocable production forecasts, not new WIP.
+                        applied_target = production_safety_decisions.get(planning_pair, {}).get(
+                            "production_applied_target_qty", reserve_targets[planning_pair])
+                        protection_by_pair[planning_pair] = [StockProtection(
+                            "production_control_target:" + "|".join(planning_pair), day + 1,
+                            max(0.0, float(applied_target)))]
                     continue
                 review_days = mrp_review_period_days if planning_pair[0] in process_node_ids else review_period_days
                 current_req = max(0.0, propagated_demand_today.get(planning_pair, 0.0))
                 if static_requirement_for_pair(planning_pair):
                     current_req = max(0.0, required_daily_input_by_pair.get(planning_pair, 0.0))
                 target_req, _floor, _window, cover = mrp_target_requirement_for_pair(planning_pair, current_req, review_days)
-                if external_component_calendar is not None:
+                if external_component_calendar is not None or external_planning_calendar is not None:
                     # Source safety/coverage DAYS apply to the shared stock, so
                     # the same candidate target rule sees the extra known uses.
                     # No source quantity floor or number of days is changed.
@@ -14091,20 +17889,42 @@ def main() -> None:
                         "window_days": max(1, int(_window)),
                         "fixed_floor_qty": max(target, pair_mrp_safety_stock_qty.get(planning_pair, 0.0)),
                         "target_days": max(pair_mrp_safety_time_days.get(planning_pair, 0.0) * soft_safety_factor_for_pair(planning_pair),
-                            safety_stock_days, demand_stock_target_days if planning_pair in demand_pairs else 0.0,
+                            generic_safety_days(planning_pair), demand_stock_target_days if planning_pair in demand_pairs else 0.0,
                             cover if planning_pair not in mrp_snapshot_pairs or dynamic_requirement_for_pair(planning_pair) else 0.0),
                         "safety_floor_qty": pair_mrp_safety_stock_qty.get(planning_pair, 0.0),
                         "safety_days": pair_mrp_safety_time_days.get(planning_pair, 0.0), "legacy_rate": target_req,
                     }
                 target = max(target, pair_mrp_safety_stock_qty.get(planning_pair, 0.0),
                              target_req * pair_mrp_safety_time_days.get(planning_pair, 0.0) * soft_safety_factor_for_pair(planning_pair),
-                             safety_stock_days * target_req)
+                             generic_safety_days(planning_pair) * target_req)
                 if planning_pair in demand_pairs:
                     target = max(target, demand_stock_target_days * target_req)
                 if planning_pair not in mrp_snapshot_pairs or dynamic_requirement_for_pair(planning_pair):
                     target = max(target, target_req * cover)
                 reserve_targets[planning_pair] = max(0.0, target)
-                if (internal_component_policies.get(planning_pair, {}).get("protection_mode") == "dated_stock_floor"
+                if planning_pair in customer_physical_cover_routes:
+                    # The customer is the service boundary, not a second stock
+                    # policy inferred from industrial MRP forecasts.
+                    reserve_targets[planning_pair] = 0.0
+                if planning_pair in depot_safety_protection_pairs:
+                    # Preserve the source safety alone through consumption.
+                    # Do not add lane lead, review or the broader coverage target.
+                    source_safety_qty = production_mrp_safety_target(
+                        0.0, target_req, pair_mrp_safety_time_days.get(planning_pair, 0.0),
+                        pair_mrp_safety_stock_qty.get(planning_pair, 0.0))
+                    reserve_targets[planning_pair] = 0.0
+                    protection_by_pair[planning_pair] = [StockProtection(
+                        "depot_source_safety:" + "|".join(planning_pair), day + 1, source_safety_qty)]
+                if planning_pair in feedback_depot_pairs:
+                    # Preserve the existing destination target, not another
+                    # factory target. Customer demand and backlog stay dated
+                    # requirements once; this floor is not a consumption row.
+                    reserve_targets[planning_pair] = 0.0
+                    protection_by_pair[planning_pair] = [StockProtection(
+                        "depot_control_target:" + "|".join(planning_pair), day + 1,
+                        feedback_depot_targets[planning_pair])]
+                if (planning_pair in common_internal_safety_pairs
+                        or internal_component_policies.get(planning_pair, {}).get("protection_mode") == "dated_stock_floor"
                         or supplier_planning_policies.get(planning_pair, {}).get("protection_mode") in {
                             "dated_stock_floor", "dated_stock_floor_with_coverage", "dated_requirements_with_coverage"}):
                     protection_qty = max(pair_mrp_safety_stock_qty.get(planning_pair, 0.0),
@@ -14116,24 +17936,29 @@ def main() -> None:
                     source_days = pair_mrp_safety_source_days.get(planning_pair, 0.0)
                     if not float(source_days).is_integer():
                         raise ValueError("Prospective protection requires whole source working days")
-                    if external_component_calendar is not None and planning_pair in external_component_calendar.pairs:
-                        known_dates = (set(external_component_calendar.covered_days(planning_pair,
+                    planning_calendar = component_planning_calendar_for_pair(
+                        planning_pair, external_component_calendar, external_planning_calendar)
+                    if planning_calendar is not None:
+                        known_dates = (set(planning_calendar.covered_days(planning_pair,
                             decision_day=day, first_day=day + 1, through_day=day + horizon)) if horizon else set())
                     else:
                         # No extra-use source is expected: the model's own
                         # declared forecast supplies the planning interval.
                         known_dates = set(range(day + 1, day + horizon + 1))
-                    for window in industrial_windows.get(planning_pair, ()):
-                        known_dates.update(range(window.first_day, window.end_day_exclusive))
+                    if industrial_requirement_reconciliation_policy != "separate_own_and_other_v1":
+                        for window in industrial_windows.get(planning_pair, ()):
+                            known_dates.update(range(window.first_day, window.end_day_exclusive))
                     prospective_safety_context[planning_pair] = {
                         "source_working_days": int(source_days), "origin_weekday": safety_calendar["weekday"],
                         "forecast_through_day": day + horizon, "covered_days": known_dates,
                         "fixed_floor_qty": pair_mrp_safety_stock_qty.get(planning_pair, 0.0),
                     }
-            # 693055 has an explicit aggregate supply policy, not an invented
-            # manufacturing process. Its fixed lot and lead are retained.
+            # Explicit aggregate boundaries keep their source lot and calendar;
+            # this does not infer an upstream manufacturing or quality process.
             for boundary_pair, boundary_policy in source_boundary_policies.items():
-                cover = boundary_policy["lead_days"] + boundary_policy["review_period_days"]
+                network_leads[boundary_pair] = source_boundary_available_day(day, boundary_policy,
+                    origin_date=safety_calendar["start_date"]) - day
+                cover = network_leads[boundary_pair] + boundary_policy["review_period_days"]
                 reserve_targets[boundary_pair] = max(0.0, mrp_target_demand_floor_by_pair(
                     mrp_target_profile_day, cover,
                 ).get(boundary_pair, 0.0)) * cover
@@ -14143,6 +17968,8 @@ def main() -> None:
                 receipt_days = supplier_receipt_policies[sourcing_pair]["receipt_days"]
                 # Each possible release uses its own weekday calendar, not a fixed total lead.
                 end_release = day + max(horizon, network_leads[sourcing_pair], network_covers.get(sourcing_pair, 1))
+                if purchase_policy_applies(supplier_purchase_review_policy,sourcing_pair):
+                    end_release=max(end_release,supplier_purchase_review_policy["first_review_day"])+7
                 offers = {}
                 for supplier, price in policy["_offers_by_supplier"].items():
                     lane = policy["_lanes_by_supplier"][supplier]
@@ -14151,6 +17978,8 @@ def main() -> None:
                         release + delivery_days, receipt_days, origin_date=safety_calendar["start_date"],
                         nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(sourcing_pair, frozenset()),
                     )) for release in range(day, end_release + 1))
+                    calendar=purchase_review_calendar(calendar,policy=supplier_purchase_review_policy,
+                        pair=sourcing_pair,origin_date=safety_calendar["start_date"],through_day=day+horizon)
                     standard = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
                     binding = policy_pair_key(*sourcing_pair) not in nonbinding_standard_order_pair_keys
                     physical_multiple = max(0.0, to_float(lane.get("physical_dispatch_multiple"), 0.0))
@@ -14161,35 +17990,153 @@ def main() -> None:
                         calendar[0][1] - day,
                         LotSizing(minimum=standard if binding else 0.0,
                                   multiple=standard if binding and standard else physical_multiple,
-                                  integer=policy["uom"] == "UN"), calendar,
+                                  integer=policy["uom"] == "UN",
+                                  net_rounding_quantum=mrp_mass_net_rounding_quantum(
+                                      net_requirement_rounding_policy, item_unit_map.get(sourcing_pair[1], ""))),
+                        calendar, standard_order_qty=standard,
+                        review_calendar=purchase_policy_applies(supplier_purchase_review_policy,sourcing_pair),
                     )
                 sourcing_inputs[sourcing_pair] = {
                     "primary": offers[policy["primary_supplier_id"]],
                     "backups": tuple(offers[supplier] for supplier in policy["backup_supplier_ids"]),
                     "protected_backup_receipt_ids": tuple(row.receipt_id for row in firm_snapshot.get(sourcing_pair, ())
                                                           if row.receipt_id in sourcing_backup_order_ids),
+                    **({"provisional_lots_until_release": True} if provisional_purchase_lots else {}),
                 }
-            dated_plans, dated_requirements, dated_plan_audits = plan_component_network(
+            chain_safety_pairs = ((produced_pairs | depot_safety_protection_pairs | common_internal_safety_pairs)
+                                  - anticipated_internal_pairs - coverage_protection_pairs
+                                  if chain_planning_policy is not None else set())
+            if chain_safety_projection_policy is not None and any(
+                    not float(pair_mrp_safety_source_days.get(pair, 0.0)).is_integer() for pair in chain_safety_pairs):
+                raise ValueError("Rolling source protection requires whole source working days")
+            allocated_sourcing_inputs = {pair: allocated_purchase_offers(lanes_by_dest_item[pair],
+                decision_day=day, through_day=(max(day + max(horizon, network_leads[pair]),
+                    supplier_purchase_review_policy["first_review_day"])+7
+                    if purchase_policy_applies(supplier_purchase_review_policy,pair) else day + max(horizon, network_leads[pair])),
+                receipt_days=supplier_receipt_policies[pair]["receipt_days"],
+                origin_date=safety_calendar["start_date"],
+                nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(pair, frozenset()),
+                uom=item_unit_map[pair[1]], binding=policy_pair_key(*pair) not in nonbinding_standard_order_pair_keys,
+                rounding_policy=net_requirement_rounding_policy) for pair in allocated_supplier_pairs}
+            for pair,context in allocated_sourcing_inputs.items():
+                if purchase_policy_applies(supplier_purchase_review_policy,pair):
+                    reviewed_offers=[]
+                    for offer in context["offers"]:
+                        calendar=purchase_review_calendar(offer.availability_by_release,
+                            policy=supplier_purchase_review_policy,pair=pair,
+                            origin_date=safety_calendar["start_date"],through_day=day+horizon)
+                        reviewed_offers.append(replace(offer,availability_by_release=calendar,
+                            lead_days=calendar[0][1]-day,review_calendar=True))
+                    context["offers"]=tuple(reviewed_offers)
+            planning_network_inputs = dict(
                 decision_day=day, requirements_by_pair=forecast_requirements, available_by_pair=stock,
                 firm_receipts_by_pair=firm_snapshot, transport_sources_by_pair=network_transport_sources,
                 bom_by_pair=process_input_requirements_by_output_pair, lead_days_by_pair=network_leads,
                 lot_sizing_by_pair=network_lots, reserve_targets_by_pair=reserve_targets,
                 coverage_days_by_pair=network_covers, active_campaigns_by_pair=campaigns,
                 sourcing_by_pair=sourcing_inputs,
-                grouping_days_by_pair={pair: policy["grouping_days"] for pair, policy in procurement_batching_policies.items()},
+                allocated_sourcing_by_pair=allocated_sourcing_inputs or None,
+                grouping_days_by_pair=({pair: purchase_grouping_days for pair in aggregate_delivery_pairs}
+                    if unified_purchase_rules else
+                    {pair: policy["grouping_days"] for pair, policy in procurement_batching_policies.items()}),
                 protection_by_pair=protection_by_pair or None,
                 coverage_protection_pairs=coverage_protection_pairs or None,
                 industrial_windows_by_pair=industrial_windows or None,
                 industrial_target_context_by_pair=industrial_target_context or None,
+                industrial_internal_pairs=common_internal_safety_pairs & set(industrial_windows),
+                industrial_requirement_reconciliation_policy=industrial_requirement_reconciliation_policy,
+                industrial_purchase_source_pairs=industrial_purchase_source_pairs or None,
+                industrial_unreported_windows_by_pair=industrial_unreported_windows or None,
+                industrial_purchase_envelope_pairs=industrial_purchase_envelope_pairs or None,
                 prospective_safety_by_pair=prospective_safety_context or None,
+                anticipated_need_by_pair=anticipated_need_context or None,
+                anticipated_internal_pairs=anticipated_internal_pairs or None,
+                production_floor_pairs=produced_pairs if unified_purchase_rules or chain_planning_policy is not None else None,
+                campaign_receipt_context_by_pair={pair: dict(receipt_days=policy["receipt_days"],
+                    origin_date=safety_calendar["start_date"]) for pair, policy in finished_goods_release_policies.items()} or None,
+                manufacturing_calendar_by_pair=manufacturing_calendar_by_pair or None,
+                source_safety_by_pair={pair: {
+                    "safety_days": pair_mrp_safety_time_days.get(pair, 0.0),
+                    "fixed_qty": pair_mrp_safety_stock_qty.get(pair, 0.0),
+                    **({"projection": {
+                        "source_working_days": int(pair_mrp_safety_source_days.get(pair, 0.0)),
+                        "origin_weekday": safety_calendar["weekday"], "forecast_through_day": day + horizon,
+                    }} if chain_safety_projection_policy is not None else {}),
+                } for pair in chain_safety_pairs} or None,
+                availability_by_release_by_pair=({pair: dated_supply_release_calendar(
+                    decision_day=day, through_day=day + max(horizon, network_leads.get(pair, 1), network_covers.get(pair, 1)) + 1,
+                    **context) for pair, context in exact_supply_calendar_contexts.items()} | purchase_review_calendars) or None,
+                **({"transfer_commitment_pairs": internal_transfer_commitment_pairs}
+                   if internal_transfer_commitments is not None else {}),
             )
+            if internal_transfer_commitments is not None:
+                planning_network_inputs["transfer_commitment_rows"] = internal_transfer_commitments.planning_rows(
+                    decision_day=day, calendars=planning_network_inputs["availability_by_release_by_pair"])
+            if production_programme_book is not None:
+                local_windows,local_audit=programme_current_source_windows(industrial_windows,
+                    production_programme_book.rows.values(),decision_day=day,weekly_consumed=programme_weekly_consumed,
+                    source_purchase_pairs=industrial_purchase_source_pairs)
+                planning_network_inputs["industrial_windows_by_pair"]=local_windows
+                programme_source_budget_rows.extend(local_audit)
+            dated_plans, dated_requirements, dated_plan_audits = plan_component_network(**planning_network_inputs)
+            if apply_opening_purchase_postponement(
+                    permissions=opening_purchase_postponement_permissions, decision_day=day,
+                    origin_date=safety_calendar["start_date"], horizon_day=day + horizon,
+                    availability=opening_purchase_availability, stock=stock, firm_snapshot=firm_snapshot,
+                    requirements_by_pair=dated_requirements, plan_audits=dated_plan_audits,
+                    industrial_windows=industrial_windows, pipeline=pipeline,
+                    pending_receipt_calendar=pending_receipt_calendar, commitments=planning_commitments_by_pair,
+                    order_rows=mrp_order_rows, shipment_rows=supplier_shipment_rows,
+                    audit_rows=opening_purchase_replanning_rows, total_days=total_timeline_days,
+                    safety_source_days_by_pair=pair_mrp_safety_source_days):
+                # Replace the provisional calculation before any order is executed.
+                planning_network_inputs["firm_receipts_by_pair"] = firm_snapshot
+                dated_plans, dated_requirements, dated_plan_audits = plan_component_network(**planning_network_inputs)
+            if apply_supplier_promise_postponement(
+                    policy=supplier_promise_postponement_policy, decision_day=day,
+                    origin_date=safety_calendar["start_date"], horizon_day=day+horizon,
+                    availability=opening_purchase_availability, stock=stock, firm_snapshot=firm_snapshot,
+                    requirements_by_pair=dated_requirements, plan_audits=dated_plan_audits,
+                    external_pipeline=external_pipeline, commitments=planning_commitments_by_pair,
+                    order_rows=mrp_order_rows, promise_book=supplier_delivery_orders,
+                    audit_rows=supplier_promise_replanning_rows, total_days=total_timeline_days,
+                    nonworking_dates_by_pair=supplier_receipt_nonworking_dates_by_pair):
+                planning_network_inputs["firm_receipts_by_pair"] = firm_snapshot
+                dated_plans, dated_requirements, dated_plan_audits = plan_component_network(**planning_network_inputs)
+            transfer_advancement_requests = internal_transfer_advancement_requests(
+                internal_transfer_rescheduling_policy, book=internal_transfer_commitments,
+                network_inputs=planning_network_inputs, plans=dated_plans)
+            if production_execution_policy is not None and chain_planning_policy is None:
+                # Replace the revocable snapshot each evening. Nothing is
+                # committed here: the next day's physical controller re-nets
+                # against receipts actually available, then starts at most
+                # what its existing capacity/material/lot path can execute.
+                production_execution_snapshots = {pair: {
+                    "decision_day": day, "requirements": tuple(dated_requirements.get(pair, ())),
+                    "protection": tuple(dated_plan_audits.get(pair, {}).get("protection_points", ())),
+                } for pair in produced_pairs}
             for planned_pair, plan in dated_plans.items():
                 audit = dated_plan_audits[planned_pair]
+                if record_day:
+                    envelope = audit.get("industrial_purchase_envelope")
+                    if envelope is not None:
+                        export = dict(envelope, day=output_day, node_id=planned_pair[0], item_id=planned_pair[1],
+                                      uom=normalize_unit(item_unit_map[planned_pair[1]]))
+                        for field in ("source_windows", "omitted_windows", "original_requirements", "output_requirements",
+                                      "source_commitment_allocations", "revocable_allocations", "cumulative_points"):
+                            export[field+"_json"] = json.dumps(export.pop(field),ensure_ascii=False,separators=(",", ":"))
+                        industrial_purchase_envelope_rows.append(export)
+                    for coverage in audit.get("industrial_unreported_windows", ()):
+                        export = dict(coverage, day=output_day, node_id=planned_pair[0], item_id=planned_pair[1],
+                                      uom=normalize_unit(item_unit_map[planned_pair[1]]))
+                        for field in ("removed_requirements", "preserved_requirements", "reserve_requirements"):
+                            export[field+"_json"] = json.dumps(export.pop(field),ensure_ascii=False,separators=(",", ":"))
+                        industrial_unreported_coverage_rows.append(export)
                 rows = dated_requirements[planned_pair]
                 reserve_late = sum(a.qty for a in plan.allocations if a.delay_days > 0 and a.requirement_id.startswith("reserve:"))
                 shortage_days = [balance.day for balance in plan.balances if balance.before_proposals_qty < -LOT_TRACE_EPS]
                 dated_plan_decisions[planned_pair] = {
-                    "dated_action_scope": "component_procurement" if planned_pair in dated_action_pairs else "planning_only_SD_execution_preserved",
+                    "dated_action_scope": dated_action_scope_for_pair(planned_pair),
                     "dated_requirement_qty": sum(row.qty for row in rows if not row.requirement_id.startswith("reserve:")),
                     "dated_campaign_remaining_qty": audit["campaign_remaining_qty"],
                     "dated_reserve_requirement_qty": audit["reserve_requirement_qty"],
@@ -14198,6 +18145,8 @@ def main() -> None:
                     "dated_firm_transit_qty": sum(row.qty for row in audit["firm_receipts"] if row.state == "in_transit"),
                     "dated_firm_production_qty": sum(row.qty for row in audit["firm_receipts"] if row.state == "confirmed"),
                     "dated_proposed_qty": plan.proposed_qty,
+                    "dated_net_rounding_quantum": plan.net_rounding_quantum,
+                    "dated_rounding_uncovered_qty": math.fsum(row.qty for row in plan.uncovered_requirements),
                     "dated_release_today_qty": sum(row.qty for row in plan.proposals if row.release_day <= day),
                     "dated_released_executed_qty": 0.0,
                     "dated_late_qty": plan.late_qty, "dated_late_qty_days": plan.late_qty_days,
@@ -14210,22 +18159,60 @@ def main() -> None:
                                          else "selected_supplier_FIA_then_source_receipt_explicit_candidate" if planned_pair in supplier_planning_policies
                                          else "FIA_supplier_delivery_once_then_source_receipt_explicit_nonworking_dates_candidate" if planned_pair in supplier_receipt_nonworking_dates_by_pair
                                          else "FIA_supplier_delivery_once_then_source_receipt_monday_friday_candidate" if planned_pair in aggregate_delivery_pairs
+                                         else "internal_physical_transport_candidate_then_receipt_FIA_reference_separate_future_scalar" if "physical_transport_days" in internal_component_policies.get(planned_pair, {})
                                          else "internal_reference_delivery_plus_receipt_current_decision_calendar_future_scalar_candidate" if "receipt_days" in internal_component_policies.get(planned_pair, {})
                                           else "lane_delivery_reference_calendar_convention"),
                 }
-                if planned_pair in sourcing_policies:
+                if internal_transfer_rescheduling_policy is not None and planned_pair in internal_transfer_commitment_pairs:
+                    advance = transfer_advancement_requests.get(planned_pair, {})
+                    dated_plan_decisions[planned_pair].update(
+                        internal_transfer_rescheduling_policy=internal_transfer_rescheduling_policy,
+                        internal_transfer_future_committed_qty=advance.get("future_committed_qty", ""),
+                        internal_transfer_counterfactual_release_today_qty=advance.get("counterfactual_release_today_qty", ""),
+                        internal_transfer_advance_requested_qty=advance.get("advancement_requested_qty", 0.0),
+                        internal_transfer_advanced_dispatched_qty=0.0)
+                if planned_pair in sourcing_policies or planned_pair in allocated_supplier_pairs:
                     sourced = audit["sourced_plan"]
                     sourced_plans_today[planned_pair] = sourced
                     dated_plan_decisions[planned_pair].update({
-                        "sourcing_policy_id": sourcing_policies[planned_pair]["policy_id"],
-                        "sourcing_primary_available_day": sourced.primary_available_day,
+                        "sourcing_policy_id": (allocated_supplier_policy if planned_pair in allocated_supplier_pairs
+                                               else sourcing_policies[planned_pair]["policy_id"]),
+                        "sourcing_primary_available_day": ("" if planned_pair in allocated_supplier_pairs else sourced.primary_available_day),
                         "sourcing_physical_shortage_before_primary_qty": sourced.physical_shortage_before_primary_qty,
                         "sourcing_backup_proposed_qty": sourced.backup_proposed_qty,
                         "sourcing_backup_released_qty": 0.0, "sourcing_primary_released_qty": 0.0,
                         "sourcing_retained_firm_qty": sourced.retained_firm_qty,
                         "sourcing_bridge_surplus_qty": sourced.bridge_surplus_qty,
                     })
-                if external_component_calendar is not None:
+                    if planned_pair in allocated_supplier_pairs:
+                        dated_plan_decisions[planned_pair]["dated_lead_basis"] = "per_offer_calendars_scalar_is_maximum_reference_only"
+                if "anticipated_plan" in audit:
+                    anticipated = audit["anticipated_plan"]
+                    dated_plan_decisions[planned_pair].update({
+                        "anticipated_safety_working_days": audit["anticipated_safety_working_days"],
+                        "anticipated_fixed_floor_qty": audit["anticipated_fixed_floor_qty"],
+                        "anticipated_late_qty": anticipated.late_qty,
+                        "anticipated_first_shortage_day": min((b.day for b in anticipated.balances
+                            if b.before_proposals_qty < -LOT_TRACE_EPS), default=""),
+                        "anticipated_no_extra_time_floor": 1,
+                    })
+                    if planned_pair in anticipated_internal_pairs:
+                        dated_plan_decisions[planned_pair]["internal_component_safety_policy"] = common_internal_safety_policy
+                    else:
+                        dated_plan_decisions[planned_pair].update({
+                            "purchase_need_date_policy": purchase_need_date_policy,
+                            "purchase_rule_version": purchase_need_date_policy,
+                            "purchase_fixed_floor_mode": "additive" if unified_purchase_rules else "maximum",
+                            "purchase_grouping_days": purchase_grouping_days if unified_purchase_rules else "",
+                            "purchase_requirement_basis": (
+                                "known_local_MRP_I_forecast_and_unserved_observed_other_uses"
+                                if planned_pair in managed_supply_policies else
+                                "remaining_physical_BOM_and_reconciled_known_industrial_I"),
+                        })
+                if unified_purchase_rules and planned_pair in produced_pairs:
+                    dated_plan_decisions[planned_pair]["production_projection_floor_qty"] = max(
+                        (p.minimum_qty for p in audit.get("protection_points", ())), default=0.0)
+                if external_component_calendar is not None or external_planning_calendar is not None:
                     dated_plan_decisions[planned_pair]["dated_external_requirement_qty"] = math.fsum(
                         row.qty for row in rows if row.requirement_id.startswith("external:")
                     )
@@ -14243,12 +18230,21 @@ def main() -> None:
                         "dated_protection_max_shortfall_qty": max((row.shortfall_qty for row in shortfalls), default=0.0),
                         "dated_protection_first_shortfall_day": min((row.day for row in shortfalls), default=""),
                     })
+                    if planned_pair in common_internal_safety_pairs:
+                        dated_plan_decisions[planned_pair]["internal_component_safety_policy"] = common_internal_safety_policy
+                    if planned_pair in depot_safety_protection_pairs:
+                        dated_plan_decisions[planned_pair].update({
+                            "depot_safety_protection_policy": chain_planning_policy or depot_safety_protection_policy,
+                            "depot_safety_protection_qty": max((p.minimum_qty for p in audit.get("protection_points", ())), default=0.0)})
                     if planned_pair in coverage_protection_pairs:
                         dated_plan_decisions[planned_pair].update({
                             key: audit[key] for key in COVERAGE_PROTECTION_FIELDS})
                 if "industrial_windows" in audit:
                     dated_plan_decisions[planned_pair].update({key: audit[key] for key in INDUSTRIAL_PLANNING_FIELDS})
-                    if audit["industrial_core_rate"] is not None and external_component_calendar is not None:
+                    if industrial_requirement_reconciliation_policy is not None:
+                        dated_plan_decisions[planned_pair].update({key: audit[key] for key in
+                            industrial_reconciliation_csv_fields(industrial_requirement_reconciliation_policy)})
+                    if audit["industrial_core_rate"] is not None and (external_component_calendar is not None or external_planning_calendar is not None):
                         dated_plan_decisions[planned_pair].update({
                             "dated_core_target_rate_qty": audit["industrial_core_rate"],
                             "dated_external_target_rate_qty": audit["industrial_extra_rate"],
@@ -14262,7 +18258,7 @@ def main() -> None:
                     audit = dated_plan_audits[planned_pair]
                     common = {"decision_day": output_day, "node_id": planned_pair[0], "item_id": planned_pair[1],
                               "uom": item_unit_map.get(planned_pair[1], ""),
-                              "action_scope": "component_procurement" if planned_pair in dated_action_pairs else "planning_only_SD_execution_preserved"}
+                              "action_scope": dated_action_scope_for_pair(planned_pair)}
                     dated_plan_weekly_rows.append(dict(common, kind="opening_available", identity="stock", target_day=day,
                                                       release_day="", requested_day="", qty=stock.get(planned_pair, 0.0)))
                     for requirement in dated_requirements[planned_pair]:
@@ -14270,30 +18266,71 @@ def main() -> None:
                             kind="reserve" if requirement.requirement_id.startswith("reserve:") else "requirement",
                             identity=requirement.requirement_id, target_day=requirement.due_day,
                             release_day="", requested_day="", qty=requirement.qty))
+                    for requirement in audit.get("anticipated_requirements", ()):
+                        dated_plan_weekly_rows.append(dict(common, kind="anticipated_planning_requirement",
+                            identity=requirement.requirement_id, target_day=requirement.due_day,
+                            release_day="", requested_day="", qty=requirement.qty))
                     for point in audit.get("protection_points", protection_by_pair.get(planned_pair, ())):
                         dated_plan_weekly_rows.append(dict(common, kind="stock_protection", identity=point.protection_id,
                             target_day=point.day, release_day="", requested_day="", qty=point.minimum_qty,
                             **audit.get("prospective_checkpoints", {}).get(point.day, {})))
                     for window in audit.get("industrial_windows", ()):
-                        for kind, field in (("industrial_source", "source_qty"), ("industrial_own", "own_qty"),
+                        industrial_audit_kinds = (("industrial_source", "source_qty"), ("industrial_own", "own_qty"),
                                 ("industrial_prior_external", "reconstructed_external_qty"),
-                                ("industrial_complement", "complement_qty"), ("industrial_own_excess", "source_excess_own_qty")):
+                                ("industrial_complement", "complement_qty"), ("industrial_own_excess", "source_excess_own_qty"))
+                        if industrial_requirement_reconciliation_policy is not None:
+                            industrial_audit_kinds += (
+                                ("industrial_weekly_complement_before_netting", "weekly_complement_before_netting_qty"),)
+                            if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1":
+                                industrial_audit_kinds += (("industrial_own_planned", "own_planned_qty"),
+                                    ("industrial_planning", "planning_qty"), ("industrial_own_advanced", "own_advanced_qty"))
+                            elif industrial_requirement_reconciliation_policy == "separate_own_and_other_v1":
+                                industrial_audit_kinds += (("industrial_complement_delta", "complement_delta_qty"),)
+                                if planned_pair in industrial_purchase_source_pairs:
+                                    industrial_audit_kinds += (("industrial_own_planned", "own_planned_qty"
+                                        if planned_pair in industrial_purchase_envelope_pairs else "committed_qty"),
+                                        ("industrial_planning", "planning_qty"))
+                            else:
+                                industrial_audit_kinds += (("industrial_temporal_overlap_removed", "temporal_overlap_removed_qty"),)
+                        for kind, field in industrial_audit_kinds:
                             dated_plan_weekly_rows.append(dict(common, kind=kind, identity=window["source_cells"],
                                 target_day=window["first_day"], release_day="", requested_day="", qty=window[field],
                                 period_start_day=window["period_start_day"], period_end_day_exclusive=window["end_day_exclusive"],
                                 source_vintage_day=window["known_day"], source_file=window["source_file"], source_cells=window["source_cells"]))
+                        if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1":
+                            provenance = dict(period_start_day=window["period_start_day"],
+                                period_end_day_exclusive=window["end_day_exclusive"], source_vintage_day=window["known_day"],
+                                source_file=window["source_file"], source_cells=window["source_cells"])
+                            for own in window["original_own_requirements"]:
+                                dated_plan_weekly_rows.append(dict(common, kind="industrial_original_own_requirement",
+                                    identity=own.requirement_id, target_day=own.due_day, release_day="", requested_day="",
+                                    qty=own.qty, **provenance))
+                            for allocation in window["own_planning_allocations"]:
+                                dated_plan_weekly_rows.append(dict(common, kind="industrial_own_planning_allocation",
+                                    identity=allocation["requirement_id"], target_day=allocation["planned_day"], release_day="",
+                                    requested_day=allocation["original_due_day"], qty=allocation["qty"], **provenance))
                     for receipt in audit["firm_receipts"]:
                         dated_plan_weekly_rows.append(dict(common, kind="firm_" + receipt.state, identity=receipt.receipt_id,
                             target_day=receipt.available_day, release_day="", requested_day="", qty=receipt.qty))
                     for proposal in plan.proposals:
+                        proposal_fields = {}
+                        if planned_pair in sourcing_policies or planned_pair in allocated_supplier_pairs:
+                            source_row = next((row for row in sourced_plans_today[planned_pair].proposals
+                                               if row.proposal.proposal_id == proposal.proposal_id), None)
+                            proposal_fields = provisional_purchase_weekly_fields(source_row,
+                                policy=purchase_proposal_lot_policy, decision_day=day,
+                                delivery_days_by_supplier={lane["src"]: lead_time_reference_days(lane)
+                                    for lane in lanes_by_dest_item[planned_pair]})
                         dated_plan_weekly_rows.append(dict(common, kind="proposal", identity=proposal.proposal_id,
                             target_day=proposal.available_day, release_day=proposal.release_day,
-                            requested_day=proposal.requested_day, qty=proposal.qty))
+                            requested_day=proposal.requested_day, qty=proposal.qty, **proposal_fields))
 
         for src_pair, boundary in source_boundary_policies.items():
             if output_day % boundary["review_period_days"]:
                 continue
-            cover_days = boundary["lead_days"] + boundary["review_period_days"]
+            arrival_day = source_boundary_available_day(day, boundary, origin_date=safety_calendar["start_date"])
+            effective_lead_days = arrival_day - day
+            cover_days = effective_lead_days + boundary["review_period_days"]
             daily_forecast = max(0.0, mrp_target_demand_floor_by_pair(
                 mrp_target_profile_day, cover_days,
             ).get(src_pair, 0.0))
@@ -14316,10 +18353,13 @@ def main() -> None:
                 "source_boundary_lead_days": boundary["lead_days"],
                 "source_boundary_cover_days": cover_days,
                 "source_boundary_daily_forecast_qty": round(daily_forecast, 6),
+                **({"source_boundary_lead_calendar": boundary["lead_calendar"],
+                    "source_boundary_effective_lead_days": effective_lead_days,
+                    "source_boundary_available_day": arrival_day}
+                   if source_boundary_working_calendar else {}),
             }
             if order_qty <= LOT_TRACE_EPS:
                 continue
-            arrival_day = day + boundary["lead_days"]
             order_id = next_mrp_order_identity(
                 source_mode="external_procurement_source_boundary", src_node_id="SOURCE_BOUNDARY_SUPPLY",
                 dst_node_id=src_pair[0], item_id=src_pair[1],
@@ -14334,7 +18374,7 @@ def main() -> None:
                 src_pair, source_mode="external_procurement_source_boundary",
                 src_node_id="SOURCE_BOUNDARY_SUPPLY", dst_node_id=src_pair[0], item_id=src_pair[1],
                 release_qty=order_qty, receipt_qty=order_qty, arrival_day=arrival_day,
-                safety_time_days=0.0, lead_days=boundary["lead_days"],
+                safety_time_days=0.0, lead_days=effective_lead_days, lead_reference_days=boundary["lead_days"],
                 edge_id="SOURCE_BOUNDARY_SUPPLY", standard_order_qty=boundary["fixed_lot_qty"],
                 mrp_order_id=order_id,
             )
@@ -14737,13 +18777,13 @@ def main() -> None:
                 )
                 target = max(
                     target,
-                    safety_stock_days
+                    generic_safety_days(pair)
                     * target_daily_req
                     * safety_stock_multiplier,
                 )
                 neutral_target = max(
                     neutral_target,
-                    safety_stock_days * target_daily_req,
+                    generic_safety_days(pair) * target_daily_req,
                 )
                 if pair in demand_pairs and demand_stock_target_days > 0.0:
                     target = max(target, demand_stock_target_days * target_daily_req)
@@ -14805,10 +18845,56 @@ def main() -> None:
                 )
             if dated_component_planning and pair in dated_action_pairs:
                 needed = dated_plan_decisions.get(pair, {}).get("dated_release_today_qty", 0.0)
+                if internal_transfer_commitments is not None and pair in internal_transfer_commitment_pairs:
+                    needed += internal_transfer_commitments.due_quantity(pair, day)
+                    needed += transfer_advancement_requests.get(pair, {}).get("advancement_requested_qty", 0.0)
                 neutral_needed = needed
+            if pair in finished_goods_push_sources:
+                pull_requirement = max(0.0, needed)
+                needed = finished_goods_dispatch_need(
+                    destination=pair, push_sources=finished_goods_push_sources,
+                    available_by_pair=stock, legacy_need=needed, uom=item_unit_map.get(item_id, ""))
+                neutral_needed = needed
+                finished_goods_dispatch_decisions[pair] = {
+                    "finished_goods_dispatch_policy": finished_goods_dispatch_policy,
+                    "finished_goods_push_available_qty": round(needed, 6),
+                    "finished_goods_pull_requirement_qty": round(pull_requirement, 6),
+                }
+            if pair in customer_physical_cover_routes:
+                route = customer_physical_cover_routes[pair]
+                lead = sample_lead_days(route, None, False, lead_time_distribution_mode)
+                commitments = [FirmReceipt(identity, arrival, qty, origin)
+                    for identity, (arrival, qty, origin) in planning_commitments_by_pair.get(pair, {}).items()]
+                if pair in customer_known_demand_pairs:
+                    decision = customer_known_demand_need(decision_day=day, arrival_day=day + lead,
+                        available_qty=stock[pair], backlog_qty=backlog[pair],
+                        firm_receipts=commitments, uom=item_unit_map.get(item_id,""))
+                    dispatch_audit = {}
+                else:
+                    dispatch_values, dispatch_audit = customer_dispatch_profile(mrp_source_forecasts, pair,
+                        policy_pairs=customer_dispatch_forecast_pairs, decision_day=output_day,
+                        target_day=output_day + 1, window_days=lead)
+                    physical_needs = [Requirement(f"physical_customer:{pair}:{day + offset}", day + offset,
+                        dispatch_values[offset - 1] if dispatch_values is not None else
+                        planning_forecast_window(pair, decision_day=output_day,
+                            target_day=output_day + offset, window_days=1)[0]
+                        if customer_demand_policy == "source_customer_history_v1" else
+                        customer_demand_calendar.quantity(pair, decision_day=output_day, target_day=output_day + offset)[0]
+                        if customer_demand_calendar is not None else
+                        max(0.0, _cached_profile_value(demand_profiles[pair], profile_day + offset, demand_profile_value_cache)))
+                        for offset in range(1, lead + 1)]
+                    decision = customer_physical_cover_need(decision_day=day, arrival_day=day + lead,
+                        physical_requirements=physical_needs, available_qty=stock[pair], backlog_qty=backlog[pair],
+                        firm_receipts=commitments, uom=item_unit_map.get(item_id, ""))
+                decision["customer_previous_forecast_order_qty"] = max(0.0, needed)
+                decision.update(dispatch_audit)
+                customer_physical_cover_decisions[pair] = decision
+                needed = neutral_needed = decision["customer_physical_order_qty"]
             q_mrp_base_qty = max(0.0, neutral_needed)
             q_after_safety_stock_control_qty = max(0.0, needed)
             needed *= order_multiplier
+            if pair in customer_known_demand_pairs:
+                needed = min(needed,customer_physical_cover_decisions[pair]["customer_physical_order_qty"])
             q_after_control_qty = max(0.0, needed)
             if pending_receipt_calendar is not None:
                 pending_qty = pending_receipt_calendar.total(pair)
@@ -14972,6 +19058,9 @@ def main() -> None:
                 base_lane_weights,
                 supplier_order_multipliers,
             )
+            if pair in customer_known_demand_pairs:
+                q_after_supplier_control_qty = min(q_after_supplier_control_qty,
+                    customer_physical_cover_decisions[pair]["customer_physical_order_qty"])
             needed = q_after_supplier_control_qty
 
             allocation_weights = {
@@ -15163,6 +19252,8 @@ def main() -> None:
 
                 if desired_delivered_qty <= 1e-9 or remaining_need_qty <= 1e-9:
                     return 0.0
+                if not purchase_review_is_due(supplier_purchase_review_policy,pair,day,safety_calendar["start_date"]):
+                    return 0.0
                 src_pair = (lane["src"], item_id)
                 if dated_component_planning and pair in aggregate_delivery_pairs:
                     # FIA describes one supplier delivery promise. No unobserved
@@ -15184,9 +19275,11 @@ def main() -> None:
                     standard = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
                     binding = policy_pair_key(*pair) not in nonbinding_standard_order_pair_keys
                     uom = normalize_unit(item_unit_map.get(item_id, ""))
-                    execution_multiple = procurement_batching_policies[pair]["rounding_multiple_qty"] if pair in procurement_batching_policies else standard
+                    execution_multiple = (managed_supply_lot(managed_supply_policies[pair]).multiple
+                        if pair in managed_supply_policies else
+                        procurement_batching_policies[pair]["rounding_multiple_qty"] if pair in procurement_batching_policies else standard)
                     ordered = mrp_purchase_order_quantity(requested, capacity_left, execution_multiple,
-                                                         binding=True if pair in procurement_batching_policies else binding, uom=uom)
+                        binding=True if pair in procurement_batching_policies or pair in managed_supply_policies else binding, uom=uom)
                     physical_multiple = max(0.0, to_float(lane.get("physical_dispatch_multiple"), 0.0))
                     if physical_multiple > 0:
                         ordered = min(math.ceil(ordered / physical_multiple) * physical_multiple,
@@ -15226,7 +19319,9 @@ def main() -> None:
                         source_mode="external_procurement_supplier_delivery", src_node_id=src_pair[0],
                         dst_node_id=dst, item_id=item_id,
                     )
-                    supplier_delivery_orders[order_id] = dict(receipt_policy, supplier_id=src_pair[0], edge_id=lane["edge_id"])
+                    supplier_delivery_orders[order_id] = dict(receipt_policy, supplier_id=src_pair[0], edge_id=lane["edge_id"],
+                        **({"original_physical_day": physical_day, "original_available_day": available_day}
+                           if supplier_promise_postponement_policy is not None else {}))
                     if sourcing_proposal is not None and sourcing_proposal.role == "backup":
                         # Protect the actual firm order identity, never the
                         # revocable daily proposal id, from repeated rescues.
@@ -15262,7 +19357,7 @@ def main() -> None:
                             "receipt_calendar": receipt_policy.get("calendar_id", "monday_friday_candidate"),
                             **empirical_evidence,
                         })
-                        if sourcing_proposal is not None:
+                        if sourcing_proposal is not None and pair in sourcing_policies:
                             policy = sourcing_policies[pair]
                             offer = policy["_offers_by_supplier"][src_pair[0]]
                             mrp_order_rows[-1].update({
@@ -15274,6 +19369,17 @@ def main() -> None:
                                 "sourcing_requirement_due_day": sourcing_proposal.proposal.requested_day,
                                 "sourcing_backup_required_qty": sourcing_proposal.backup_required_qty,
                                 "sourcing_proposal_id": sourcing_proposal.proposal.proposal_id,
+                            })
+                        elif sourcing_proposal is not None and pair in allocated_supplier_pairs:
+                            mrp_order_rows[-1].update({
+                                "sourcing_policy_id": allocated_supplier_policy, "sourcing_role": "allocated",
+                                "sourcing_reason": "existing_share_with_same_offer_lot_and_dates",
+                                "sourcing_purchase_unit_cost": lane["unit_purchase_cost"],
+                                "sourcing_price_uom": item_unit_map[item_id], "sourcing_currency": "EUR",
+                                "sourcing_requirement_due_day": sourcing_proposal.proposal.requested_day,
+                                "sourcing_proposal_id": sourcing_proposal.proposal.proposal_id,
+                                "mrp_share_basis": "legacy_fixed_split_not_industrial_quota",
+                                "lead_reference_days": sourcing_proposal.proposal.available_day - sourcing_proposal.proposal.release_day,
                             })
                         elif pair in supplier_planning_policies:
                             mrp_order_rows[-1].update({
@@ -15298,7 +19404,7 @@ def main() -> None:
                                 "procurement_batch_grouping_days": policy["grouping_days"],
                                 "procurement_batch_proposal_id": proposal.proposal_id,
                             })
-                    if sourcing_proposal is not None:
+                    if sourcing_proposal is not None and sourcing_proposal.role in {"primary", "backup"}:
                         dated_plan_decisions[pair]["sourcing_" + sourcing_proposal.role + "_released_qty"] += received
                     supplier_capacity_used_today_by_src_pair[src_pair] += ordered
                     supplier_aggregate_orders_today_by_src_pair[src_pair] += ordered
@@ -15655,8 +19761,22 @@ def main() -> None:
                     unconstrained_pull_qty,
                     max_feasible_qty,
                 )
+                advancement = transfer_advancement_requests.get(pair, {})
+                if advancement.get("advancement_requested_qty", 0.0) > LOT_TRACE_EPS:
+                    # Advancing an old promise must never authorize additional
+                    # unpromised volume merely because the truck rounds upward.
+                    # This cap is shared across today's partial lane attempts;
+                    # actual source stock is debited by the normal executor.
+                    max_feasible_qty = internal_transfer_dispatch_limit(advancement,
+                        available_qty=min(max_feasible_qty, max(0.0, stock[src_pair])),
+                        already_dispatched_qty=planned_receipt_today_by_pair.get(pair, 0.0), uom=shipment_uom)
+                    constrained_pull_qty = min(unconstrained_pull_qty, max_feasible_qty)
+                available_source_before_dispatch_qty = max(0.0, stock[src_pair])
                 pair_constrained_before_lot_qty += constrained_pull_qty
-                if (
+                if "internal_transfer_multiple_qty" in lane:
+                    pull_qty = mrp_purchase_order_quantity(unconstrained_pull_qty,
+                        max_feasible_qty, lane["internal_transfer_multiple_qty"], binding=True, uom=shipment_uom)
+                elif (
                     physical_dispatch_multiple > 1e-9
                     and max_feasible_qty + 1e-9 >= physical_dispatch_multiple
                     and source_mode == "lane_release"
@@ -15698,6 +19818,16 @@ def main() -> None:
                         shipment_uom,
                         rounding="down",
                     )
+                if pair in customer_known_demand_pairs:
+                    # Re-read commitments: earlier lane attempts may already have
+                    # reserved/registered a departure against this same backlog.
+                    remaining_known=customer_known_demand_need(decision_day=day,arrival_day=day+1,
+                        available_qty=stock[pair],backlog_qty=backlog[pair],uom=shipment_uom,
+                        firm_receipts=[FirmReceipt(identity,arrival,quantity,origin)
+                            for identity,(arrival,quantity,origin) in planning_commitments_by_pair.get(pair,{}).items()])
+                    pull_qty=cap_known_customer_dispatch(pull_qty,
+                        known_need=remaining_known["customer_physical_order_qty"],uom=shipment_uom,
+                        multiple_qty=lane.get("internal_transfer_multiple_qty",physical_dispatch_multiple))
                 delivered_qty = pull_qty * rel
                 if shipment_uom == "UN":
                     delivered_qty = min(
@@ -15851,8 +19981,10 @@ def main() -> None:
                     order_frequency_days=order_frequency_days, pull_qty=pull_qty,
                     delivered_qty=delivered_qty, reliability=rel, shipment_uom=shipment_uom,
                     standard_order_qty=standard_order_qty, standard_order_binding=standard_order_binding,
-                    preserve_dated_release=(external_component_calendar is not None
-                                            and dated_component_planning and pair in dated_action_pairs),
+                    preserve_dated_release=(((external_component_calendar is not None or external_planning_calendar is not None)
+                                             and dated_component_planning and pair in dated_action_pairs)
+                                            or "physical_transport_days" in lane
+                                            or "internal_transfer_multiple_qty" in lane),
                 )
 
                 traced_delivery_schedule, supplier_shipment_sequence = _attach_shipment_trace_ids(
@@ -16068,6 +20200,27 @@ def main() -> None:
                         causal_event_ids=risk_mult.get("event_ids"),
                         causal_root_ids=risk_mult.get("causal_root_ids"),
                     )
+                    if internal_transfer_commitments is not None and pair in internal_transfer_commitment_pairs:
+                        advance_context = None
+                        if internal_transfer_rescheduling_policy is not None:
+                            requested_advance = transfer_advancement_requests.get(pair, {})
+                            advance_context = dict(
+                                rescheduling_policy=internal_transfer_rescheduling_policy,
+                                rescheduling_reason=("executable_current_need"
+                                    if requested_advance.get("advancement_requested_qty", 0.0) > LOT_TRACE_EPS
+                                    else "existing_physical_dispatch_covers_future_promise"),
+                                normal_release_today_qty=requested_advance.get("normal_release_today_qty", 0.0),
+                                counterfactual_release_today_qty=requested_advance.get("counterfactual_release_today_qty", ""),
+                                advancement_requested_qty=requested_advance.get("advancement_requested_qty", 0.0),
+                                available_source_before_dispatch_qty=available_source_before_dispatch_qty)
+                        first_event = len(internal_transfer_commitments.events)
+                        internal_transfer_commitments.handoff(pair=pair, day=day,
+                            quantity=chunk_delivered_qty, shipment_id=shipment_id, available_day=available_day,
+                            advance_context=advance_context)
+                        if advance_context is not None:
+                            dated_plan_decisions[pair]["internal_transfer_advanced_dispatched_qty"] += math.fsum(
+                                event["event_qty"] for event in internal_transfer_commitments.events[first_event:]
+                                if event["event"] == "advanced_to_dispatch")
                     if internal_receipt is not None and record_day:
                         mrp_order_rows[-1].update({
                             "physical_delivery_day": arrival_day, "available_day": available_day,
@@ -16230,7 +20383,7 @@ def main() -> None:
                         *eligible_active_lanes[0], desired_delivered_qty=min(remaining, proposal.qty * order_multiplier),
                         remaining_need_qty=remaining, procurement_batch=(groups_by_proposal[proposal.proposal_id], proposal),
                     )
-            if has_regular_need and pair in sourcing_policies:
+            if has_regular_need and (pair in sourcing_policies or pair in allocated_supplier_pairs):
                 active_by_supplier = {entry[0]["src"]: entry for entry in eligible_active_lanes}
                 for sourced_proposal in sourced_plans_today[pair].proposals:
                     if sourced_proposal.proposal.release_day > day or remaining <= 1e-9:
@@ -16246,6 +20399,7 @@ def main() -> None:
             if (
                 has_regular_need
                 and pair not in sourcing_policies
+                and pair not in allocated_supplier_pairs
                 and pair not in procurement_batching_policies
                 and active_share_total > 1e-9
                 and len(eligible_active_lanes) > 1
@@ -16269,7 +20423,8 @@ def main() -> None:
                         remaining_need_qty=remaining,
                     )
 
-            if has_regular_need and pair not in sourcing_policies and pair not in procurement_batching_policies:
+            if (has_regular_need and pair not in sourcing_policies and pair not in allocated_supplier_pairs
+                    and pair not in procurement_batching_policies):
                 for (
                     lane,
                     availability_mult,
@@ -16288,7 +20443,8 @@ def main() -> None:
                     )
 
             for lane, availability_mult, risk_mult, lane_control in annual_min_lot_lanes:
-                if pair in sourcing_policies or pair in procurement_batching_policies or pair in supplier_planning_policies:
+                if (pair in sourcing_policies or pair in procurement_batching_policies
+                        or pair in supplier_planning_policies or pair in managed_supply_policies):
                     continue
                 edge_id = str(lane.get("edge_id") or "")
                 output_day_nonnegative = max(0, int(output_day))
@@ -16738,7 +20894,7 @@ def main() -> None:
                     decision["dated_released_executed_qty"] = planned_receipt_today_by_pair.get(planned_pair, 0.0) if planned_pair in dated_action_pairs else 0.0
                     dated_plan_daily_rows.append({"day": output_day, "node_id": planned_pair[0], "item_id": planned_pair[1],
                         "uom": item_unit_map.get(planned_pair[1], ""),
-                        "action_scope": "component_procurement" if planned_pair in dated_action_pairs else "planning_only_SD_execution_preserved",
+                        "action_scope": dated_action_scope_for_pair(planned_pair),
                         **{key: round(value, 6) if isinstance(value, float) else value for key, value in decision.items()}})
             for pair in mrp_trace_pairs:
                 trace_control = resolve_daily_control(
@@ -16821,7 +20977,7 @@ def main() -> None:
                     )
                     coverage_target_qty = max(
                         coverage_target_qty,
-                        safety_stock_days
+                        generic_safety_days(pair)
                         * target_daily_req
                         * trace_safety_multiplier,
                     )
@@ -16863,7 +21019,7 @@ def main() -> None:
                         )
                         display_coverage_target_qty = max(
                             display_coverage_target_qty,
-                            safety_stock_days
+                            generic_safety_days(pair)
                             * target_display_daily_req
                             * trace_safety_multiplier,
                         )
@@ -16963,6 +21119,9 @@ def main() -> None:
                             "mrp_forecast_fallback_days": forecast_audit["fallback_days"],
                             "mrp_forecast_daily_qty": round(forecast_qty, 6),
                             "mrp_forecast_source_rows": forecast_audit["source_rows"],
+                            **({"mrp_forecast_missing_period_policy": missing_forecast_period_policy,
+                                "mrp_forecast_source_vintages": forecast_audit["source_vintage_days"]}
+                               if missing_forecast_period_policy is not None else {}),
                         })
                 mrp_trace_rows.append(
                     {
@@ -16999,37 +21158,56 @@ def main() -> None:
                             "held_pending_availability_qty": round(opening_purchase_availability.held_by_pair.get(pair, 0.0), 6),
                             "available_release_today_qty": round(opening_usable_releases_today.get(pair, 0.0), 6),
                         } if opening_purchase_availability is not None else {}),
-                        **({key: (round(dated_plan_decisions[pair][key], 6) if isinstance(dated_plan_decisions[pair][key], float)
-                                  else dated_plan_decisions[pair][key]) if pair in dated_plan_decisions else ""
-                            for key in MRP_NETWORK_PLAN_FIELDS} if dated_component_planning else {}),
+                        **(mrp_network_plan_trace_values(dated_plan_decisions.get(pair)) if dated_component_planning else {}),
+                        **({key: finished_goods_dispatch_decisions.get(pair, {}).get(key, "")
+                            for key in FINISHED_GOODS_DISPATCH_FIELDS} if finished_goods_push_sources else {}),
+                        **customer_physical_cover_trace(customer_physical_cover_decisions, pair,
+                            enabled=bool(customer_physical_cover_routes)),
                         **({key: dated_plan_decisions.get(pair, {}).get(key, "") for key in SOURCING_PLAN_FIELDS}
-                           if sourcing_policies else {}),
+                           if sourcing_policies or allocated_supplier_pairs else {}),
                         **({key: dated_plan_decisions.get(pair, {}).get(key, "") for key in STOCK_PROTECTION_FIELDS}
-                           if stock_protection_active else {}),
+                            if stock_protection_active else {}),
+                        **({"internal_component_safety_policy": dated_plan_decisions.get(pair, {}).get(
+                            "internal_component_safety_policy", "")} if common_internal_safety_pairs else {}),
                         **({key: dated_plan_decisions.get(pair, {}).get(key, "") for key in COVERAGE_PROTECTION_FIELDS}
                            if coverage_protection_pairs else {}),
                         **({key: dated_plan_decisions.get(pair, {}).get(key, "") for key in INDUSTRIAL_PLANNING_FIELDS}
                            if industrial_planning_calendar is not None else {}),
+                        **({key: dated_plan_decisions.get(pair, {}).get(key, "") for key in
+                            industrial_reconciliation_csv_fields(industrial_requirement_reconciliation_policy)}
+                           if industrial_requirement_reconciliation_policy is not None else {}),
                         **({key: dated_plan_decisions.get(pair, {}).get(key, "") for key in PROSPECTIVE_SAFETY_FIELDS}
-                           if prospective_safety_pairs else {}),
+                           if prospective_safety_export_enabled else {}),
                         **({
                             "external_demand_qty": round(external_component_today.get(pair, {}).get("demand_qty", 0.0), 6),
                             "external_consumed_qty": round(external_component_today.get(pair, {}).get("consumed_qty", 0.0), 6),
                             "external_backlog_qty": round(external_component_today.get(pair, {}).get("backlog_end_qty", 0.0), 6),
                             "dated_external_requirement_qty": round(dated_plan_decisions.get(pair, {}).get("dated_external_requirement_qty", 0.0), 6),
                         } if external_component_calendar is not None else {}),
+                        **({"dated_external_requirement_qty": round(dated_plan_decisions.get(pair, {}).get(
+                            "dated_external_requirement_qty", 0.0), 6)}
+                           if external_component_calendar is None and external_planning_calendar is not None else {}),
                         **dated_receipt_trace,
                         **forecast_trace,
-                        **({**{field: "" for field in SOURCE_BOUNDARY_TRACE_FIELDS},
+                        **({**{field: "" for field in source_boundary_trace_fields(working_calendar=source_boundary_working_calendar)},
                             **source_boundary_decisions.get(pair, {})}
                            if source_boundary_policies else {}),
                         **({"mrp_standard_order_binding": int(policy_pair_key(*pair) not in nonbinding_standard_order_pair_keys)}
                            if nonbinding_standard_order_pair_keys else {}),
                         **({**{field: "" for field in PRODUCTION_MRP_SAFETY_FIELDS},
                             **production_safety_decisions.get(pair, {})}
-                            if record_production_planning else {}),
+                             if record_production_planning else {}),
+                        **({field: production_safety_decisions.get(pair, {}).get(field, "")
+                            for field in PRODUCTION_DEPOT_FEEDBACK_FIELDS}
+                           if production_depots_by_output else {}),
+                        **({field: production_safety_decisions.get(pair, {}).get(field, "")
+                            for field in DATED_PRODUCTION_EXECUTION_FIELDS}
+                           if production_execution_policy is not None else {}),
+                        **({field: dated_plan_decisions.get(pair, {}).get(field, "")
+                            for field in DEPOT_SAFETY_PROTECTION_FIELDS}
+                           if depot_safety_protection_pairs else {}),
                         **({"production_external_signal_qty": production_safety_decisions.get(pair, {}).get("production_external_signal_qty", "")}
-                           if external_component_calendar is not None else {}),
+                           if external_component_calendar is not None or external_planning_calendar is not None else {}),
                         **({"held_release_within_cover_qty": round(held_release_cover_qty, 6)}
                            if initial_stock_availability is not None else {}),
                         "bn_qty": round(bn_qty, 6),
@@ -17060,6 +21238,51 @@ def main() -> None:
                         "has_mrp_snapshot_policy": int(pair in mrp_snapshot_pairs),
                     }
                 )
+
+        if chain_planning_policy is not None:
+            # All movements of the day have now happened. Re-net the entire
+            # acyclic network, including newly committed shipments/purchases,
+            # before retaining tomorrow's revocable manufacturing snapshot.
+            # This is a second calculation, never a second physical action.
+            closing_firms = {pair: [FirmReceipt(identity, arrival, qty,
+                "held" if origin == "held" or (identity in opening_purchase_availability.by_marker
+                    and opening_purchase_availability.by_marker[identity]["received"]) else
+                ("confirmed" if origin == "production" else "in_transit"))
+                for identity, (arrival, qty, origin) in commitments.items() if arrival > day]
+                for pair, commitments in planning_commitments_by_pair.items()}
+            closing_inputs = dict(planning_network_inputs)
+            if internal_transfer_commitments is not None:
+                # Handoff removed shipped quantities; remaining promises are
+                # netted beside the normal shipment once, not as virtual stock.
+                closing_inputs["transfer_commitment_rows"] = internal_transfer_commitments.planning_rows(
+                    decision_day=day + 1, calendars=closing_inputs["availability_by_release_by_pair"])
+            closing_inputs["sourcing_by_pair"] = {pair: dict(context,
+                protected_backup_receipt_ids=tuple(row.receipt_id for row in closing_firms.get(pair, ())
+                    if row.receipt_id in sourcing_backup_order_ids))
+                for pair, context in sourcing_inputs.items()}
+            (production_execution_snapshots, closing_plans, closing_requirements,
+             closing_audits) = reconcile_production_execution_snapshot(closing_inputs,
+                available_by_pair=stock, firm_receipts_by_pair=closing_firms, produced_pairs=produced_pairs)
+            if internal_transfer_commitments is not None:
+                internal_transfer_commitments.record_pending(day=output_day,
+                    rows=[row for audit in closing_audits.values() for row in audit.get("transfer_promises", ())])
+            if record_day:
+                for pair in sorted(chain_safety_pairs | produced_pairs):
+                    safety_audit = closing_audits.get(pair, {}).get("chain_source_safety", {})
+                    production_execution_snapshot_rows.append({
+                        "day": output_day, "node_id": pair[0], "item_id": pair[1],
+                        "uom": item_unit_map.get(pair[1], ""), "policy": chain_planning_policy,
+                        "pre_dispatch_available_qty": dated_plan_decisions.get(pair, {}).get("dated_stock_qty", 0.0),
+                        "post_dispatch_available_qty": stock.get(pair, 0.0),
+                        "pre_dispatch_requirement_qty": math.fsum(r.qty for r in dated_requirements.get(pair, ())),
+                        "post_dispatch_requirement_qty": math.fsum(r.qty for r in closing_requirements.get(pair, ())),
+                        "post_dispatch_firm_qty": math.fsum(r.qty for r in closing_audits.get(pair, {}).get("firm_receipts", ())),
+                        "post_dispatch_due_proposal_qty": math.fsum(r.qty for r in closing_plans[pair].proposals
+                            if r.release_day <= day + 1),
+                        "source_safety_window_days": safety_audit.get("window_days", 0),
+                        "source_safety_requirement_qty": safety_audit.get("dated_requirement_qty", 0.0),
+                        "source_safety_target_qty": safety_audit.get("target_qty", 0.0),
+                    })
 
         # End-of-day holding costs
         inv_total_today = 0.0
@@ -17480,6 +21703,9 @@ def main() -> None:
             )
             if int(order_row["release_day"]) >= sim_days:
                 order_row["release_status"] = "planned_pending_departure"
+        if opening_pack_orders is not None and order_row.get("mrp_order_id") in opening_pack_orders.rows:
+            order_row.update(opening_pack_order_status(opening_pack_orders,
+                order_row["mrp_order_id"], last_day=sim_days - 1))
 
     for trace_row in mrp_trace_rows:
         pair = (str(trace_row["node_id"]), str(trace_row["item_id"]))
@@ -17510,7 +21736,7 @@ def main() -> None:
         production_constraint_rows=production_constraint_rows,
         item_unit_map=item_unit_map,
     )
-    production_campaign_rows = build_production_campaign_rows(
+    production_campaign_rows = (production_campaign_rows_with_availability if finished_goods_release_policies else build_production_campaign_rows)(
         production_plan_event_rows,
         lot_ledger.event_rows,
     )
@@ -18150,8 +22376,10 @@ def main() -> None:
            if initial_stock_availability is not None else {}),
         "economic_valuation": economic_valuation,
         "demand_execution_contract": {
-            "version": "source_demand_separate_from_planning_v1",
-            "physical_demand_basis": "unsmoothed_source_daily_profile_with_explicit_perturbations",
+            "version": (customer_demand_policy if customer_demand_calendar is not None else "source_demand_separate_from_planning_v1"),
+            "physical_demand_basis": ("source_customer_historical_week_allocated_to_current_day_integer_UN"
+                if customer_demand_policy == "source_customer_history_v1" else
+                "integer_estimated_customer_orders_from_known_future_MRP_week_before_period_start" if customer_demand_calendar is not None else "unsmoothed_source_daily_profile_with_explicit_perturbations"),
             "mrp_signal_smoothing_days": mrp_signal_smoothing_days,
             "mrp_window": "forward_planning_only",
         },
@@ -18177,15 +22405,132 @@ def main() -> None:
         "timeline_days": sim_days,
         "total_simulated_timeline_days": total_timeline_days,
         "policy": {
+            **({"dated_supply_calendar_policy": {
+                "mode": dated_supply_calendar_policy,
+                "scope": [list(pair) for pair in sorted(exact_supply_calendar_contexts)],
+                "release": "latest_causal_allowed_slot_meeting_need_else_earliest_allowed_slot_with_explicit_lateness",
+                "availability": "each_release_plus_existing_transport_or_tau_then_source_Monday_Friday_receipt",
+                "cadence": "existing_executor_day_modulo_review_period_days_no_new_frequency",
+                "manufacturing_closures": "existing_closed_days_excluded_from_planning_start_and_tau_interval",
+                "preserved": "firm_dates_quantities_lots_source_safety_external_supplier_calendars_and_physical_execution",
+                "limitation": "finite_capacity_and_material_feasibility_remain_execution_constraints_not_guaranteed_by_calendar",
+            }} if dated_supply_calendar_policy is not None else {}),
+            **({"chain_planning_policy": {
+                "mode": chain_planning_policy,
+                "source_protection": "max_fixed_source_qty_and_sum_dated_needs_in_open_day_to_day_plus_source_safety_window",
+                "source_calendar": "source_working_days_converted_Monday_Friday_at_decision_no_added_lead_or_review",
+                "protection_scope": [list(pair) for pair in sorted(chain_safety_pairs)],
+                "backlog": "ordinary_requirement_once_excluded_from_safety_window",
+                "snapshot": "whole_network_recomputed_after_all_daily_moves_no_second_orders_or_physical_execution",
+                "unknown_capacity": "existing_one_fixed_batch_per_day_execution_convention_not_an_industrial_capacity_estimate",
+                "supplier_policies": "dated_purchase_anticipation_fixed_floor_sourcing_and_lot_policies_preserved",
+                "aggregate_boundaries": "explicit_source_boundary_policies_preserved_not_inferred_manufacturing",
+                "daily_csv": "data/production_execution_snapshot_daily.csv",
+                "limitation": "revocable_forecast_and_late_firm_conventions_preserved_not_industrial_calibration",
+            }} if chain_planning_policy is not None else {}),
+            **({"chain_safety_projection_policy": {
+                "mode": chain_safety_projection_policy,
+                "window": "source_Monday_Friday_days_forward_at_each_future_date_from_current_snapshot",
+                "tail": "historical_current_floor_when_future_window_exceeds_projection",
+                "scope": "manufactured_outputs_depots_and_protected_internal_inputs",
+                "netting": "non_consumable_floor_original_physical_requirements_once",
+            }} if chain_safety_projection_policy is not None else {}),
+            **({"allocated_supplier_policy": {
+                "mode": allocated_supplier_policy,
+                "pairs": [list(pair) for pair in sorted(allocated_supplier_pairs)],
+                "allocation": "unchanged_legacy_order_and_fixed_shares_not_confirmed_industrial_quotas",
+                "proposals": "supplier_specific_standard_quantity_and_availability_calendar",
+                "execution": "same_named_supplier_remaining_unexecuted_quantity_replanned_next_review",
+                "receipts": "no_observed_industrial_receipt_injected",
+            }} if allocated_supplier_policy is not None else {}),
+            **({"internal_transfer_planning_lot_policy": {
+                "version": internal_transfer_planning_lot_policy,
+                "scope": "nonproduced_BOM_inputs_with_one_internal_route_and_existing_physical_dispatch_multiple",
+                "pairs": [{"node_id": pair[0], "item_id": pair[1],
+                           "planning_multiple_qty": lots.multiple,
+                           "source_node_id": lanes_by_dest_item[pair][0]["src"],
+                           "execution_review_days": lanes_by_dest_item[pair][0]["order_frequency_days"]}
+                          for pair, lots in sorted(internal_transfer_planning_lots.items())],
+                "netting": "rounded_transfer_surplus_reused_downstream_before_new_upstream_proposals",
+                "cadence": ("exact_intersection_of_pair_and_lane_review_grids_in_future_projection"
+                    if dated_supply_calendar_policy is not None else
+                    "unchanged_execution_review_grid_not_aligned_in_future_projection"),
+                "preserved": "source_safety_BOM_physical_executor_partial_dispatch_capacity_receipt_dates_and_existing_commitments",
+            }} if internal_transfer_planning_lot_policy is not None else {}),
+            **({"finished_goods_dispatch_policy": {
+                "version": finished_goods_dispatch_policy,
+                "status": "user_confirmed_business_rule_candidate_execution",
+                "scope": "released_finished_goods_single_factory_route_to_single_depot",
+                "routes": [{"source_node_id": source[0], "destination_node_id": destination[0],
+                            "item_id": destination[1]} for destination, source in sorted(finished_goods_push_sources.items())],
+                "request": "all_released_unreserved_factory_stock_before_lane_constraints_not_depot_target_gap",
+                "netting": "transport_reservations_already_removed_from_available_stock_no_second_transit_subtraction",
+                "preserved": "production_controller_source_safety_customer_routes_review_cadence_transport_lots_capacity_quality_integer_UN_and_genealogy",
+            }} if finished_goods_dispatch_policy is not None else {}),
+            **({"internal_component_safety_policy": {
+                "version": common_internal_safety_policy,
+                "status": "candidate_not_inferred_ERP",
+                "scope": "nonproduced_BOM_inputs_with_source_safety_and_exclusively_internal_incoming_routes",
+                "pairs": [{"node_id": node, "item_id": item,
+                           "source_safety_days": pair_mrp_safety_source_days.get((node, item), 0.0),
+                           "source_fixed_floor_qty": pair_mrp_safety_stock_qty.get((node, item), 0.0)}
+                          for node, item in sorted(common_internal_safety_pairs)],
+                "floor": ("fixed_source_quantity_once_plus_remaining_needs_anticipated_by_source_Monday_Friday_days"
+                    if anticipated_internal_pairs else "max_source_fixed_quantity_and_source_calendar_days_times_current_known_global_rate"),
+                "activation": ("protected_date_max_decision_day_and_physical_need_minus_source_workdays_physical_needs_unchanged"
+                    if anticipated_internal_pairs else "next_day_persistent_floor_recomputed_at_each_daily_review"),
+                "netting": "unique_firm_quantities_retained_even_late_no_automatic_repurchase",
+                "coverage": "no_legacy_coverage_complement_added_to_the_floor",
+                "preserved": "source_safety_parameters_routes_lots_receipt_delays_physical_availability_BOM_and_SD_production",
+            }} if common_internal_safety_policy is not None else {}),
+            **({"internal_transfer_commitment_policy": {
+                "mode": internal_transfer_commitment_policy, "status": "experimental_not_identified_ERP",
+                "scope": [{"node_id": pair[0], "item_id": pair[1],
+                           "source_node_id": lanes_by_dest_item[pair][0]["src"]}
+                          for pair in sorted(internal_transfer_commitment_pairs)],
+                "trigger": "first_actual_work_of_new_campaign_with_explicit_wholly_funded_transfer_allocation",
+                "promise": "one_nonphysical_destination_receipt_and_persistent_source_requirement_no_stock_reservation",
+                "revision": "no_automatic_cancellation_after_engagement_original_dates_retained_lateness_exposed",
+                "handoff": "real_shipment_quantity_settles_existing_route_promises_FIFO_including_future_dates_once",
+                "exclusions": "source_H_import_PF_push_external_purchases_and_unfunded_proposals",
+                "audit_csv": "data/internal_transfer_commitment_events.csv",
+                "commitment_count": len(internal_transfer_commitments.orders),
+            }} if internal_transfer_commitments is not None else {}),
+            **({"internal_transfer_rescheduling_policy": {
+                "mode": internal_transfer_rescheduling_policy, "status": "experimental_not_identified_ERP",
+                "trigger": "today_due_net_need_without_future_internal_promises_minus_normal_new_due_proposals",
+                "counterfactual": "pure_network_projection_only_when_future_promise_current_legal_slot_and_available_source_stock",
+                "preserved_firms": "real_held_transit_and_already_due_internal_promises_retained",
+                "execution": "bounded_future_promised_volume_existing_physical_executor_stock_lot_calendar_capacity",
+                "identity": "same_commitment_id_original_dates_and_partial_remainder_retained_no_extra_production_order",
+                "trace": "advanced_to_dispatch_is_timing_only_handoff_is_the_single_quantity_debit",
+                "genealogy": "actual_available_source_lots_not_historical_planning_support_allocations",
+                "audit_csv": "data/internal_transfer_commitment_events.csv",
+                "decision_csv": "data/mrp_dated_plan_daily.csv",
+            }} if internal_transfer_rescheduling_policy is not None else {}),
             **({"internal_component_policy": {
                 **graph_meta["internal_component_policy"],
-                "scope": "explicit_693055_candidate_only_historical_defaults_unchanged",
-                "protection": "source_safety_days_times_current_known_global_rate_constant_at_decision_persistent_stock_floor_not_consumption_not_157_day_target",
+                **({"scope": "explicit_693055_candidate_only_historical_defaults_unchanged",
+                    "protection": "source_safety_days_times_current_known_global_rate_constant_at_decision_persistent_stock_floor_not_consumption_not_157_day_target",
+                    "internal_delivery": "70_day_FIA_reference_not_observed_truck_duration_then_7_Monday_Friday_receipt_days_candidate",
+                    "weekly_stock_protection": "level_persists_until_next_checkpoint_never_sum_or_subtract_as_consumption"}
+                   if graph_meta["internal_component_policy"]["schema_version"] == 1 else {
+                    "scope": "source_backed_pure_internal_BOM_inputs_with_one_factory_or_depot_route",
+                    "internal_delivery": ("explicit_physical_transport_calendar_days_then_receipt_Monday_Friday_FIA_reference_retained_not_added"
+                        if any("physical_transport_days" in p for p in internal_component_policies.values()) else
+                        "unchanged_lane_reference_then_explicit_source_Monday_Friday_receipt_days"),
+                    "protection": "source_safety_and_targets_unchanged_receipt_days_affect_availability_only",
+                    "calendar_status": ("per_row_source_refs_distinguish_confirmed_calendar_and_experimental_hypothesis_no_unprovided_holidays"
+                        if any("physical_transport_days" in p for p in internal_component_policies.values()) else
+                        "user_confirmed_Monday_Friday_receipt_calendar_no_unprovided_holidays"),
+                    **({"transfer_multiple": "strict_positive_whole_dispatch_multiple_usable_stock_only_shortage_waits_source_FIA_standard_retained",
+                        "review_cadence": "existing_lane_review_days_unchanged",
+                        "physical_transport_sampling": "explicit_days_deterministic_not_sampled_from_FIA_distribution_existing_risk_controls_preserved"}
+                        if any("physical_transport_days" in p or "transfer_multiple_qty" in p
+                               for p in internal_component_policies.values()) else {})}),
                 "firm_policy": "late_firm_volume_retained_once_protection_shortfalls_exposed_not_automatically_repurchased",
-                "internal_delivery": "70_day_FIA_reference_not_observed_truck_duration_then_7_Monday_Friday_receipt_days_candidate",
                 "future_calendar_limit": "future_proposals_use_scalar_lead_recomputed_at_each_decision_actual_G_to_I_and_firm_dates_use_exact_weekday_calendar",
                 "held": "same_received_child_lot_at_G_held_until_I_no_second_receipt_or_cost",
-                "weekly_stock_protection": "level_persists_until_next_checkpoint_never_sum_or_subtract_as_consumption",
             }} if internal_component_policies else {}),
             **({"mrp_execution_mode": args.mrp_execution_mode, "opening_purchase_availability": {
                 "source": "explicit_opening_order_G_and_I_dates",
@@ -18206,7 +22551,9 @@ def main() -> None:
                 "unsupported": "warmup_initial_state_scaling_and_supplier_risk_overlays",
             }} if opening_purchase_availability is not None else {}),
             **({"dated_component_planning": {
-                "scope": "component_procurement_with_downstream_netting_SD_manufacturing_preserved",
+                "scope": ("component_procurement_and_next_day_revalidated_manufacturing_releases"
+                          if production_execution_policy is not None else
+                          "component_procurement_with_downstream_netting_SD_manufacturing_preserved"),
                 "decision": "after_physical_production_and_customer_service_before_remaining_same_day_procurement_and_lane_dispatch",
                 "horizon": ("364_future_days_independent_of_execution_end_source_vintages_known_at_decision"
                             if configured_mrp_horizon_days is not None else
@@ -18216,20 +22563,56 @@ def main() -> None:
                 "completion_date": "max_one_day_tau_planning_cover_remaining_work_over_nominal_capacity_and_allocated_remaining_component_availability_not_capacity_guarantee",
                 "completion_date_scope": "existing_campaigns_upstream_to_downstream_only_no_extra_tau_no_physical_receipt_shift_no_automatic_expedite",
                 "completion_date_netting": "firm_quantity_priority_keeps_proposal_quantities_and_dates_identical_enforced_before_reusing_BOM_explosion",
-                "safety": "existing_max_targets_preserved_complement_after_dated_gross_requirements_within_coverage_not_reconstructed_ERP_rule",
+                "safety": ("external_purchase_source_fixed_floor_plus_dated_safety_production_current_controller_target_floor"
+                           if unified_purchase_rules else
+                           "existing_max_targets_preserved_complement_after_dated_gross_requirements_within_coverage_not_reconstructed_ERP_rule"),
                 "reserve": "technical_requirement_separate_from_physical_consumption_restore_reserve_when_reconstructing_projected_stock",
-                "reserve_replenishment": "unchanged_target_complement_due_at_decision_plus_nominal_lead_uncovered_quantity_released_now_unique_firms_netted_once_candidate_not_ERP_rule",
-                "future_production_schedule": "net_forecast_projection_is_not_the_future_SD_launch_schedule_current_campaign_remaining_BOM_counted_once",
+                "reserve_replenishment": ("external_purchases_use_anticipated_needs_and_source_fixed_floor_legacy_coverage_disabled_other_nodes_unchanged"
+                                          if anticipated_purchase_dates else
+                                          "unchanged_target_complement_due_at_decision_plus_nominal_lead_uncovered_quantity_released_now_unique_firms_netted_once_candidate_not_ERP_rule"),
+                "future_production_schedule": ("current_SD_production_target_preserved_as_dated_floor_BOM_projected_launches_revocable_not_future_physical_execution"
+                                               if unified_purchase_rules else
+                                               "net_forecast_projection_is_not_the_future_SD_launch_schedule_current_campaign_remaining_BOM_counted_once"),
                 "daily_csv": "data/mrp_dated_plan_daily.csv", "weekly_csv": "data/mrp_dated_plan_weekly.csv" if args.output_profile == "full" else "",
                 "supplier_boundary": "FIA_order_to_physical_delivery_once_no_departure_or_supplier_stock_claim_receipt_G_to_I_same_lot",
                 "supplier_receipt_calendar": ("monday_friday_with_pair_explicit_nonworking_dates_conditional_candidate"
                                               if supplier_receipt_nonworking_dates_by_pair else
                                               "monday_friday_candidate_without_holidays_not_user_confirmed_receipt_calendar"),
                 "supplier_receipt_policy": list(supplier_receipt_policies.values()),
+                **({"purchase_need_date_policy": {
+                    "mode": purchase_need_date_policy,
+                    "scope": [list(pair) for pair in sorted(aggregate_delivery_pairs)],
+                    "rule": "remaining_physical_need_minus_source_Monday_Friday_safety_then_exact_supplier_delivery_and_receipt_calendar",
+                    "safety": ("source_fixed_floor_plus_anticipated_cumulative_remaining_needs_unique_firms_no_legacy_extra_coverage"
+                               if unified_purchase_rules else
+                               "max_of_anticipated_cumulative_needs_and_physical_cumulative_needs_plus_source_fixed_floor_no_legacy_time_or_coverage_addition"),
+                    "grouping_days": purchase_grouping_days if unified_purchase_rules else None,
+                    "grouping_basis": "explicit_scenario_period_default_same_due_day_not_an_inferred_industrial_review_period",
+                    "physical": "original_need_dates_and_quantities_retained_firm_dates_unchanged",
+                    "legacy_multisource": "unchanged_shares_conservative_maximum_delivery_reference_not_a_single_supplier_promise",
+                }} if anticipated_purchase_dates else {}),
+                **({"purchase_proposal_lot_policy": {
+                    "mode": purchase_proposal_lot_policy,
+                    "scope": [list(pair) for pair in sorted(sourcing_policies)],
+                    "rule": "unreleased_minimum_positive_admissible_standard_then_existing_supplier_lot_policy_at_release",
+                    "status": "candidate_not_an_identified_industrial_lotting_rule",
+                    "commitment": "only_executed_purchase_enters_firm_pipeline_full_quantity_once",
+                    "supplier": "future_reference_not_assigned_or_confirmed_existing_explicit_sourcing_at_release",
+                    "preserved": "source_safety_receipt_calendar_opening_orders_nonbinding_standards_other_pairs",
+                }} if provisional_purchase_lots else {}),
+                **({"purchase_planning_lot_policy": {
+                    "mode": purchase_planning_lot_policy,
+                    "rows": purchase_planning_lot_audit,
+                    "rule": "same_nominal_standard_binding_and_dispatch_constraints_as_execution_single_or_explicitly_selected_offer_only",
+                    "status": "candidate_internal_planning_execution_alignment_not_new_industrial_source_rule",
+                    "preserved": "supplier_selection_source_safety_receipt_calendar_nonbinding_standards_specific_policies_and_ambiguous_offers",
+                }} if purchase_planning_lot_policy is not None else {}),
                 **({"supplier_planning_policy": {
                     "rows": list(supplier_planning_policies.values()),
                     "scope": "explicit_candidate_same_supplier_for_planning_and_new_purchases_no_backup_or_historical_order_reassignment",
-                    "protection": "optional_non_consumable_dated_floor_from_unchanged_source_safety_days_and_source_quantity_global_known_demand_rate",
+                    "protection": ("superseded_for_external_purchases_by_purchase_need_date_policy_source_parameters_retained"
+                                   if anticipated_purchase_dates else
+                                   "optional_non_consumable_dated_floor_from_unchanged_source_safety_days_and_source_quantity_global_known_demand_rate"),
                     **({"coverage_combination": "max_of_source_floor_from_next_day_and_historical_target_minus_covered_requirements_from_nominal_arrival_once_no_added_reserve_requirement"}
                        if coverage_protection_pairs else {}),
                     "preserved": "original_stocks_opening_orders_FIA_receipt_processing_all_offers_source_safeties_and_other_pairs",
@@ -18341,16 +22724,92 @@ def main() -> None:
                 "industrial_scope_validated": False,
                 "external_product_manufacturing_costs_modeled": False,
             }} if external_component_calendar is not None else {}),
+            **({"external_component_planning_forecasts": {
+                "schema_version": 3,
+                "scenario_id": external_planning_calendar.scenario_id,
+                "pairs": [list(pair) for pair in external_planning_calendar.pairs],
+                "version_count": external_planning_calendar.version_count,
+                "selection": "latest_known_vintage_replaces_declared_pairs_current_week_frozen",
+                "missing_period": "unprovided_not_observed_zero_no_legacy_forecast_resurrection",
+                "scope": "known_other_use_forecast_plus_own_BOM_once_not_total_industrial_I",
+                "consumers": "dated_network_upstream_intermediate_signal_and_prospective_safety_use_same_calendar",
+                "physical": "original_due_calendar_and_observed_execution_unchanged_replacement_due_forbidden",
+                "units": "UN_weekly_integer_forecast_convention_explicit_in_source_estimation_basis_KG_precision_preserved",
+                "status": "forecast_scenario_not_observed_future_consumption",
+            }} if external_planning_calendar is not None else {}),
+            **({"observed_external_component_execution": {
+                "mode": "historical_other_uses_execution_only_v1",
+                "pairs": [list(pair) for pair in observed_component_execution.pairs],
+                "source_sha256": graph_meta["observed_external_component_demands"].get("source_sha256"),
+                "source_column": "I_only_disjoint_from_user_confirmed_Scan3_own_uses",
+                "future_observations_in_planning": False,
+                "physical_timing": "weekly_source_uniformly_split_Monday_to_Sunday_not_observed_daily_dates",
+                "missing_days": "retain_previous_estimated_other_uses_explicitly",
+                "explicit_zero": "replace_estimated_due_preserve_existing_backlog",
+                "own_BOM": "unchanged_never_inject_Scan3_as_an_additional_consumption",
+                "realized_receipts_or_stocks_injected": False,
+                "daily_csv": "data/external_component_demand_daily.csv",
+                "interpretation": "conditional_historical_scenario_not_a_new_ERP_ordering_rule",
+            }} if observed_component_execution is not None else {}),
             **({"industrial_component_planning": {
                 "schema_version": 1, "origin": safety_calendar["start_date"],
+                "revision_policy": industrial_forecast_revision_policy or "legacy_missing_period_policy",
+                "missing_period_policy": industrial_missing_period_policy,
                 "pairs": [list(pair) for pair in industrial_planning_calendar.pairs],
                 "semantics": "industrial_total_gross_requirements_planning_only",
-                "netting": "weekly_future_complement_max_source_I_minus_own_BOM_zero_after_propagation_replace_prior_external_forecast",
+                "netting": ("own_BOM_plus_identified_other_use_forecasts_source_I_is_comparison_only"
+                            if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                            "covered_future_daily_delta_max_cumulative_source_I_cumulative_own_BOM"
+                            if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1" else
+                            "covered_future_horizon_complement_max_sum_source_I_minus_sum_own_BOM_zero"
+                            if industrial_requirement_reconciliation_policy is not None else
+                            "weekly_future_complement_max_source_I_minus_own_BOM_zero_after_propagation_replace_prior_external_forecast"),
+                **({"reconciliation_policy": industrial_requirement_reconciliation_policy,
+                    "covered_dates": "union_of_disjoint_supplied_future_windows_known_at_decision_missing_dates_excluded",
+                    "complement_calendar": ("original_other_use_forecasts_unchanged_no_retiming_no_residual_from_source_I"
+                        if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                        "daily_cumulative_envelope_own_FIFO_first_external_only_after_total_own_allocated"
+                        if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1" else
+                        "proportional_to_positive_weekly_source_minus_own_residuals_then_uniform_daily"),
+                    "conservation": ("every_original_own_and_external_requirement_identity_date_quantity_preserved"
+                        if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                        "every_covered_prefix_covers_source_and_own_terminal_max_totals_own_identity_quantity_preserved_planned_date_never_later"
+                        if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1" else
+                        "covered_total_equals_max_sum_source_sum_own_all_own_dates_preserved"),
+                    "reconciliation_limit": ("other_use_forecasts_remain_estimates_not_measured_allocations_source_I_not_assumed_an_additional_use"
+                        if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                        "candidate_same_use_scope_not_confirmed_ERP_early_source_may_anticipate_later_own_BOM_and_underestimate_distinct_other_uses"
+                        if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1" else
+                        "candidate_same_use_scope_over_covered_horizon_not_confirmed_ERP_early_source_need_can_be_offset_by_late_own_BOM"),
+                    "reconciliation_audit": ("source_I_comparison_own_and_identified_other_budgets_signed_old_minus_new_complement_delta_nonconsumable"
+                        if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                        "original_own_and_FIFO_fragments_with_original_dates_weekly_planned_own_total_advanced_nonconsumable"
+                        if industrial_requirement_reconciliation_policy == "covered_cumulative_envelope_v1" else
+                        "daily_before_netting_and_removed_quantities_weekly_same_kinds_nonconsumable")}
+                   if industrial_requirement_reconciliation_policy is not None else {}),
                 "own_excess": "preserve_own_requirements_report_excess_over_source_no_silent_BOM_deletion",
                 "missing": "retain_previous_reconstructed_requirements_unprovided_is_not_zero",
                 "physical": "external_physical_demand_calendar_backlog_and_material_withdrawals_not_replaced",
-                "targets": "same_source_safety_and_coverage_coefficients_apply_to_reconciled_future_mean_no_second_own_or_external_addition",
+                "targets": ("reconciled_dated_needs_shifted_once_by_source_safety_fixed_floor_preserved_legacy_rate_targets_diagnostic_only"
+                            if anticipated_purchase_dates else
+                            "same_source_safety_and_coverage_coefficients_apply_to_reconciled_future_mean_no_second_own_or_external_addition"),
                 "source_H_used_as_firm_orders": False,
+                **({"protected_internal_pairs": [list(pair) for pair in sorted(
+                    common_internal_safety_pairs & set(industrial_planning_calendar.pairs))],
+                    "protected_internal_rule": ("propagated_own_BOM_plus_identified_other_forecasts_source_I_comparison_only"
+                        if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                        "source_total_I_replaces_estimated_future_extra_after_own_BOM_before_new_transfer_proposals_propagate_upstream"),
+                    "protected_internal_total": ("unchanged_own_plus_other_requirements_at_their_original_dates"
+                        if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                        "max_sum_source_I_sum_own_BOM_over_covered_future_dates"
+                        if industrial_requirement_reconciliation_policy is not None else
+                        "own_BOM_plus_max_source_I_minus_own_BOM_zero_equals_max_source_I_own_BOM_per_known_week"),
+                    "protected_internal_targets": "unchanged_source_fixed_floor_or_reconciled_known_window_mean_times_source_calendar_safety_days_persist_after_consumption",
+                    "protected_internal_unknown": ("missing_or_zero_source_I_never_replaces_identified_own_or_other_needs"
+                        if industrial_requirement_reconciliation_policy == "separate_own_and_other_v1" else
+                        "unprovided_week_preserves_prior_estimate_explicit_zero_preserves_only_own_need"),
+                    "protected_internal_physical": "estimated_other_use_consumption_and_existing_transfer_cadence_rounding_and_receipt_timing_unchanged"}
+                   if common_internal_safety_pairs & set(industrial_planning_calendar.pairs) else {}),
                 "weekly_audit": "industrial_source_own_prior_external_complement_own_excess_are_nonconsumable_audit_rows",
             }} if industrial_planning_calendar is not None else {}),
             **({"prospective_source_safety": {
@@ -18370,8 +22829,205 @@ def main() -> None:
                 "lot": "source_fixed_lot_rounded_once_with_each_received_batch_kept_separate",
                 "capacity": "unknown_not_modeled_no_manufacturing_capacity_inferred",
                 "valuation": "existing_external_procurement_convention_not_industrial_manufacturing_cost",
-                "lead": "source_receipt_time_in_calendar_days_assumption_not_downstream_transport_lead",
+                "lead": ("source_receipt_days_counted_per_explicit_calendar_not_downstream_transport_lead"
+                    if source_boundary_working_calendar else
+                    "source_receipt_time_in_calendar_days_assumption_not_downstream_transport_lead"),
+                **({"physical_scope_limit": "aggregate_physical_ingress_at_availability_only_no_earlier_fabrication_or_held_stock_inferred",
+                    "planning_calendar_limit": "source_workdays_converted_at_each_decision_to_scalar_future_lead_actual_orders_keep_exact_availability_date",
+                    "source_lead_trace": "source_boundary_lead_days_and_order_lead_reference_days_keep_source_day_count_calendar_declared_separately"}
+                   if source_boundary_working_calendar else {}),
             }} if source_boundary_policies else {}),
+            **({"production_depot_feedback": {
+                "version": production_depot_policy,
+                "status": "candidate_not_inferred_ERP",
+                "outputs": [{"node_id": pair[0], "item_id": pair[1],
+                             "depots": [list(depot) for depot in depots]}
+                            for pair, depots in sorted(production_depots_by_output.items())],
+                "gap": "local_target_plus_existing_DC_targets_plus_DC_backlog_minus_available_factory_and_DC_minus_all_unique_firm_receipts_minus_remaining_campaign_and_unreleased_executed_WIP",
+                "command": "unchanged_forecast_signal_plus_existing_gain_times_signed_gap_then_existing_smoothing_lots_capacity_and_material_constraints",
+                "timing": "MPS_before_pipeline_receipts_includes_today_except_already_released_held_physical_controller_after_receipts_includes_future_only",
+                "firm_convention": "all_future_commitments_retained_once_even_late_no_automatic_repurchase_current_dated_convention",
+                "projection": "same_existing_DC_target_preserved_at_DC_as_StockProtection_known_at_review_constant_over_horizon_no_second_factory_floor_no_added_consumption",
+                "unchanged": ["source_safety_parameters", "local_factory_target", "physical_demand", "transport_order_rule", "production_lot_capacity_and_tau", "lot_genealogy"],
+                "limits": ["exclusive_factory_to_DC_routes_only", "future_firms_may_mask_near_term_shortages_in_SD_position_see_dated_lateness", "current_forecast_gaps_and_opening_order_interpretation_unchanged", "candidate_calibration_requires_separate_run"],
+            }} if production_depot_policy is not None else {}),
+            **({"production_execution_policy": {
+                "mode": production_execution_policy, "scope": [list(pair) for pair in sorted(produced_pairs)],
+                "decision": "EOD_network_requirements_revalidated_next_day_after_actual_receipts_before_physical_production",
+                "release": "only_currently_due_proposals_start_new_campaigns_existing_campaigns_continue_once",
+                "day_zero": "no_new_campaign_without_prior_snapshot_opening_orders_keep_their_existing_dates",
+                "netting": "current_available_stock_and_unique_firm_receipts_at_availability_dates_late_firms_not_rebought",
+                "preserved": "capacity_materials_lots_integer_UN_tau_planning_convention_physical_customer_demand_and_genealogy",
+                "limits": ["one_day_decision_convention", "future_proposals_revocable_not_commitments",
+                           "late_firm_orders_report_lateness_without_automatic_expedite_or_replacement"],
+            }} if production_execution_policy is not None else {}),
+            **({"manufacturing_closures": {
+                "rows": graph_meta["manufacturing_closures"]["rows"],
+                "scope": [list(pair) for pair in sorted(manufacturing_closed_days)],
+                "planning": "new_proposals_and_existing_tau_allowance_advanced_before_closure_if_causal_otherwise_delayed",
+                "execution": "zero_factory_capacity_including_active_work_and_same_calendar_on_daily_revalidation",
+                "capacity_before_closure": "constraint_not_guaranteed_all_proposals_can_execute_before_closure",
+                "quality_transport_source_firm_dates": "unchanged",
+                "audit_csv": "data/manufacturing_calendar_daily.csv",
+            }} if manufacturing_closed_days else {}),
+            **({"depot_safety_protection_policy": {
+                "mode": depot_safety_protection_policy,
+                "scope": [list(pair) for pair in sorted(depot_safety_protection_pairs)],
+                "target": "max(source_fixed_safety_qty,existing_target_forecast_rate_times_source_workdays_converted_Monday_Friday)",
+                "netting": "non_consumable_StockProtection_from_tomorrow_unique_stock_and_firm_receipts",
+                "excluded": ["lane_lead", "review_days", "generic_coverage_target", "generic_safety_stock_days", "copied_factory_safety"],
+                "parameters": "retain_graph_source_policy_values_no_historical_policy_update_or_photo_calibration",
+                "limits": ["current_rate_representation_of_source_days", "late_firm_receipts_not_replaced_automatically"],
+            }} if depot_safety_protection_policy is not None else {}),
+            **({"explicit_source_stock_policy_precedence": {
+                "source": graph_meta["selected_stock_policy_source"],
+                "rule": "explicit_source_safety_including_zero_replaces_generic_safety_days_only",
+                "pairs": [list(pair) for pair in sorted(explicit_source_policy_pairs)],
+                "unchanged": "fixed_source_quantities_lead_review_coverage_and_other_control_parameters",
+            }} if source_stock_policy_precedence else {}),
+            **({"customer_replenishment_policy": {
+                "mode": customer_replenishment_policy,
+                "pairs": [list(pair) for pair in sorted(customer_physical_cover_routes)],
+                "rule": ("selected_pairs_after_service_max_0_known_backlog_minus_available_minus_all_unique_open_commitments"
+                         if customer_known_demand_pairs else
+                         "after_service_max_0_backlog_plus_physical_scenario_demand_through_next_arrival_minus_available_minus_unique_firm_receipts_due_in_interval"),
+                "demand": ("selected_pairs_known_arrived_history_and_backlog_only_forecast_reserved_for_production_MRP"
+                            if customer_known_demand_pairs else
+                            "selected_pairs_dated_source_profile_with_causal_opening_assumption_other_pairs_legacy_known_forecast"
+                           if customer_dispatch_forecast_pairs else
+                           "known_customer_forecast_net_of_arrived_orders_no_future_historical_demand"
+                           if customer_demand_policy == "source_customer_history_v1" else
+                           "prior_week_estimated_orders_selected_as_of_decision_no_future_vintage"
+                           if customer_demand_calendar is not None else
+                           "known_exogenous_scenario_calendar_not_industrial_MRP_forecast_or_observed_sales"),
+                "pending": "unallocated_shortage_remains_backlog_not_new_commitment_firm_allocated_shipments_netted_once",
+                "forecast_customer_stock_reserve": "zero_no_inferred_customer_safety_stock",
+                "constraints": "existing_dispatch_capacity_stock_lots_UN_and_transport_preserved",
+                "limits": "BASE_deterministic_daily_single_route_no_warmup_controls_or_demand_perturbation",
+            }} if customer_physical_cover_routes else {}),
+            **({"customer_dispatch_forecast_policy": {
+                "schema_version": 1,"mode": "known_demand_only_v1",
+                "pairs": [list(pair) for pair in sorted(customer_known_demand_pairs)],
+                "scope": "physical_customer_dispatch_only_production_forecasts_unchanged",
+                "rule": "max_0_known_backlog_after_service_minus_available_minus_all_open_commitments",
+                "commitments": "unique_unreceived_transit_and_reserved_dispatches_including_late_promises_never_reordered",
+                "future_forecast": "never_used_for_customer_dispatch",
+                "future_history": "never_queried",
+                "transport": "existing_dates_preserved_structural_backlog_visible_no_invented_earlier_order_date",
+                "physical_constraints": "existing_UN_stock_capacity_daily_single_route_unchanged",
+                "dispatch_cap": "known_net_need_bounds_order_controls_and_physical_lot_rounding_rechecked_before_each_departure",
+            }} if customer_known_demand_pairs else {}),
+            **({"customer_dispatch_forecast_policy": {
+                "schema_version": 1,
+                "mode": "dated_source_profile_v1",
+                "pairs": [list(pair) for pair in sorted(customer_dispatch_forecast_pairs)],
+                "scope": "physical_customer_cover_only_no_change_to_planning_forecast_or_weekly_consumption",
+                "source_profile": "daily_source_known_as_of_decision_retaining_older_known_target_periods",
+                "current_period_cap": "min_source_daily_remaining_weekly_forecast_divided_by_future_days",
+                "opening_missing_period": "observed_to_date_mean_v1",
+                "opening_assumption": "initial_partial_Monday_week_only_mean_of_arrived_orders_through_decision_day",
+                "other_missing_periods": "nearest_known_forecast_period_with_source_provenance",
+                "explicit_source_zero": "preserved",
+                "future_history": "never_queried",
+                "physical_constraints": "existing_UN_rounding_stock_commitments_routes_and_transport_unchanged",
+            }} if customer_dispatch_forecast_pairs and not customer_known_demand_pairs else {}),
+            **({"customer_demand_policy": {
+                "mode": customer_demand_policy,
+                "scope": [list(pair) for pair in sorted(demand_pairs)],
+                "status": ("historical_customer_orders_not_a_delivery_journal" if customer_demand_policy == "source_customer_history_v1"
+                           else "estimated_customer_orders_from_prior_future_MRP_I_not_observed_sales"),
+                "selection": ("current_day_only_from_explicit_Monday_history_no_future_queries" if customer_demand_policy == "source_customer_history_v1"
+                              else "last_present_period_row_with_vintage_lte_decision_and_strictly_before_Sunday_period_start"),
+                "weekly_freeze": ("explicit_historical_week_zero_preserved_missing_week_rejected"
+                    if customer_demand_policy == "source_customer_history_v1" else
+                    "no_intraperiod_revision_explicit_zero_is_zero_missing_period_uses_nominal"),
+                "integer_allocation": "source_week_floor_Q_times_k_plus_1_over7_minus_floor_Q_times_k_over7",
+                "nominal_allocation": ("unused_in_customer_history_mode" if customer_demand_policy == "source_customer_history_v1" else
+                    "differences_of_floored_nominal_cumulative_quantities_from_Sunday_or_day0_for_initial_partial_week"),
+                "partial_weeks": "full_week_anchor_without_redistributing_out_of_horizon_days",
+                "forecast": ("known_customer_Projection_versions_replace_MRP_I_as_customer_forecast_arrived_history_consumes_once"
+                             if customer_demand_policy == "source_customer_history_v1" else
+                             "original_commercial_profiles_and_asof_MRP_52_week_projections_preserved_arrived_estimates_consume_forecast_once"),
+                "customer_cover": ("selected_pairs_known_arrived_orders_only_transport_delay_not_hidden"
+                                    if customer_known_demand_pairs else
+                                    "selected_pairs_dated_source_profile_with_causal_opening_assumption_never_future_history"
+                                   if customer_dispatch_forecast_pairs else
+                                   "known_customer_forecast_only_never_future_history" if customer_demand_policy == "source_customer_history_v1"
+                                   else "same_selection_with_current_decision_cutoff_not_expost_future_realizations"),
+                "source_current_I_H": "never_used_as_physical_orders_or_extra_receipts",
+                "repeat": "no_synthetic_repeated_source_vintages_at_customer_boundary",
+                "limits": "at_most365days_deterministic_daily_finished_customer_scope_calendar_and_uniform_allocation_are_scenario_assumptions",
+                "audit_csv": "data/customer_demand_daily.csv",
+                "totals": [{"node_id": pair[0], "item_id": pair[1],
+                    ("historical_arrived_qty" if customer_demand_policy == "source_customer_history_v1" else "estimated_arrived_qty"): sum(row["day_qty"] for row in customer_demand_policy_rows
+                                                  if (row["node_id"], row["item_id"]) == pair),
+                    "nominal_reference_qty": (None if customer_demand_policy == "source_customer_history_v1" else math.fsum(row["nominal_day_qty"] for row in customer_demand_policy_rows
+                                                       if (row["node_id"], row["item_id"]) == pair)),
+                    "fallback_days": sum(row["status"] == "nominal_fallback_no_known_period"
+                                         for row in customer_demand_policy_rows if (row["node_id"], row["item_id"]) == pair)}
+                    for pair in sorted(demand_pairs)],
+            }} if customer_demand_calendar is not None else {}),
+            **({"managed_inventory_supply": {
+                "schema_version": 1,
+                "rows": [dict(node_id=pair[0], item_id=pair[1], **policy)
+                         for pair, policy in sorted(managed_supply_policies.items())],
+                "forecast": "latest_known_local_MRP_requirements_only_no_BOM_no_future_physical_observations",
+                "physical": "separate_observed_other_use_calendar_with_backlog_not_forecast_due",
+                "missing_periods": "unprovided_not_observed_zero_no_old_vintage_fallback",
+                "protection": "explicit_candidate_working_days_plus_optional_fixed_buffer_no_inferred_source_zero",
+                "lot": "same_candidate_multiple_in_planning_and_execution_source_standard_retained_as_provenance",
+                "capacity": "existing_shared_supplier_capacity_not_increased",
+                "status": "scenario_candidate_not_identified_industrial_policy",
+            }} if managed_supply_policies else {}),
+            **({"finished_goods_release_policy": {
+                "schema_version": 1, "rows": list(legacy_finished_goods_release_policies.values()),
+                "physical": "production_output_and_opening_production_order_at_G_create_one_finished_lot_at_factory",
+                "availability": "same_lot_stock_availability_release_at_I_no_second_production_or_BOM_consumption",
+                "opening_orders": "source_G_and_I_preserved_once_components_assumed_initial_WIP_no_extra_receipt_delay",
+                "new_batches": "physical_batch_completion_plus_source_Monday_Friday_receipt_days_tau_remains_planning_only",
+                "planning": "firm_available_at_I_only_active_campaign_finish_includes_quality_new_proposals_use_current_calendar_scalar_lead",
+                "outputs": "daily_produced_qty_and_released_qty_at_I_executed_qty_tracks_new_fabrication_work_campaign_completion_remains_physical",
+                "physical_completed_qty": "conditional_plan_event_field_Q_only_physical_batch_completed_at_G_zero_on_quality_release_I_and_incomplete_WIP",
+                "location": "explicit_factory_location_hypothesis_not_observed_stock_reassignment",
+            }} if legacy_finished_goods_release_policies else {}),
+            **({"production_release_policy": {
+                "schema_version": 1, "rows": list(production_release_policies.values()),
+                "physical": "one_manufactured_lot_created_only_after_physical_batch_completion_G",
+                "availability": "same_lot_held_until_I_then_released_once_without_new_BOM_or_receipt",
+                "opening_orders": "explicit_source_G_and_I_preserved_no_extra_reception_delay",
+                "planning": "new_proposals_and_active_campaigns_include_source_weekday_reception_firms_credited_once_at_I",
+                "capacity": "configured_capacity_otherwise_one_fixed_batch_per_day_model_convention_not_industrial_throughput",
+                "virtual_input": "recipe_placeholder_not_industrial_BOM_cost_or_supplier_data",
+                "tau_process": "unchanged_planning_convention_not_a_physical_manufacturing_duration",
+            }} if production_release_policies else {}),
+            **({"opening_production_availability_policy": {
+                "mode": opening_production_availability_policy,
+                "pairs": [list(pair) for pair in sorted(opening_production_availability_pairs)],
+                "source": opening_open_orders_payload.get("source_file"),
+                "physical": ("conditioned_Pack_fragments_only_see_opening_production_pack_policy" if opening_pack_orders is not None
+                             else "one_opening_production_lot_at_explicit_G_on_source_factory"),
+                "availability": ("fragment_I_preserved_if_on_time_otherwise_actual_source_G_I_weekday_count_shifted"
+                                 if opening_pack_orders is not None else "same_lot_held_until_explicit_I_one_firm_commitment_no_extra_delay"),
+                "materials": ("explicit_Pack_withdrawn_non_Pack_initial_WIP" if opening_pack_orders is not None
+                              else "initial_WIP_no_new_component_withdrawal"),
+                "scope": "only_identified_opening_OF_new_production_controller_and_quality_unchanged",
+                "limits": "source_order_identity_does_not_prove_that_every_initial_OF_was_already_started",
+            }} if opening_production_availability_policy is not None else {}),
+            **({"opening_production_pack_policy": {
+                **graph_meta["opening_production_pack_policy"],
+                "allocation": "FIFO_source_G_then_source_row_explicit_component_stock_only_no_substitution",
+                "rounding": "physical_UN_cumulative_ceiling_per_OF_minus_already_consumed",
+                "capacity": "opening_conditioning_first_shared_effective_daily_capacity_with_new_fabrication",
+                "planning": "residual_Pack_at_next_open_conditioning_day_residual_OF_plus_held_fragments_once",
+                "late_release": "preserve_source_I_if_at_G_else_shift_actual_source_G_I_weekday_count_hypothesis",
+                "economics": "no_second_full_manufacturing_charge_for_initial_WIP_conditioning_cost_not_separately_known",
+                "limits": "Pack_at_G_is_a_testable_hypothesis_not_confirmed_initial_OF_status_future_capacity_not_reserved",
+                "events_csv": "data/opening_pack_events.csv",
+                "capacity_csv": "data/opening_pack_capacity_daily.csv",
+                "initial_order_qty": sum(row["target_qty"] for row in opening_pack_orders.rows.values()),
+                "conditioned_qty": sum(row["completed_qty"] for row in opening_pack_orders.rows.values()),
+                "remaining_qty": sum(row["target_qty"] - row["completed_qty"] for row in opening_pack_orders.rows.values()),
+            }} if opening_pack_orders is not None else {}),
             **({"production_signal_source": "forecast",
                 "production_signal_contract": "multilevel_forecast_seeds_each_output_once_capacity_remains_a_constraint",
                 "mrp_opening_order_cover_mode": "quantity_netting_only_no_opening_bridge_deduction",
@@ -18384,14 +23040,59 @@ def main() -> None:
                 "schema_version": 1, "origin": mrp_source_forecasts.origin_date,
                 "row_count": mrp_source_forecasts.row_count,
                 "repeat_period_days": mrp_source_forecasts.repeat_period_days,
-                "calendar": "sunday_start_unconfirmed_industrial_convention",
-                "vintage_selection": "latest_known_at_decision_no_future_vintage_no_cross_vintage_gap_filling",
-                "missing_period": "explicit_nominal_forecast_fallback_zero_source_values_preserved",
+                "calendar": ("monday_start_source_customer_week" if mrp_source_forecasts.customer_projection else
+                             "sunday_start_unconfirmed_industrial_convention"),
+                "vintage_selection": ("last_known_per_source_period_no_future_vintage_explicit_zero_preserved"
+                    if missing_forecast_period_policy is not None else
+                    "latest_known_at_decision_no_future_vintage_no_cross_vintage_gap_filling"),
+                "missing_period": ("older_known_period_then_nearest_known_period_in_latest_plan_explicit_scenario_fallback"
+                    if mrp_source_forecasts.customer_projection else
+                    "older_known_period_then_explicit_nominal_fallback_if_never_known"
+                    if missing_forecast_period_policy is not None else
+                    "explicit_nominal_forecast_fallback_zero_source_values_preserved"),
+                **({"missing_period_policy": missing_forecast_period_policy} if missing_forecast_period_policy is not None else {}),
+                **({"annual_projection_policy": {
+                    "mode": annual_projection_policy, "scope": "planning_only_2026_replaces_source2026_in_explicit_candidate",
+                    "quantity": "imported_commercial2025_profile_at_same_day_index_times1.05_not_industrial_I",
+                    "calendar": "same_day_index_minus365_no_source_week_realignment",
+                    "horizon_days": 364, "future_vintage_forbidden": True,
+                    "source_2026": "preserved_in_input_and_reference_but_replaced_in_this_candidate_only",
+                    "commercial_profile": "existing_import_including_existing_negative_week_netting_unchanged",
+                    "audit_csv": "data/mrp_annual_projection_daily.csv",
+                }} if annual_projection_policy is not None else {}),
+                **({"current_requirement_envelope_policy": {
+                    "mode": current_envelope_policy, "scope": "revocable_customer_planning_only_not_physical_sales",
+                    "known": "before_service_of_vintage_day", "expiry": "end_of_declared_sunday_start_week",
+                    "quantity": "max_I_minus_service_since_vintage_minus_current_backlog_minus_remaining_week_forecast_zero",
+                    "source_H": "audit_only_never_extra_firm_receipt", "overlap_with_model_orders": "scenario_hypothesis",
+                    "audit_csv": "data/mrp_current_requirement_envelope_daily.csv",
+                }} if current_envelope_policy is not None else {}),
+                **({"forecast_consumption_policy": {
+                    "mode": forecast_consumption_policy,
+                    "scope": [list(pair) for pair in sorted(forecast_consumption_pairs)],
+                    "period_forecast": "last_known_whole_future_source_week_before_period_start",
+                    "consumed_by": "scenario_customer_orders_arrived_through_decision_day_not_served_quantities",
+                    "remaining": "max_weekly_forecast_minus_arrived_orders_zero_distributed_over_remaining_future_days",
+                    "today": "arrived_order_in_windows_including_today_before_service",
+                    "backlog": "physical_unserved_orders_added_once_by_existing_network",
+                    "expiry": "unused_forecast_expires_at_week_end_without_becoming_backlog",
+                    "unknown_period": ("nearest_known_forecast_period_scenario_fallback_never_future_history"
+                        if mrp_source_forecasts.customer_projection else "historical_nominal_fallback_not_imputed_source_zero"),
+                    "audit_csv": "data/mrp_forecast_consumption_daily.csv",
+                    "industrial_rule_confirmed": False,
+                }} if forecast_consumption_policy is not None else {}),
                 "current_bucket_policy": mrp_source_forecasts.current_bucket_policy,
-                "physical_demand_unchanged": True,
-                "source_scope": "finished_good_outflow_forecast_at_DC_mapped_to_modeled_customer_pair",
+                "physical_demand_unchanged": customer_demand_calendar is None,
+                "source_scope": ("explicit_customer_Projection_mapped_to_unique_customer_from_graph"
+                    if mrp_source_forecasts.customer_projection else "finished_good_outflow_forecast_at_DC_mapped_to_modeled_customer_pair"),
                 "trace_coverage_scope": "finished_good_items_only_components_are_propagated_forecasts",
-                "years_after_first": "explicit_repeated_annual_planning_scenario_not_industrial_observations",
+                "years_after_first": ("source_2026_forecasts_priority_no_version_or_history_repetition_no_105pct_replacement"
+                    if mrp_source_forecasts.customer_projection else "explicit_repeated_annual_planning_scenario_not_industrial_observations"),
+                **({"customer_projection_audit_csv": "data/customer_forecast_projection_weekly.csv",
+                    "snapshot_knowledge": "at_start_of_source_Monday_week_explicit_assumption_not_publication_timestamp",
+                    "fallback": "planning_only_nearest_known_source_week_daily_rate_scenario_assumption_not_industrial_rule",
+                    "historical_demand_used_by_future_planning": False}
+                   if mrp_source_forecasts.customer_projection else {}),
                 "source_plan_receipts_H_and_balances_K_used_as_orders": False,
             }} if mrp_source_forecasts is not None else {}),
             **({"production_mrp_safety_targets": True,
@@ -18422,6 +23123,15 @@ def main() -> None:
             "mrp_target_bucket_days": mrp_target_bucket_days,
             "mrp_target_cutover_context_days": mrp_target_cutover_context_days,
             "mrp_multisource_policy": args.mrp_multisource_policy,
+            **({"mrp_net_requirement_rounding_policy": {
+                "mode": net_requirement_rounding_policy,
+                "scope": "mass_purchase_transfer_manufacturing_dated_net_requirements",
+                "quantum": {"KG": 1, "G": 1000}, "tie_rule": "half_up",
+                "stage": "cumulative_uncovered_net_before_standard_lots",
+                "residual": "retained_in_precise_projected_balance_and_following_needs",
+                "physical_stocks_and_consumption_rounded": False,
+                "UN_policy_unchanged": True,
+            }} if net_requirement_rounding_policy is not None else {}),
             "mrp_multisource_min_annual_lot_window_days": mrp_multisource_min_annual_lot_window_days,
             "fg_target_days": fg_target_days,
             "demand_stock_target_days": demand_stock_target_days,
@@ -19269,6 +23979,100 @@ def main() -> None:
             writer.writeheader()
             writer.writerows(stock_availability_daily_rows)
 
+    if opening_purchase_postponement_permissions:
+        summary["policy"]["opening_purchase_postponement"] = dict(
+            graph_meta["opening_purchase_postponement_policy"],
+            decision_rows=len(opening_purchase_replanning_rows),
+            applied_revisions=sum(row["applied"] for row in opening_purchase_replanning_rows))
+        with data_path(output_dir, "opening_purchase_replanning.csv").open("w", encoding="utf-8", newline="") as handle:
+            fields = ["day", "node_id", "item_id", "receipt_id", "source_row", "qty",
+                "original_physical_day", "original_available_day", "replannable_until_day",
+                "old_physical_day", "old_available_day", "proposed_available_day",
+                "new_physical_day", "new_available_day", "receipt_workdays", "coverage_end_day",
+                "first_deficit_day", "reason", "applied", "assumption", "planning_snapshot_json"]
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(opening_purchase_replanning_rows)
+    if supplier_purchase_review_policy is not None:
+        summary["policy"]["supplier_purchase_review_policy"]=dict(supplier_purchase_review_policy,
+            rule="last_permitted_review_with_usable_receipt_before_protected_need_else_first_possible_review",
+            scope="new_supplier_purchases_only_physical_execution_daily_initial_books_preserved",
+            grouping="existing_purchase_grouping_unchanged_not_a_substitute_for_review_calendar")
+    if production_programme_book is not None:
+        summary["policy"]["production_programme_policy"]=dict(graph_meta["production_programme_policy"],
+            states="proposed_and_real_campaign_engaged_at_same_physical_execution_then_executed",
+            quantity_rule="existing_whole_lot_advanced_only_equal_total_proposed_PF_before_after",
+            scope="one_promotion_per_output_process_experimental_compatible_budgets_not_industrial_order_identity",
+            calendar="source_Sunday_to_Saturday_known_including_current_physical_launch_workday_only",
+            initial_Pack_guard="no_promotion_while_any_initial_Pack_OF_remains_for_the_process_regardless_of_its_week",
+            acceptance="morning_current_net_plan_full_batch_inputs_capacity_and_counterfactual_netting_then_immediate_campaign",
+            local_purchase_override="promoted_current_week_only_source_full_budget_minus_executed_model_uses_then_existing_committed_netting",
+            source_values="remaining_forecast_is_derived_not_raw_Excel_quantity_raw_and_previous_C8_windows_in_audit",
+            audit="data/production_programme_audit.json")
+        with data_path(output_dir,"production_programme_audit.json").open("w",encoding="utf-8") as handle:
+            json.dump(dict(schema_version=1,programmes=list(production_programme_book.rows.values()),
+                events=production_programme_book.events,decisions=programme_decision_rows,
+                source_budget_overrides=programme_source_budget_rows),handle,ensure_ascii=False,indent=2)
+    if industrial_purchase_need_policy is not None:
+        summary["policy"]["industrial_purchase_need_policy"]=dict(industrial_purchase_need_policy,
+            rule="committed_requirements_at_original_dates_plus_max_zero_source_I_minus_committed_per_known_week",
+            missing="unprovided_week_retains_original_requirements_explicit_zero_preserves_committed_only",
+            physical="BOM_consumption_and_active_production_unchanged_forecast_only",
+            calendar="future_windows_latest_known_vintage_current_week_previous_vintage_remaining_future_days_only")
+        summary["policy"]["industrial_component_planning"]["purchase_scope_override"]=summary["policy"]["industrial_purchase_need_policy"]
+        if industrial_purchase_envelope_pairs:
+            summary["policy"]["industrial_purchase_need_policy"].update(
+                rule="committed_original_dates_plus_increments_max_cumulative_revocable_BOM_and_source_I_after_FIFO_committed_volume_match",
+                commitment_matching="scenario_FIFO_volume_not_industrial_identity_later_committed_dates_and_raw_I_timing_gap_audited",
+                missing="unreported_within_declared_horizon_has_no_additional_I_but_preserves_complete_model_requirement_envelope",
+                fallback="outside_declared_horizon_before_first_known_plan_or_pair_absent_in_global_vintage_retains_original_requirements",
+                reserves="excluded_from_forecast_matching_source_protection_applied_once_after_reconciliation",
+                envelope_rows=len(industrial_purchase_envelope_rows),
+                envelope_audit="data/industrial_purchase_envelope_daily.csv",
+                coverage_provenance=graph_meta["industrial_planning_horizon_coverage"])
+            with data_path(output_dir,"industrial_purchase_envelope_daily.csv").open("w",encoding="utf-8",newline="") as handle:
+                fields=["day","node_id","item_id","uom","policy","covered_days","source_qty","committed_qty",
+                    "revocable_qty","source_assigned_committed_qty","source_assigned_later_committed_qty",
+                    "source_residual_qty","envelope_revocable_qty","retained_requirement_qty",
+                    "source_windows_json","omitted_windows_json","original_requirements_json","output_requirements_json",
+                    "source_commitment_allocations_json","revocable_allocations_json","cumulative_points_json"]
+                writer=csv.DictWriter(handle,fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(industrial_purchase_envelope_rows)
+        elif industrial_horizon_coverage is not None:
+            summary["policy"]["industrial_purchase_need_policy"].update(
+                missing="within_declared_known_horizon_unreported_weeks_assumed_no_revocable_need_not_observed_zero",
+                fallback="outside_declared_horizon_before_first_known_plan_or_pair_absent_in_global_vintage_retains_original_requirements",
+                coverage_rows=len(industrial_unreported_coverage_rows),
+                coverage_audit="data/industrial_unreported_week_planning.csv",
+                coverage_provenance=graph_meta["industrial_planning_horizon_coverage"])
+            with data_path(output_dir,"industrial_unreported_week_planning.csv").open("w",encoding="utf-8",newline="") as handle:
+                fields=["day","node_id","item_id","uom","period_start_day","first_day","end_day_exclusive",
+                    "source_vintage_day","declared_first_period_day","declared_last_period_day",
+                    "coverage_source_file","coverage_source_cells","status","before_qty","removed_revocable_qty",
+                    "preserved_committed_qty","preserved_reserve_qty","after_qty","removed_requirements_json",
+                    "preserved_requirements_json","reserve_requirements_json"]
+                writer=csv.DictWriter(handle,fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(industrial_unreported_coverage_rows)
+    if initial_purchase_book_completion:
+        summary["policy"]["initial_purchase_book_completion"] = dict(graph_meta["initial_purchase_book_completion"],
+            status="experimental_first_known_plan_near_term_promises_not_identified_orders",
+            cost_scope="pre_horizon_commercial_orders_no_new_order_cost_charged_at_discovery",
+            registered_rows=len(initial_purchase_book_completion_rows))
+        with data_path(output_dir,"initial_purchase_book_completion.json").open("w",encoding="utf-8") as handle:
+            json.dump(initial_purchase_book_completion_rows,handle,ensure_ascii=False,indent=2)
+    if supplier_promise_postponement_policy is not None:
+        summary["policy"]["supplier_promise_postponement"] = dict(supplier_promise_postponement_policy,
+            status="experimental_departure_unknown_assumed_modifiable_before_original_G",
+            coverage="current_dated_model_horizon_not_source_observation_coverage",
+            decision_rows=len(supplier_promise_replanning_rows),
+            applied_revisions=sum(r["applied"] for r in supplier_promise_replanning_rows))
+        with data_path(output_dir,"supplier_promise_replanning.csv").open("w",encoding="utf-8",newline="") as handle:
+            fields=["day","node_id","item_id","receipt_id","qty","original_physical_day","original_available_day",
+                "old_physical_day","old_available_day","new_physical_day","new_available_day","reason","applied",
+                "assumption","planning_snapshot_json"]
+            writer=csv.DictWriter(handle,fieldnames=fields); writer.writeheader(); writer.writerows(supplier_promise_replanning_rows)
     summary_output_path = summary_path(output_dir, "first_simulation_summary.json")
     daily_path = data_path(output_dir, "first_simulation_daily.csv")
     report_output_path = report_path(output_dir, "first_simulation_report.md")
@@ -19719,7 +24523,8 @@ def main() -> None:
     if external_component_calendar is not None:
         with data_path(output_dir, "external_component_demand_daily.csv").open("w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=EXTERNAL_COMPONENT_DAILY_FIELDS
-                                    + (EXTERNAL_COMPONENT_REVISION_FIELDS if external_component_calendar.has_revisions else []))
+                                    + (EXTERNAL_COMPONENT_REVISION_FIELDS if external_component_calendar.has_revisions else [])
+                                    + (EXTERNAL_COMPONENT_OBSERVATION_FIELDS if observed_component_execution is not None else []))
             writer.writeheader()
             writer.writerows(external_component_daily_rows)
 
@@ -19745,6 +24550,20 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(opening_production_consumption_rows)
+
+    if opening_pack_orders is not None:
+        with data_path(output_dir, "opening_pack_events.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "source_row", "order_id",
+                "fragment_id", "lot_id", "source_G", "source_I", "source_G_I_workdays", "available_day",
+                "conditioned_qty", "completed_before_qty", "completed_after_qty", "remaining_after_qty",
+                "capacity_before_qty", "capacity_after_qty", "components_json"])
+            writer.writeheader()
+            writer.writerows(opening_pack_event_rows)
+        with data_path(output_dir, "opening_pack_capacity_daily.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "effective_capacity_qty",
+                "opening_pack_conditioned_qty", "new_fabrication_executed_qty", "remaining_capacity_qty"])
+            writer.writeheader()
+            writer.writerows(opening_pack_capacity_rows)
 
     with input_arrival_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "arrived_qty", "uom"])
@@ -19792,6 +24611,44 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(demand_pair_rows)
 
+    if forecast_consumption_policy is not None:
+        with data_path(output_dir, "mrp_forecast_consumption_daily.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=FORECAST_CONSUMPTION_FIELDS)
+            writer.writeheader()
+            writer.writerows(forecast_consumption_rows)
+
+    if customer_demand_calendar is not None:
+        with data_path(output_dir, "customer_demand_daily.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=CUSTOMER_DEMAND_POLICY_FIELDS)
+            writer.writeheader()
+            writer.writerows(customer_demand_policy_rows)
+
+    if customer_demand_policy == "source_customer_history_v1":
+        with data_path(output_dir, "customer_forecast_projection_weekly.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=CUSTOMER_FORECAST_PROJECTION_FIELDS)
+            writer.writeheader()
+            writer.writerows(customer_forecast_projection_rows)
+
+    if current_envelope_policy is not None:
+        with data_path(output_dir, "mrp_current_requirement_envelope_daily.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=CURRENT_REQUIREMENT_ENVELOPE_FIELDS)
+            writer.writeheader()
+            writer.writerows(current_envelope_rows)
+
+    if manufacturing_closed_days:
+        with data_path(output_dir, "manufacturing_calendar_daily.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "closed",
+                "nominal_capacity_qty", "effective_capacity_qty"])
+            writer.writeheader()
+            writer.writerows(manufacturing_calendar_rows)
+
+    if annual_projection_policy is not None:
+        with data_path(output_dir, "mrp_annual_projection_daily.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "first_projected_day", "last_projected_day",
+                "projected_days", "factor", "commercial_projected_qty", "replaced_known_source_days", "replaced_known_source_qty"])
+            writer.writeheader()
+            writer.writerows(annual_projection_rows)
+
     with production_constraint_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
             f,
@@ -19828,12 +24685,14 @@ def main() -> None:
         writer.writerows(production_constraint_rows)
 
     with production_plan_event_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=PRODUCTION_PLAN_EVENT_FIELDS)
+        writer = csv.DictWriter(f, fieldnames=production_plan_csv_fields(
+            quality_release=bool(finished_goods_release_policies)))
         writer.writeheader()
         writer.writerows(production_plan_event_rows)
 
     with production_campaign_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=PRODUCTION_CAMPAIGN_FIELDS)
+        writer = csv.DictWriter(f, fieldnames=PRODUCTION_CAMPAIGN_FIELDS
+            + (FINISHED_GOODS_CAMPAIGN_AVAILABILITY_FIELDS if finished_goods_release_policies else []))
         writer.writeheader()
         writer.writerows(production_campaign_rows)
 
@@ -19945,17 +24804,26 @@ def main() -> None:
             ] + (["held_release_within_cover_qty"] if initial_stock_availability is not None else [])
               + (MRP_DATED_RECEIPT_FIELDS if dated_receipt_netting else [])
               + (PRODUCTION_MRP_SAFETY_FIELDS if record_production_planning else [])
+              + (PRODUCTION_DEPOT_FEEDBACK_FIELDS if production_depots_by_output else [])
               + (MRP_SOURCE_FORECAST_FIELDS if mrp_source_forecasts is not None else [])
-              + (SOURCE_BOUNDARY_TRACE_FIELDS if source_boundary_policies else [])
+              + (MRP_KNOWN_PERIOD_FIELDS if missing_forecast_period_policy is not None else [])
+              + (DATED_PRODUCTION_EXECUTION_FIELDS if production_execution_policy is not None else [])
+              + (DEPOT_SAFETY_PROTECTION_FIELDS if depot_safety_protection_pairs else [])
+              + (source_boundary_trace_fields(working_calendar=source_boundary_working_calendar) if source_boundary_policies else [])
               + (["mrp_execution_mode", "recv_prev_undelivered_qty", "held_pending_availability_qty", "available_release_today_qty"] if dated_mrp_execution else [])
               + (MRP_NETWORK_PLAN_FIELDS if dated_component_planning else [])
+              + (FINISHED_GOODS_DISPATCH_FIELDS if finished_goods_push_sources else [])
+              + (CUSTOMER_PHYSICAL_COVER_FIELDS if customer_physical_cover_routes else [])
               + (EXTERNAL_COMPONENT_TRACE_FIELDS if external_component_calendar is not None else [])
-              + (EXTERNAL_COMPONENT_PRODUCTION_FIELDS if external_component_calendar is not None else [])
-              + (SOURCING_PLAN_FIELDS if sourcing_policies else [])
+              + (["dated_external_requirement_qty"] if external_component_calendar is None and external_planning_calendar is not None else [])
+              + (EXTERNAL_COMPONENT_PRODUCTION_FIELDS if external_component_calendar is not None or external_planning_calendar is not None else [])
+              + (SOURCING_PLAN_FIELDS if sourcing_policies or allocated_supplier_pairs else [])
               + (STOCK_PROTECTION_FIELDS if stock_protection_active else [])
+              + (["internal_component_safety_policy"] if common_internal_safety_pairs else [])
               + (COVERAGE_PROTECTION_FIELDS if coverage_protection_pairs else [])
               + (INDUSTRIAL_PLANNING_FIELDS if industrial_planning_calendar is not None else [])
-              + (PROSPECTIVE_SAFETY_FIELDS if prospective_safety_pairs else [])
+              + industrial_reconciliation_csv_fields(industrial_requirement_reconciliation_policy)
+              + (PROSPECTIVE_SAFETY_FIELDS if prospective_safety_export_enabled else [])
               + (["mrp_standard_order_binding"] if nonbinding_standard_order_pair_keys else []),
         )
         writer.writeheader()
@@ -20020,7 +24888,7 @@ def main() -> None:
             mrp_order_fields.extend(SUPPLIER_DELIVERY_ORDER_FIELDS)
             if empirical_delivery_policy is not None:
                 mrp_order_fields.extend(EMPIRICAL_DELIVERY_ORDER_FIELDS)
-        if sourcing_policies:
+        if sourcing_policies or allocated_supplier_pairs:
             mrp_order_fields.extend(SOURCING_ORDER_FIELDS)
         if procurement_batching_policies:
             mrp_order_fields.extend(PROCUREMENT_BATCH_ORDER_FIELDS)
@@ -20029,14 +24897,20 @@ def main() -> None:
         writer.writerows(mrp_order_rows)
 
     if dated_component_planning:
+        if chain_planning_policy is not None:
+            with data_path(output_dir, "production_execution_snapshot_daily.csv").open("w", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=CHAIN_EXECUTION_SNAPSHOT_FIELDS)
+                writer.writeheader()
+                writer.writerows(production_execution_snapshot_rows)
         with data_path(output_dir, "mrp_dated_plan_daily.csv").open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "uom", "action_scope"] + MRP_NETWORK_PLAN_FIELDS
-                                   + (EXTERNAL_COMPONENT_PLAN_FIELDS if external_component_calendar is not None else [])
-                                   + (SOURCING_PLAN_FIELDS if sourcing_policies else [])
-                                   + (STOCK_PROTECTION_FIELDS if stock_protection_active else [])
-                                   + (COVERAGE_PROTECTION_FIELDS if coverage_protection_pairs else [])
-                                   + (INDUSTRIAL_PLANNING_FIELDS if industrial_planning_calendar is not None else [])
-                                   + (PROSPECTIVE_SAFETY_FIELDS if prospective_safety_pairs else []))
+            writer = csv.DictWriter(f, fieldnames=dated_plan_daily_csv_fields(
+                external_components=external_component_calendar is not None or external_planning_calendar is not None, sourcing=bool(sourcing_policies or allocated_supplier_pairs),
+                stock_protection=stock_protection_active, internal_safety=bool(common_internal_safety_pairs),
+                coverage_protection=bool(coverage_protection_pairs),
+                industrial_planning=industrial_planning_calendar is not None,
+                industrial_reconciliation=industrial_requirement_reconciliation_policy or False,
+                prospective_safety=prospective_safety_export_enabled, depot_safety=bool(depot_safety_protection_pairs))
+                + (INTERNAL_TRANSFER_RESCHEDULING_DAILY_FIELDS if internal_transfer_rescheduling_policy is not None else []))
             writer.writeheader()
             writer.writerows(dated_plan_daily_rows)
         if args.output_profile == "full":
@@ -20044,7 +24918,8 @@ def main() -> None:
                 writer = csv.DictWriter(f, fieldnames=["decision_day", "node_id", "item_id", "uom", "action_scope",
                                                       "kind", "identity", "target_day", "release_day", "requested_day", "qty"]
                                         + (INDUSTRIAL_WEEKLY_FIELDS if industrial_planning_calendar is not None else [])
-                                        + (PROSPECTIVE_WEEKLY_FIELDS if prospective_safety_pairs else []))
+                                        + (PROSPECTIVE_WEEKLY_FIELDS if prospective_safety_export_enabled else [])
+                                        + (PROVISIONAL_PURCHASE_WEEKLY_FIELDS if sourcing_policies or allocated_supplier_pairs else []))
                 writer.writeheader()
                 writer.writerows(dated_plan_weekly_rows)
 
@@ -20062,6 +24937,14 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(assumptions_ledger_rows)
+
+    if internal_transfer_commitments is not None:
+        with data_path(output_dir, "internal_transfer_commitment_events.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=INTERNAL_TRANSFER_COMMITMENT_FIELDS
+                + (INTERNAL_TRANSFER_ADVANCEMENT_FIELDS if internal_transfer_rescheduling_policy is not None else []))
+            writer.writeheader()
+            writer.writerows(dict(row, support_allocations=json.dumps(row["support_allocations"], sort_keys=True))
+                             for row in internal_transfer_commitments.events)
 
     with supplier_shipment_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(

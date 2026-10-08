@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import math
 import re
 import zipfile
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -56,6 +58,14 @@ def parse_args() -> argparse.Namespace:
         "--stocks-mrp-xlsx",
         default="etudecas/data/source/Extract_Données_Complémentaires.xlsx",
         help="MRP complementary workbook path.",
+    )
+    parser.add_argument(
+        "--policy-xlsx",
+        help="Explicit newer stock-policy workbook; its rows take precedence over historical policy overrides, without replacing opening stocks.",
+    )
+    parser.add_argument(
+        "--customer-demand-xlsx",
+        help="Optional dated customer history and forecast workbook (Historique/Projection); replaces the demand proxy only.",
     )
     parser.add_argument(
         "--output-graph",
@@ -345,6 +355,186 @@ def set_state_mrp_policy(
     }
 
 
+def apply_source_mrp_policy_rows(
+    data: dict[str, Any], rows: list[dict[str, str]], *, source: str,
+) -> list[dict[str, Any]]:
+    """Apply an explicitly selected policy vintage, including genuine zero values.
+
+    Stocks, lots and absent site/article policies are untouched. Validate all
+    applicable rows before updating any state; unit mismatches must not silently
+    reinterpret a safety quantity.
+    """
+    states = {(str(node.get("id")), str(state.get("item_id"))): state
+              for node in data.get("nodes", [])
+              for state in node.get("inventory", {}).get("states", [])}
+    pending = []
+    seen = set()
+    for row_number, row in enumerate(rows, 2):
+        article = canonical_article_id(row.get("Numéro d'article"))
+        key = (DIVISION_TO_NODE.get(canonical_article_id(row.get("Division"))),
+               f"item:{article}")
+        if key not in states:
+            continue
+        if key in seen:
+            raise ValueError(f"Duplicate source MRP policy for {key}")
+        seen.add(key)
+        days = to_float(row.get("Délai de sécurité (en jours ouvrés)"))
+        qty = to_float(row.get("Stock de sécurité"))
+        if any(value is None or not math.isfinite(value) or value < 0 for value in (days, qty)):
+            raise ValueError(f"Invalid source MRP safety at row {row_number}: {key}")
+        state = states[key]
+        source_unit = normalize_unit(row.get("Unité de quantité de base"))
+        target_unit = normalize_unit(state.get("uom"))
+        if not source_unit or not target_unit or (source_unit != target_unit and
+                {source_unit, target_unit} != {"G", "KG"}):
+            raise ValueError(f"Incompatible source MRP units for {key}: {source_unit}/{target_unit}")
+        policy = {**state.get("mrp_policy", {}), "safety_time_days": days,
+                  "safety_stock_qty": convert_quantity(qty, source_unit, target_unit),
+                  "safety_stock_uom": target_unit, "source": f"{source}!E{row_number}:G{row_number}"}
+        pending.append((state, policy, {"node_id": key[0], "item_id": key[1],
+                        "previous_policy": dict(state.get("mrp_policy", {})),
+                        "applied_policy": policy}))
+    for state, policy, _ in pending:
+        state["mrp_policy"] = policy
+    return [record for _, _, record in pending]
+
+
+def build_customer_demand_payloads(
+    graph: dict[str, Any], history_rows: list[dict[str, Any]],
+    projection_rows: list[dict[str, Any]], *, source_file: str,
+    source_sha256: str, origin: str = "2025-01-01",
+) -> dict[str, Any]:
+    """Validate dated customer data in memory, without changing graph or sources.
+
+    Workbook quantities are signed outflows. Weeks start on Monday; the
+    snapshot's Monday is an explicit information-date convention, not proof of
+    the publication day. Unit and customer assignment come from the graph.
+    """
+    origin_date = date.fromisoformat(origin)
+    customers: dict[str, tuple[str, str]] = {}
+    for node in graph.get("nodes", []):
+        if node.get("type") != "customer":
+            continue
+        for state in node.get("inventory", {}).get("states", []):
+            item_id = state["item_id"]
+            article = item_id.removeprefix("item:")
+            if article in customers or normalize_unit(state.get("uom")) != "UN":
+                raise ValueError(f"Ambiguous customer or non-UN unit for {article}")
+            customers[article] = (node["id"], item_id)
+    if not customers or not history_rows or not projection_rows:
+        raise ValueError("Customer graph, history and forecasts must be populated")
+
+    def monday(value: Any) -> date:
+        if isinstance(value, datetime):
+            result = value.date()
+        elif isinstance(value, date):
+            result = value
+        elif isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            result = date.fromisoformat(value)
+        else:
+            serial = to_float(value)
+            if serial is None or not math.isfinite(serial) or not serial.is_integer():
+                raise ValueError(f"Invalid customer date: {value!r}")
+            result = date(1899, 12, 30) + timedelta(days=int(serial))
+        if result.weekday() != 0:
+            raise ValueError(f"Customer week must start on Monday: {result}")
+        return result
+
+    def quantity(value: Any) -> int:
+        number = to_float(value)
+        if (isinstance(value, bool) or number is None or not math.isfinite(number)
+                or number > 0 or not number.is_integer()):
+            raise ValueError(f"Customer outflow must be a non-positive integer: {value!r}")
+        return -int(number)
+
+    def convert(rows: list[dict[str, Any]], forecast: bool) -> list[dict[str, Any]]:
+        sheet = "Projection" if forecast else "Historique"
+        converted, seen = [], set()
+        periods: dict[tuple[str, int | None], list[int]] = defaultdict(list)
+        for number, row in enumerate(rows, start=2):
+            article = canonical_article_id(row.get("SKU Code"))
+            if article not in customers:
+                raise ValueError(f"{sheet}!{number}: unknown customer article {article}")
+            node_id, item_id = customers[article]
+            start = (monday(row.get("First day of Week Year Horizon")) - origin_date).days
+            vintage = ((monday(row.get("First day of Week Year Snapshot")) - origin_date).days
+                       if forecast else None)
+            if forecast and (vintage < -6 or start < vintage + 7):
+                raise ValueError(f"{sheet}!{number}: forecast must follow its dated snapshot")
+            key = (article, vintage, start)
+            if key in seen:
+                raise ValueError(f"{sheet}!{number}: duplicate customer week {key}")
+            seen.add(key)
+            periods[(article, vintage)].append(start)
+            entry = {
+                "node_id": node_id, "item_id": item_id, "uom": "UN",
+                "period_start_day": start, "period_days": 7,
+                "qty": quantity(row.get("Forecasted Demand" if forecast else "Actual Demand")),
+                "source_file": source_file,
+                "source_row": f"{sheet}!A{number}:{'E' if forecast else 'D'}{number}",
+            }
+            if forecast:
+                entry["vintage_day"] = vintage
+            converted.append(entry)
+        if {key[0] for key in periods} != set(customers):
+            raise ValueError(f"{sheet}: source must cover every modeled customer article")
+        for key, starts in periods.items():
+            starts.sort()
+            if any(b - a != 7 for a, b in zip(starts, starts[1:])):
+                raise ValueError(f"{sheet}: missing customer week for {key}")
+            if forecast and len(starts) != 52:
+                raise ValueError(f"{sheet}: expected 52 weeks per snapshot for {key}")
+        return sorted(converted, key=lambda r: (r["item_id"], r.get("vintage_day", -9999), r["period_start_day"]))
+
+    history, forecasts = convert(history_rows, False), convert(projection_rows, True)
+    provenance = {"file": source_file, "sha256": source_sha256}
+    common = {"schema_version": 1, "origin": origin, "calendar": "monday_start"}
+    return {
+        "customer_demand_policy": "source_customer_history_v1",
+        "mrp_forecast_missing_period_policy": "last_known_period_v1",
+        "forecast_consumption_policy": "weekly_actual_orders_v1",
+        "customer_demand_history": {
+            **common, "rows": history, "source": {**provenance, "sheet": "Historique", "column": "D"},
+            "scope": "Demand requests; not proof of fulfilled industrial shipments",
+            "allocation": "Whole UN spread uniformly over seven days; year boundaries clipped without redistribution",
+        },
+        "mrp_forecasts": {
+            **common, "repeat_period_days": 365, "rows": forecasts,
+            "current_bucket_policy": "excluded_unresolved_carry_over",
+            "source": {**provenance, "sheet": "Projection", "column": "E"},
+            "snapshot_date_assumption": "Snapshot week Monday used as knowledge date; exact publication timestamp unknown",
+            "scope": "Dated commercial forecast at customer; not component demand or physical shipments",
+            "repeat_policy": "Disabled in source_customer_history_v1; retain source 2026 forecasts without growth multiplier",
+            "missing_period_policy": "Retain older known period; otherwise borrow nearest period from latest known snapshot, visibly estimated",
+            "unit_basis": "UN from modeled customer states; workbook has no unit or site column",
+        },
+    }
+
+
+def apply_customer_demand_source(
+    graph: dict[str, Any], workbook: Path, *, origin: str = "2025-01-01",
+) -> dict[str, Any]:
+    """Read-only Excel import; mutate graph metadata only after full validation."""
+    workbook = Path(workbook)
+    before = hashlib.sha256(workbook.read_bytes()).hexdigest()
+    sheets = read_xlsx_tables(workbook)
+    updates = build_customer_demand_payloads(
+        graph, sheets.get("Historique", []), sheets.get("Projection", []),
+        source_file=workbook.name, source_sha256=before, origin=origin,
+    )
+    if before != hashlib.sha256(workbook.read_bytes()).hexdigest():
+        raise RuntimeError("Customer workbook changed during import")
+    if graph.get("meta", {}).get("forecast_annual_projection_policy"):
+        raise ValueError("Remove annual projection override explicitly before importing dated customer forecasts")
+    graph.setdefault("meta", {}).update(updates)
+    return {
+        "source_file": workbook.name, "sha256": before, "source_unchanged": True,
+        "history_rows": len(updates["customer_demand_history"]["rows"]),
+        "forecast_rows": len(updates["mrp_forecasts"]["rows"]),
+        "changed_meta_keys": sorted(updates), "origin": origin,
+    }
+
+
 def main() -> None:
     args = parse_args()
     input_graph = Path(args.input_graph)
@@ -533,6 +723,21 @@ def main() -> None:
             continue
         report["mrp_policy_overrides_applied"].append(payload)
 
+    if args.policy_xlsx:
+        current_tables = read_xlsx_tables(Path(args.policy_xlsx))
+        sheets = [name for name in current_tables if name.casefold() == "politique de stock mrp"]
+        if len(sheets) != 1 or not current_tables[sheets[0]]:
+            raise ValueError("Expected one non-empty stock-policy sheet in --policy-xlsx")
+        report["selected_source_policy"] = apply_source_mrp_policy_rows(
+            data, current_tables[sheets[0]], source=f"{args.policy_xlsx}/{sheets[0]}",
+        )
+        with Path(args.policy_xlsx).open("rb") as stream:
+            policy_sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
+        data.setdefault("meta", {})["selected_stock_policy_source"] = {
+            "file": str(args.policy_xlsx), "sheet": sheets[0], "sha256": policy_sha256,
+            "historical_overrides_superseded": True,
+        }
+
     if not args.include_mrp_lot_policies and not args.apply_safe_lot_sizes:
         report["skipped_lot_rows"].append({"reason": "lot_rule_injection_not_requested"})
 
@@ -662,6 +867,10 @@ def main() -> None:
         "legacy_batch_updates": len(report["lot_updates"]),
     }
     data["meta"] = meta
+    if args.customer_demand_xlsx:
+        report["customer_demand_source"] = apply_customer_demand_source(
+            data, Path(args.customer_demand_xlsx)
+        )
 
     output_graph.parent.mkdir(parents=True, exist_ok=True)
     output_graph.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

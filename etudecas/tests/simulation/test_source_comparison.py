@@ -5,9 +5,152 @@ from etudecas.visualization.maps.source_comparison import (
     COLUMNS, FLOW_TYPES, _event_unit_evidence, _external_component_rows, _external_component_scope,
     _ledger_quantity_matches, _external_forecast_audit, EXTERNAL_FORECAST_AUDIT_FIELDS,
     _sourcing_order, _sourcing_scope, _batching_order, _batching_scope,
-    _projection_rows, _projection_protection_levels, _internal_component_scope,
+    _projection_rows, _projection_protection_levels, _projection_event_buckets, _internal_component_scope,
     _trace_values, _weekly_rows, _weekly_windows,
+    production_availability_events, site_flow_kind,
+    _customer_source_rows, _movement_source_rows, _physical_week_rows,
+    _customer_week_rows, _customer_forecast_rows,
+    _managed_inventory_scopes,
 )
+
+
+def test_managed_inventory_candidate_is_not_confused_with_missing_purchases():
+    pair = ('M-1430', 'item:001848')
+    row = dict(node_id=pair[0], item_id=pair[1], supply_status='configured_candidate',
+               supply_policy={'status': 'candidate_not_inferred_ERP'})
+    result = _managed_inventory_scopes({'rows': [row]}, {pair: {'uom': 'KG'}})[pair]
+    assert result['supply_status'] == 'configured_candidate'
+    assert result['simulation_scope'] == 'partial_simulation'
+    assert 'nouveaux achats simulés' in result['supply_limit']
+    assert 'Aucun nouvel achat' not in result['supply_limit']
+    del row['supply_policy']
+    with pytest.raises(ValueError, match='experimental policy'):
+        _managed_inventory_scopes({'rows': [row]}, {pair: {'uom': 'KG'}})
+
+
+def test_managed_inventory_scope_is_partial_without_changing_stock_or_other_sites():
+    states = {('M-1430', 'item:001848'): {'initial': 31660.43, 'uom': 'KG'},
+              ('M-1810', 'item:001848'): {'initial': 100., 'uom': 'KG'}}
+    payload = {'rows': [{'node_id': 'M-1430', 'item_id': 'item:001848',
+                         'supply_status': 'unconfigured'}]}
+    scopes = _managed_inventory_scopes(payload, states)
+    assert set(scopes) == {('M-1430', 'item:001848')}
+    assert scopes['M-1430', 'item:001848']['simulation_scope'] == 'partial_simulation'
+    assert scopes['M-1430', 'item:001848']['supply_status'] == 'unconfigured'
+    assert 'Aucun nouvel achat' in scopes['M-1430', 'item:001848']['supply_limit']
+    assert states['M-1430', 'item:001848'] == {'initial': 31660.43, 'uom': 'KG'}
+    assert payload['rows'][0] == {'node_id': 'M-1430', 'item_id': 'item:001848',
+                                  'supply_status': 'unconfigured'}
+    assert _managed_inventory_scopes(None, states) == {}
+    assert _managed_inventory_scopes({'rows': []}, states) == {}
+
+
+@pytest.mark.parametrize('payload', [
+    [], {}, {'rows': None}, {'rows': [None]},
+    {'rows': [{'node_id': '', 'item_id': 'item:001848', 'supply_status': 'unconfigured'}]},
+    {'rows': [{'node_id': 'M-1430', 'item_id': 'item:007923', 'supply_status': 'unconfigured'}]},
+    {'rows': [{'node_id': 'M-1430', 'item_id': 'item:001848'}]},
+    {'rows': [{'node_id': 'M-1430', 'item_id': 'item:001848', 'supply_status': 'configured'}]},
+    {'rows': [{'node_id': 'M-1430', 'item_id': 'item:001848', 'supply_status': 'unconfigured'}] * 2},
+])
+def test_managed_inventory_scope_rejects_ambiguous_or_unmodeled_status(payload):
+    with pytest.raises(ValueError):
+        _managed_inventory_scopes(payload, {('M-1430', 'item:001848'): {'uom': 'KG'}})
+
+
+def test_customer_source_keeps_realized_sign_and_separate_forecast_versions():
+    history = [(2, ('268091', 'PF', '2024-12-30', -13)),
+               (3, ('268091', 'PF', '2025-01-06', 0))]
+    forecasts = [(2, ('268091', 'PF', '2024-12-30', '2025-01-06', -70)),
+                 (3, ('268091', 'PF', '2025-01-27', '2025-02-03', -140)),
+                 (4, ('268091', 'PF', '2024-12-30', '2025-02-03', -90))]
+    result = _customer_source_rows(history, forecasts, {'268091': 'UN'})['268091']
+    assert result['history'] == [[-2, 13, -13, 2], [5, 0, 0, 3]]
+    assert result['projections']['-2'] == [[5, 70, -70, 2], [33, 90, -90, 4]]
+    assert result['projections']['26'] == [[33, 140, -140, 3]]
+    assert 'site' not in result
+
+
+@pytest.mark.parametrize('row', [
+    ('268091', 'PF', '2025-01-07', -20),
+    ('268091', 'PF', '2025-01-06', 20),
+    ('268091', 'PF', '2025-01-06', None),
+    ('268091', 'PF', '2025-01-06', -20.5),
+])
+def test_customer_source_rejects_invalid_sign_monday_missing_and_fractional_units(row):
+    with pytest.raises(ValueError):
+        _customer_source_rows([(2, row)], [], {'268091': 'UN'})
+
+
+def test_customer_source_rejects_duplicates_without_adding_versions():
+    row = ('268091', 'PF', '2025-01-06', -20)
+    with pytest.raises(ValueError, match='Duplicate'):
+        _customer_source_rows([(2, row), (3, row)], [], {'268091': 'UN'})
+
+
+def test_movement_rows_preserve_raw_signed_net_and_g_to_kg():
+    pairs = {}
+    _movement_source_rows([(2, ('268091', 'PF', 'PF', '1920', '2025-01-05', 'UN', 2, 0, 10, 0)),
+                          (3, ('001757', 'MP', 'MP', '1810', '2025-01-05', 'G', 0, 2000, -500, -750))], pairs)
+    pf = pairs['268091/1920']['source_movements']
+    assert pf['rows'] == [[4, 5, 11, 2, 0, 10, 0, 2]]
+    assert not pf['gross_identifiable'] and not pf['receipts_comparable']
+    material = pairs['001757/1810']['source_movements']
+    assert material['rows'][0][3:7] == [0, 2, -.5, -.75]
+    assert material['gross_identifiable']
+
+
+def test_movement_anomaly_is_visible_without_correcting_raw_receipts():
+    pairs = {}
+    initial = [(2, ('773474', 'SF', 'SF', '1450', '2025-01-05', 'KG', 0, 6400, -3200, 0)),
+               (3, ('773474', 'SF', 'SF', '1450', '2025-01-12', 'KG', 0, 6400, -3200, 0)),
+               (4, ('773474', 'SF', 'SF', '1450', '2025-01-19', 'KG', 0, 6400, -3200, 0))]
+    _movement_source_rows(initial, pairs)
+    pairs['773474/1450']['observed'] = [[d, 10000, n] for n, d in enumerate([5, 12, 19, 26], 2)]
+    _movement_source_rows(initial, pairs)
+    result = pairs['773474/1450']['source_movements']
+    assert result['incoming_inconsistent'] and not result['receipts_comparable']
+    assert [r[4] for r in result['rows']] == [6400, 6400, 6400]
+    assert all(r['gap_qty'] == -3200 for r in result['balances'])
+
+
+def test_physical_week_uses_net_receipt_production_and_consumption_without_release():
+    # One Monday: 10 external + 20 made + 30 received - 4 sent - 5 core - 6 other.
+    # The 100-unit quality release changes availability only.
+    first = _physical_week_rows([[5, 10, 20, 30, 4, 100, 5, 6, 0]], True)[0]
+    assert first == [5, 11, 45, 60, 20, 4, 5, 6]
+    assert _physical_week_rows([], False)[0] == [5, 11, None, None, None, None, None, None]
+
+
+def test_customer_week_keeps_missing_distinct_from_explicit_zero_and_excludes_edges():
+    full = [[d, 10, 8, d] for d in range(5, 12)]
+    rows = _customer_week_rows(full)
+    assert len(rows) == 51 and rows[0] == [5, 70, 56, 11]
+    assert rows[1] == [12, None, None, None]
+    assert _customer_week_rows([[d, 0, 0, 0] for d in range(5, 12)])[0] == [5, 0, 0, 0]
+    assert _customer_week_rows(full[:-1])[0] == [5, None, None, None]
+
+
+def _forecast_map_row(**changes):
+    return dict(dict(day='7', item_id='item:268091', node_id='CLIENT', uom='UN',
+        period_start_day='5', period_end_day='11', represented_start_day='8', represented_end_day='11',
+        weekly_source_qty='700', used_future_qty='420', source_vintage_days='[-2]', source_rows='[2]',
+        source_days='4', fallback_days='0', fallback_source_vintage_days='[]', fallback_source_rows='[]',
+        status='source', policy='customer_forecast'), **changes)
+
+
+def test_customer_used_forecast_keeps_partial_remaining_separate_from_weekly_source():
+    result = _customer_forecast_rows([_forecast_map_row()])['268091']['7'][0]
+    assert result[:6] == [5, 11, 8, 11, 700, 420]
+    fallback = _customer_forecast_rows([_forecast_map_row(weekly_source_qty='', fallback_days='4', source_days='0', status='fallback')])
+    assert fallback['268091']['7'][0][4] is None
+
+
+def test_customer_used_forecast_rejects_client_duplication_and_future_knowledge_confusion():
+    with pytest.raises(ValueError, match='across clients'):
+        _customer_forecast_rows([_forecast_map_row(), _forecast_map_row(node_id='CLIENT2')])
+    with pytest.raises(ValueError, match='represented interval'):
+        _customer_forecast_rows([_forecast_map_row(represented_start_day='7')])
 
 
 @pytest.mark.parametrize("convention,first,last", [
@@ -150,17 +293,17 @@ def test_external_trace_extension_keeps_legacy_positions_and_absence():
                target_stock_qty='3000', safety_floor_qty='4000', bn_qty='5000',
                recv_prev_future_qty='6000', coverage_target_qty='7000', receipt_cover_end_day='42')
     legacy = _trace_values(row, .001)
-    assert len(COLUMNS['trace']) == 70 and len(legacy) == 69
+    assert len(COLUMNS['trace']) == len(legacy) + 1 >= 70
     assert legacy[:7] == [1, 2, 3, 4, 5, 6, 7]
     assert legacy[9] == 42  # Inclusive horizon date retains its original position.
     assert legacy[54:58] == [None, None, None, None]
-    assert legacy[58:] == [None] * 11
+    assert all(value is None for value in legacy[58:])
     row.update(external_demand_qty='2500', external_consumed_qty='1250',
                external_backlog_qty='1250', dated_external_requirement_qty='9000')
     current = _trace_values(row, .001)
     assert current[:54] == legacy[:54]
     assert current[54:58] == [2.5, 1.25, 1.25, 9]
-    assert current[58:] == [None] * 11
+    assert current[58:] == legacy[58:]
 
 
 def test_real_component_catchup_allows_only_export_rounding_not_material_discrepancy():
@@ -370,16 +513,132 @@ def test_projection_crosses_year_boundary_without_consuming_protection_or_extend
     assert all(row[5] == 100 for row in horizon)
 
 
+@pytest.mark.parametrize('delta', [-500, -0.25, 0, 500])
+def test_projection_signed_reconciliation_delta_is_audit_only(delta):
+    events = [('opening_available', 4, 100, 'component_procurement'),
+              ('firm_transit', 5, 20, 'component_procurement'),
+              ('proposal', 6, 10, 'component_procurement'),
+              ('requirement', 7, 30, 'component_procurement'),
+              ('reserve', 8, 40, 'component_procurement'),
+              ('stock_protection', 9, 200, 'component_procurement'),
+              ('industrial_complement_delta', 7, delta, 'component_procurement')]
+    before = list(events)
+    opening, buckets, levels = _projection_event_buckets(events, ('M', 'item:X'), 4)
+    assert opening == 100 and levels == {9: 200}
+    # Independent hand balance: 100 + 20 + 10 - 30 = 100, for either sign.
+    assert _projection_rows(opening, buckets, 4, 10) == [[4, 20, 10, 30, 40, 100, 4, 10]]
+    assert events == before and events[-1][2] == delta
+    assert len(events) == 7  # Audit evidence is retained by the caller.
+
+
+@pytest.mark.parametrize('quantity', [None, float('nan'), float('inf'), -float('inf')])
+def test_projection_signed_reconciliation_delta_rejects_missing_or_nonfinite(quantity):
+    events = [('opening_available', 4, 100, 'component_procurement'),
+              ('industrial_complement_delta', 7, quantity, 'component_procurement')]
+    with pytest.raises(ValueError, match='Invalid signed industrial planning audit'):
+        _projection_event_buckets(events, ('M', 'item:X'), 4)
+
+
+def test_projection_reconciliation_audits_do_not_change_flow_balance_or_protection():
+    events = [('opening_available', 4, 100, 'component_procurement'),
+              ('firm_transit', 5, 20, 'component_procurement'),
+              ('proposal', 6, 10, 'component_procurement'),
+              ('requirement', 7, 30, 'component_procurement'),
+              ('reserve', 8, 40, 'component_procurement'),
+              ('stock_protection', 9, 200, 'component_procurement')]
+    expected = _projection_event_buckets(events, ('M', 'item:X'), 4)
+    audits = [('industrial_weekly_complement_before_netting', 5, 10000, 'component_procurement'),
+              ('industrial_temporal_overlap_removed', 7, 7000, 'component_procurement'),
+              ('industrial_original_own_requirement', 10, 30, 'component_procurement'),
+              ('industrial_own_planning_allocation', 5, 30, 'component_procurement'),
+              ('industrial_own_planned', 5, 30, 'component_procurement'),
+              ('industrial_planning', 5, 30, 'component_procurement'),
+              ('industrial_own_advanced', 5, 30, 'component_procurement')]
+    combined = events + audits
+    before = list(combined)
+    opening, buckets, levels = _projection_event_buckets(combined, ('M', 'item:X'), 4)
+    assert (opening, buckets, levels) == expected
+    assert opening == 100 and levels == {9: 200}
+    # Hand ledger: 100 + 20 + 10 - 30 = 100. Reserve and floor are not outflows.
+    assert _projection_rows(opening, buckets, 4, 10) == [[4, 20, 10, 30, 40, 100, 4, 10]]
+    assert combined == before
+
+
+@pytest.mark.parametrize('kind', [
+    'industrial_weekly_complement_before_netting', 'industrial_temporal_overlap_removed',
+    'industrial_original_own_requirement', 'industrial_own_planning_allocation',
+    'industrial_own_planned', 'industrial_planning', 'industrial_own_advanced',
+])
+@pytest.mark.parametrize('quantity', [-1, None])
+def test_projection_reconciliation_audits_reject_invalid_quantities(kind, quantity):
+    events = [('opening_available', 4, 100, 'component_procurement'),
+              (kind, 5, quantity, 'component_procurement')]
+    with pytest.raises(ValueError, match='Invalid industrial planning audit'):
+        _projection_event_buckets(events, ('M', 'item:X'), 4)
+
+
+def test_projection_event_parser_preserves_legacy_dates_and_rejects_unknown_events():
+    events = [('opening_available', 4, 100, 'production'),
+              ('firm_held', 2, 15, 'production'),
+              ('requirement', 3, 5, 'production'),
+              ('industrial_source', 7, 200, 'production')]
+    opening, buckets, levels = _projection_event_buckets(events, ('M', 'item:X'), 4)
+    assert opening == 100 and dict(buckets) == {4: [15, 0, 5, 0]} and levels == {}
+    assert _projection_rows(opening, buckets, 4, 10) == [[4, 15, 0, 5, 0, 110, 4, 10]]
+    with pytest.raises(ValueError, match='Unknown dated projection event: mystery'):
+        _projection_event_buckets(events + [('mystery', 8, 1, 'production')], ('M', 'item:X'), 4)
+    for invalid in (events[1:], events + [events[0]]):
+        with pytest.raises(ValueError, match='exactly one opening state'):
+            _projection_event_buckets(invalid, ('M', 'item:X'), 4)
+
+
 def test_stock_protection_trace_adds_levels_without_scaling_dates_or_changing_legacy():
     row = dict(bb_demand_signal_qty='1', bb_demand_signal_raw_qty='2', target_stock_qty='3',
                safety_floor_qty='4', bn_qty='5', recv_prev_future_qty='6', coverage_target_qty='7')
     old = _trace_values(row, .001)
-    assert len(old) == 69 and old[66:] == [None, None, None]
+    assert old[66:69] == [None, None, None] and all(value is None for value in old[69:])
     row.update(dated_protection_target_qty='1000000', dated_protection_max_shortfall_qty='100000',
                dated_protection_first_shortfall_day='365')
     new = _trace_values(row, .001)
     assert new[:66] == old[:66]
-    assert new[66:] == [1000, 100, 365]
+    assert new[66:69] == [1000, 100, 365]
+    assert new[69:] == old[69:]
+
+
+def test_anticipated_trace_converts_grams_but_preserves_dates_days_and_policy():
+    row = dict(bb_demand_signal_qty='1', bb_demand_signal_raw_qty='2', target_stock_qty='3',
+               safety_floor_qty='4', bn_qty='5', recv_prev_future_qty='6', coverage_target_qty='7')
+    old = _trace_values(row, .001)
+    fields = ('purchase_need_date_policy', 'anticipated_safety_working_days', 'anticipated_fixed_floor_qty',
+              'anticipated_late_qty', 'anticipated_first_shortage_day', 'anticipated_no_extra_time_floor')
+    indices = [COLUMNS['trace'].index(field) - 1 for field in fields]
+    assert [old[index] for index in indices] == [None] * 6
+    row.update(purchase_need_date_policy='source_safety_backwards_v1',
+               anticipated_safety_working_days='20', anticipated_fixed_floor_qty='4000000',
+               anticipated_late_qty='100000', anticipated_first_shortage_day='124',
+               anticipated_no_extra_time_floor='1')
+    new = _trace_values(row, .001)
+    assert [new[index] for index in indices] == ['source_safety_backwards_v1', 20, 4000, 100, 124, 1]
+    assert all(before == after for index, (before, after) in enumerate(zip(old, new)) if index not in indices)
+
+
+def test_common_purchase_trace_preserves_strings_days_and_converts_only_quantities():
+    row = dict(bb_demand_signal_qty='1', bb_demand_signal_raw_qty='2', target_stock_qty='3',
+               safety_floor_qty='4', bn_qty='5', recv_prev_future_qty='6', coverage_target_qty='7')
+    old = _trace_values(row, .001)
+    fields = ('purchase_rule_version', 'purchase_fixed_floor_mode', 'purchase_grouping_days',
+              'purchase_requirement_basis', 'production_projection_floor_qty')
+    indices = [COLUMNS['trace'].index(field) - 1 for field in fields]
+    assert [old[index] for index in indices] == [None] * 5
+    assert len(set(COLUMNS['trace'])) == len(COLUMNS['trace'])
+    row.update(purchase_rule_version='source_safety_additive_v2', purchase_fixed_floor_mode='additive',
+               purchase_grouping_days='7', purchase_requirement_basis='remaining_physical_BOM_and_reconciled_known_industrial_I',
+               production_projection_floor_qty='2500000')
+    new = _trace_values(row, .001)
+    assert [new[index] for index in indices] == ['source_safety_additive_v2', 'additive', 7,
+        'remaining_physical_BOM_and_reconciled_known_industrial_I', 2500]
+    assert all(before == after for index, (before, after) in enumerate(zip(old, new)) if index not in indices)
+    assert row['production_projection_floor_qty'] == '2500000'
 
 
 def test_weekly_protection_is_a_maximum_not_a_flow_and_missing_stays_unknown():
@@ -409,3 +668,90 @@ def test_internal_policy_keeps_independent_options_and_normalizes_only_transfer_
         _internal_component_scope({'rows': [rule]}, ('M-1810', 'item:693055'), 'UN')
     assert _internal_component_scope({'rows': [dict(node_id='M-1810', item_id='item:693055',
         protection_mode='dated_stock_floor')]}, ('M-1810', 'item:693055'), 'KG')['display_uom'] == 'KG'
+
+
+def _memory_production_event(event, day, qty, *, lot='lot-1', notes='', uom='UN'):
+    return dict(node_id='plant', item_id='finished', lot_id=lot, event_type=event,
+                day=str(day), qty=str(qty), uom=uom, notes=notes)
+
+
+def test_production_availability_keeps_legacy_unheld_date_and_quantity():
+    rows = [_memory_production_event('opening_production_order', 9, 100),
+            _memory_production_event('production_output', 10, 50, lot='lot-2')]
+    assert list(production_availability_events(rows)) == rows
+
+
+@pytest.mark.parametrize('hold_first', [False, True])
+def test_production_availability_rejects_undocumented_initial_hold(hold_first):
+    rows = [_memory_production_event('production_output', 9, 100),
+            _memory_production_event('stock_availability_hold', 9, 100)]
+    if hold_first:
+        rows.reverse()
+    with pytest.raises(ValueError, match='initially held'):
+        list(production_availability_events(rows))
+
+
+def test_production_availability_uses_executed_release_not_physical_or_scheduled_date():
+    physical = _memory_production_event('opening_production_order', 9, 100,
+        notes='{"availability_state":"held","available_day":23}')
+    # A known future date alone is not a release. Physical entry stays at day9.
+    assert list(production_availability_events([physical])) == []
+    assert physical['day'] == '9' and site_flow_kind(physical) == 'production_output'
+    release = _memory_production_event('stock_availability_release', 24, 100)
+    result = list(production_availability_events([physical, release]))
+    assert [(r['day'], r['event_type'], float(r['qty'])) for r in result] == [
+        ('24', 'opening_production_order', 100)]
+    assert site_flow_kind(release) == 'availability_release'
+    assert physical['day'] == '9'
+
+
+def test_production_availability_partials_conserve_one_lot_and_ignore_unrelated_release():
+    rows = [_memory_production_event('production_output', 2, 100,
+                notes='{"availability_state":"held","available_day":16}'),
+            _memory_production_event('stock_availability_release', 16, 300, lot='initial-stock'),
+            _memory_production_event('stock_availability_release', 16, 60),
+            _memory_production_event('stock_availability_release', 17, 40)]
+    result = list(production_availability_events(rows))
+    assert [(r['day'], float(r['qty'])) for r in result] == [('16', 60), ('17', 40)]
+    assert sum(float(r['qty']) for r in result) == 100
+
+
+@pytest.mark.parametrize('release', [
+    _memory_production_event('stock_availability_release', 22, 100),
+    _memory_production_event('stock_availability_release', 23, 101),
+    _memory_production_event('stock_availability_release', 23, 100, uom='KG'),
+])
+def test_production_availability_rejects_early_excess_or_different_unit_release(release):
+    physical = _memory_production_event('production_output', 9, 100,
+        notes='{"availability_state":"held","available_day":23}')
+    with pytest.raises(ValueError, match='Production release'):
+        list(production_availability_events([physical, release]))
+
+
+def test_production_availability_cannot_release_the_same_held_quantity_twice():
+    physical = _memory_production_event('production_output', 9, 100,
+        notes='{"availability_state":"held","available_day":23}')
+    release = _memory_production_event('stock_availability_release', 23, 100)
+    with pytest.raises(ValueError, match='exceed'):
+        list(production_availability_events([physical, release, release]))
+
+
+def test_known_forecast_and_dated_production_trace_preserve_provenance_and_units():
+    row = dict(bb_demand_signal_qty='1', bb_demand_signal_raw_qty='2', target_stock_qty='3',
+               safety_floor_qty='4', bn_qty='5', recv_prev_future_qty='6', coverage_target_qty='7',
+               mrp_forecast_missing_period_policy='last_known_period_v1',
+               mrp_forecast_source_vintages='4|11', mrp_forecast_source_rows='546|1502',
+               mrp_forecast_daily_qty='2000', production_execution_policy='dated_releases_v1',
+               production_dated_snapshot_day='11', production_dated_new_release_qty='3200000',
+               production_dated_late_qty='600000', production_dated_release_proposal_ids='p1|p2',
+               depot_safety_protection_policy='source_stock_floor_v1', depot_safety_protection_qty='5000')
+    result = dict(zip(COLUMNS['trace'][1:], _trace_values(row, .001)))
+    assert result['mrp_forecast_source_vintages'] == '4|11'
+    assert result['mrp_forecast_source_rows'] == '546|1502'
+    assert result['mrp_forecast_daily_qty'] == 2
+    assert result['production_dated_snapshot_day'] == 11
+    assert result['production_dated_new_release_qty'] == 3200
+    assert result['production_dated_late_qty'] == 600
+    assert result['production_dated_release_proposal_ids'] == 'p1|p2'
+    assert result['depot_safety_protection_policy'] == 'source_stock_floor_v1'
+    assert result['depot_safety_protection_qty'] == 5

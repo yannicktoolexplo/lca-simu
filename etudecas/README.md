@@ -28,6 +28,46 @@ Les anciens `tmp`, audits et comptes rendus sont regroupés dans
 [l'archive](archive/README.md). Les références de vérification encore nécessaires
 et les pièces de l'incident Sophos restent identifiées séparément.
 
+La [dernière comparaison des étuis sur 2025](resultats/mrp_packaging_solutions_20261006/comparaison_corrigee.html)
+présente le meilleur compromis parmi neuf variantes annuelles testées : C8,
+réexécuté avec le moteur final sous le nom C8R et comparé à B3. L'écart moyen de stock baisse de 33 % pour 338929 à Avène et
+59 % pour 333362 à Gien. Des écarts importants subsistent ; ce résultat ne
+constitue pas un nouveau nominal global validé. Le [bilan des essais et contrôles](artifacts/testing/mrp_packaging_solutions_20261006/bilan.md)
+explique les variantes écartées et le programme de fabrication encore différent.
+
+La [comparaison antérieure MRP sur 2025, C / Q](resultats/mrp_scope_reconciliation_20261005/comparaison.html)
+teste le rapprochement des besoins industriels et des besoins de nomenclature.
+15 stocks annuels se rapprochent des sources, 12 s'en éloignent ; des manques
+matière supplémentaires interdisent son adoption générale. C reste la référence.
+Le [bilan et les contrôles](artifacts/testing/mrp_scope_reconciliation_20261005/bilan.md)
+expliquent les deux essais, les encours d'emballages et les limites de couverture.
+
+Le [classement précédent de toutes les références sur 2025](resultats/mrp_reference_coverage_20261005/comparaison.html)
+distingue 27 comparaisons annuelles, 2 cas partiels et 4 couples non représentés
+ou non rapprochables. Cliquer sur une référence ouvre ses courbes ; la couverture
+est exportable. Le [bilan](artifacts/testing/mrp_reference_coverage_20261005/bilan.md)
+explique les écarts et les données nécessaires pour compléter le périmètre.
+
+La [correction des transferts engagés sur 2025](resultats/mrp_transfer_advance_20261005/comparaison.html)
+permet d'avancer un engagement lorsque le besoin se rapproche et que le stock
+est disponible, sans créer une seconde commande. Elle corrige le blocage de
+janvier de K, mais ne remplace pas globalement C. Voir le
+[bilan vérifié](artifacts/testing/mrp_transfer_advance_20261005/bilan.md) et
+[toutes les règles MRP simplement expliquées](docs/REGLES_MRP.md).
+
+Les [essais MRP précédents sur 2025](resultats/mrp_corrections_20261005/comparaison.html)
+testent séparément les autres consommations, les lots de transfert et les
+engagements. Leurs résultats sont contrastés : **aucun ne remplace C**.
+Le [bilan des essais](artifacts/testing/mrp_corrections_20261005/bilan.md)
+explique les gains, les dégradations et les contrôles effectués.
+
+La [comparaison de référence 2025](resultats/customer_comparison_20261005/comparaison.html)
+met côte à côte stocks, mouvements physiques, plans MRP et demande client.
+Elle compare M à C, qui utilise `Flow_Data_Customer_Demand.xlsx` pour l'historique
+réalisé et les prévisions connues à chaque décision. Le calcul physique porte
+sur une seule année ; les cartes historiques et leurs suivis de lots restent
+accessibles. Voir les [règles et limites](data/reports/mrp_source_rules.md).
+
 ## Les commandes courantes
 
 Depuis la racine du dépôt, avec l'environnement Python du projet :

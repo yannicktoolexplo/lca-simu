@@ -1,11 +1,57 @@
 """Hand-computed planning oracles; memory only, no filesystem fixtures."""
 from copy import deepcopy
+from collections import defaultdict
 from datetime import date, timedelta
 import math
 
 import pytest
 
 from etudecas.simulation.engine import run_first_simulation as engine
+from etudecas.simulation_prep.inject_mrp_seed_data_v2 import build_customer_demand_payloads
+
+
+def customer_import_rows():
+    graph = {"nodes": [{"id": "C-test", "type": "customer", "inventory": {
+        "states": [{"item_id": "item:268091", "uom": "UN"}]}}]}
+    history = [{"SKU Code": "268091", "First day of Week Year Horizon": "2024-12-30",
+                "Actual Demand": "-13300"},
+               {"SKU Code": "268091", "First day of Week Year Horizon": "2025-01-06",
+                "Actual Demand": "0"}]
+    projection = [{"SKU Code": "268091", "First day of Week Year Snapshot": "2024-12-30",
+                   "First day of Week Year Horizon": (date(2025, 1, 6) + timedelta(weeks=w)).isoformat(),
+                   "Forecasted Demand": -329532 if w == 0 else -700}
+                  for w in range(52)]
+    return graph, history, projection
+
+
+def test_customer_import_preserves_calendar_sign_zero_cells_and_graph():
+    graph, history, projection = customer_import_rows()
+    before = deepcopy((graph, history, projection))
+    payload = build_customer_demand_payloads(graph, history, projection, source_file="customer.xlsx", source_sha256="abc")
+    assert (graph, history, projection) == before
+    first, second = payload["customer_demand_history"]["rows"]
+    assert (first["period_start_day"], first["qty"], first["source_row"]) == (-2, 13300, "Historique!A2:D2")
+    assert second["qty"] == 0
+    forecast = payload["mrp_forecasts"]["rows"][0]
+    assert (forecast["vintage_day"], forecast["period_start_day"], forecast["qty"]) == (-2, 5, 329532)
+    assert forecast["source_row"] == "Projection!A2:E2"
+    assert payload["mrp_forecasts"]["calendar"] == "monday_start"
+
+
+@pytest.mark.parametrize("fault", ["positive", "fraction", "missing", "nan", "duplicate", "sunday", "gap", "short", "unknown", "unit", "future_vintage"])
+def test_customer_import_rejects_ambiguous_source_in_memory(fault):
+    graph, history, projection = customer_import_rows()
+    if fault in {"positive", "fraction", "missing", "nan"}:
+        history[0]["Actual Demand"] = {"positive": 1, "fraction": -1.5, "missing": None, "nan": "nan"}[fault]
+    elif fault == "duplicate": history.append(dict(history[0]))
+    elif fault == "sunday": history[0]["First day of Week Year Horizon"] = "2024-12-29"
+    elif fault == "gap": history[1]["First day of Week Year Horizon"] = "2025-01-13"
+    elif fault == "short": projection.pop()
+    elif fault == "unknown": history[0]["SKU Code"] = "other"
+    elif fault == "unit": graph["nodes"][0]["inventory"]["states"][0]["uom"] = "KG"
+    elif fault == "future_vintage": projection[0]["First day of Week Year Snapshot"] = "2025-01-06"
+    with pytest.raises(ValueError):
+        build_customer_demand_payloads(graph, history, projection, source_file="customer.xlsx", source_sha256="abc")
 
 
 RECEIPT_HOLIDAYS_2025 = [
@@ -461,3 +507,181 @@ def test_initial_receipt_changes_stock_position_without_discounting_need_twice()
 def test_invalid_cover_is_rejected_instead_of_imputed(cover, bridge):
     with pytest.raises(ValueError):
         engine.mrp_opening_order_cover_days(cover, bridge, quantity_netting_only=True)
+
+
+def opening_pack_case(orders=((1, 0, 2, 200),), *, closed=()):
+    """Memory-only explicit BOM/OF; no source file is created or changed."""
+    pair = ("M-test", "PF")
+    units = {"PF": "UN", "tube": "UN", "box": "UN", "carton": "UN", "bulk": "KG"}
+    components = [(pair[0], item) for item in ("tube", "box", "carton")]
+    payload = dict(schema_version=1, mode="pack_at_source_G_v1", late_release_policy="source_G_I_workdays_v1",
+        rows=[dict(node_id=pair[0], item_id=pair[1], pack_components=[dict(item_id=p[1], role="Pack",
+            source_file="BOM source", source_cells=f"BOM!D{i}") for i, p in enumerate(components, 1)])])
+    rows = [dict(node_id=pair[0], item_id=pair[1], order_type="opening_production_order",
+        source_marker=f"OF:{row}", source_row=row, physical_delivery_day=g, arrival_day=i,
+        receipt_qty=quantity) for row, g, i, quantity in orders]
+    kwargs = dict(opening_orders=rows, nodes=[dict(id=pair[0], processes=[dict(
+        outputs=[dict(item_id=pair[1])], capacity=dict(max_rate=150))])],
+        bom_by_pair={pair: [(components[0], 1.0), (components[1], 1.0), (components[2], 0.011),
+                           ((pair[0], "bulk"), 0.035)]}, item_unit_map=units,
+        origin_date="2025-01-01", dated_execution=True, lot_trace=True, bom_issue_mode="wip",
+        closed_days_by_pair={pair: frozenset(closed)})
+    return pair, units, components, payload, kwargs
+
+
+def opening_pack_runtime(orders=((1, 0, 2, 200),), *, carton=10, boxes=500, closed=()):
+    pair, units, components, payload, kwargs = opening_pack_case(orders, closed=closed)
+    book = engine.OpeningPackOrders(payload, **kwargs)
+    stock = defaultdict(float, {components[0]: 500, components[1]: boxes,
+                               components[2]: carton, (pair[0], "bulk"): 50})
+    ledger = engine.LotLedger(enabled=True, scenario_id="memory_pack")
+    ledger.seed_opening_stock(day=-1, stock=stock, item_unit_map=units)
+    availability = engine.OpeningPurchaseAvailability([], item_unit_map=units)
+    pipeline, commitments, in_transit = defaultdict(list), defaultdict(dict), defaultdict(float)
+    calendar = engine.DatedReceiptCalendar()
+    def consume(component_pair, qty, fragment):
+        assert qty <= stock[component_pair]
+        stock[component_pair] -= qty
+        return ledger.consume(day=fragment["day"], node_id=component_pair[0], item_id=component_pair[1],
+            qty=qty, event_type="production_consume", source_id=fragment["fragment_id"], uom=units[component_pair[1]])
+    def materialize(source, fragment, parents):
+        return engine.materialize_opening_pack_fragment(source, fragment, parents, ledger=ledger,
+            availability=availability, stock=stock, pipeline=pipeline, in_transit=in_transit,
+            commitments=commitments, receipt_calendar=calendar)
+    def execute(day, capacity):
+        effective = engine.manufacturing_day_capacity(capacity, day=day, closed_days=frozenset(closed))
+        return engine.execute_opening_pack_fifo(book, pair, day=day, capacity=effective,
+            available={p: stock[p] for p in components}, consume=consume, materialize=materialize)
+    return dict(pair=pair, components=components, book=book, stock=stock, ledger=ledger,
+        availability=availability, pipeline=pipeline, commitments=commitments, in_transit=in_transit,
+        calendar=calendar, execute=execute)
+
+
+def test_opening_pack_no_carton_no_pf_no_debit_and_future_requirement_retained():
+    state = opening_pack_runtime(carton=0)
+    before = dict(state["stock"])
+    remaining, fragments = state["execute"](0, 150)
+    assert (remaining, fragments) == (150, [])
+    assert dict(state["stock"]) == before
+    assert not state["book"].fragments and not state["pipeline"]
+    assert not [e for e in state["ledger"].event_rows if e["event_type"] == "production_consume"]
+    needs, firms = state["book"].planning(0)
+    assert [needs[p][0].qty for p in state["components"]] == [200, 200, 3]
+    assert all(r.due_day == 1 for rows in needs.values() for r in rows)
+    assert sum(r.qty for r in firms[state["pair"]]) == 200
+
+
+def test_opening_pack_integer_fragments_cumulative_ceil_and_exact_genealogy():
+    state = opening_pack_runtime()
+    assert state["execute"](0, 100)[0] == 0
+    assert state["execute"](1, 100)[0] == 0
+    fragments = state["book"].fragments
+    assert [f["qty"] for f in fragments] == [100, 100]
+    assert [f["components"][state["components"][2]] for f in fragments] == [2, 1]
+    assert [f["available_day"] for f in fragments] == [2, 5]  # Wed->Fri; Thu + 2 weekdays->Mon.
+    assert [state["stock"][p] for p in state["components"]] == [300, 300, 7]
+    assert state["stock"][state["pair"][0], "bulk"] == 50  # Never issued a second time.
+    assert state["stock"][state["pair"]] == 0
+    assert state["availability"].held_by_pair[state["pair"]] == 200
+    children = [state["ledger"].lots[f["lot_id"]] for f in fragments]
+    assert len({child["business_batch_id"] for child in children}) == 1
+    assert all(child["trace_status"] == "partially_traced_mixed_occurrence" for child in children)
+    for f in fragments:
+        debits = [e for e in state["ledger"].event_rows
+                  if e["event_type"] == "production_consume" and e["source_id"] == f["fragment_id"]]
+        assert {e["item_id"]: e["qty"] for e in debits} == {p[1]: q for p, q in f["components"].items()}
+        links = [r for r in state["ledger"].genealogy_rows if r["child_lot_id"] == f["lot_id"]]
+        assert sum(r["parent_qty"] for r in links) == sum(f["components"].values())
+    assert engine.opening_pack_order_status(state["book"], "OF:1", last_day=1)["actual_available_day"] == ""
+    assert engine.opening_pack_order_status(state["book"], "OF:1", last_day=5)["actual_available_day"] == 5
+
+
+def test_opening_pack_two_orders_share_fifo_stock_and_daily_capacity_with_new_work():
+    state = opening_pack_runtime(((2, 0, 2, 80), (1, 0, 2, 100)), boxes=130)
+    remaining, fragments = state["execute"](0, 150)
+    assert [(f["order_id"], f["qty"]) for f in fragments] == [("OF:1", 100), ("OF:2", 30)]
+    assert remaining == 20
+    assert state["stock"][state["components"][1]] == 0
+    # The caller passes only this remainder into normal new fabrication.
+    new_work = min(remaining, 50)
+    assert sum(f["qty"] for f in fragments) + new_work == 150
+    assert state["book"].rows["OF:2"]["completed_qty"] == 30
+    assert engine.opening_pack_order_status(state["book"], "OF:2", last_day=10)["actual_physical_receipt_day"] == ""
+
+
+def test_opening_pack_held_fragment_plus_pending_residual_netted_once():
+    state = opening_pack_runtime()
+    unrelated = engine.FirmReceipt("other", 8, 17)
+    state["commitments"][state["pair"]][unrelated.receipt_id] = (8, 17, "production")
+    state["execute"](0, 100)
+    needs = engine.sync_opening_pack_commitments(state["book"], decision_day=0, commitments=state["commitments"])
+    snapshot = deepcopy(state["commitments"])
+    engine.sync_opening_pack_commitments(state["book"], decision_day=0, commitments=state["commitments"])
+    assert state["commitments"] == snapshot
+    firm = state["commitments"][state["pair"]]
+    assert sorted((r[1], r[2]) for k, r in firm.items() if k != "other") == [(100, "held"), (100, "production")]
+    assert sum(r[1] for r in firm.values()) == 217
+    assert [needs[p][0].qty for p in state["components"]] == [100, 100, 1]
+    assert set(needs) == set(state["components"])
+
+
+def test_opening_pack_closure_prevents_all_conditioning_and_shifts_pending_need():
+    state = opening_pack_runtime(closed=(0, 1))
+    assert state["execute"](0, 150) == (0, [])
+    assert not state["book"].fragments
+    needs, firms = state["book"].planning(0)
+    assert {r.due_day for rows in needs.values() for r in rows} == {2}
+    assert firms[state["pair"]][0].available_day == 6  # Fri 3 Jan + 2 weekdays = Tue 7 Jan.
+
+
+def test_opening_pack_source_I_preserved_and_late_actual_source_workdays_shifted():
+    origin = date(2025, 1, 1)
+    g = (date(2025, 4, 28) - origin).days
+    i = (date(2025, 5, 14) - origin).days
+    pair, units, components, payload, kwargs = opening_pack_case(((74, g, i, 100),))
+    book = engine.OpeningPackOrders(payload, **kwargs)
+    row = book.rows["OF:74"]
+    assert row["source_workdays"] == 12  # Actual G/I, not the announced 10-day duration.
+    assert book.availability(row, g) == i
+    assert origin + timedelta(days=book.availability(row, g + 1)) == date(2025, 5, 15)
+    assert book.candidate(row, day=g-1, capacity=100, available={p: 500 for p in components})["qty"] == 0
+
+
+def test_opening_pack_no_materialization_without_exact_pack_parents():
+    state = opening_pack_runtime()
+    row = state["book"].rows["OF:1"]
+    fragment = state["book"].candidate(row, day=0, capacity=100, available=state["stock"])
+    before = len(state["ledger"].lots)
+    with pytest.raises(RuntimeError, match="exact consumed Pack"):
+        engine.materialize_opening_pack_fragment(row, fragment, [], ledger=state["ledger"],
+            availability=state["availability"], stock=state["stock"], pipeline=state["pipeline"],
+            in_transit=state["in_transit"], commitments=state["commitments"])
+    assert len(state["ledger"].lots) == before
+
+
+def test_opening_pack_single_release_of_same_lot_without_second_consumption():
+    state = opening_pack_runtime(((1, 0, 2, 100),))
+    state["execute"](0, 150)
+    fragment = state["book"].fragments[0]
+    availability = state["availability"]
+    qty = fragment["qty"]
+    before_debits = sum(e["qty"] for e in state["ledger"].event_rows if e["event_type"] == "production_consume")
+    availability.release(fragment["fragment_id"], 2, qty, ledger=state["ledger"])
+    assert availability.held_by_pair[state["pair"]] == 0
+    assert state["ledger"].lots[fragment["lot_id"]]["qty_remaining"] == 100
+    assert sum(e["qty"] for e in state["ledger"].event_rows if e["event_type"] == "production_consume") == before_debits
+    with pytest.raises(ValueError, match="single physical receipt"):
+        availability.release(fragment["fragment_id"], 2, qty, ledger=state["ledger"])
+
+
+@pytest.mark.parametrize("fault", ["schema_bool", "no_role", "not_in_bom", "no_capacity", "no_trace", "fractional_pf"])
+def test_opening_pack_rejects_ambiguous_roles_and_unphysical_contracts(fault):
+    pair, units, components, payload, kwargs = opening_pack_case()
+    if fault == "schema_bool": payload["schema_version"] = True
+    elif fault == "no_role": payload["rows"][0]["pack_components"][0]["role"] = "unknown"
+    elif fault == "not_in_bom": payload["rows"][0]["pack_components"][0]["item_id"] = "absent"
+    elif fault == "no_capacity": kwargs["nodes"][0]["processes"][0]["capacity"] = {}
+    elif fault == "no_trace": kwargs["lot_trace"] = False
+    elif fault == "fractional_pf": kwargs["opening_orders"][0]["receipt_qty"] = 1.5
+    with pytest.raises(ValueError):
+        engine.OpeningPackOrders(payload, **kwargs)

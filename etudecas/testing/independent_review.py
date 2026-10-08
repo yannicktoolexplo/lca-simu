@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter, defaultdict
 import csv
+import hashlib
 import json
 import math
 from decimal import Decimal
@@ -105,6 +106,54 @@ def audit_production_consumption(links, consumed, completed_campaigns, evidence)
         else:
             evidence.close("genealogy_consumption_within_recorded",
                            min(linked, actual), linked, list(key), tolerance=0.02)
+
+
+def audit_production_availability(events, evidence):
+    """Independently count usable outputs; creation and quality release differ.
+
+    Planned dates never create a flow. Raw lot creation remains the physical
+    stock/BOM evidence elsewhere in this audit. Only initially held production
+    lots contribute a delayed usable output, once and at their actual release.
+    """
+    available, held_outputs, actual_holds = Counter(), {}, Counter()
+    unheld_outputs = set()
+    for row in events:
+        event, lot = row['event_type'], row['lot_id']
+        if event == 'stock_availability_hold':
+            actual_holds[int(row['day']), lot] += number(row, 'qty')
+        if event not in ('production_output', 'opening_production_order'):
+            continue
+        day, qty = int(row['day']), number(row, 'qty')
+        notes_text = row.get('notes') or ''
+        notes = json.loads(notes_text) if notes_text.lstrip().startswith('{') else {}
+        if notes.get('availability_state') == 'held':
+            available_day = notes.get('available_day')
+            valid_date = type(available_day) is int and available_day >= day
+            evidence.check('production_held_date_documented', valid_date, row)
+            held_outputs[lot] = dict(day=day, available_day=available_day if valid_date else day,
+                qty=qty, remaining=qty, node=row['node_id'], item=row['item_id'], uom=row['uom'])
+        else:
+            available[day, row['node_id'], row['item_id']] += qty
+            unheld_outputs.add((day, lot))
+    for key in unheld_outputs:
+        evidence.check('production_initial_hold_requires_availability_metadata',
+            actual_holds[key] == 0, key)
+    for lot, physical in held_outputs.items():
+        evidence.close('production_held_output_matches_neutral_hold',
+            actual_holds[physical['day'], lot], physical['qty'], lot)
+    for row in events:
+        if row['event_type'] != 'stock_availability_release' or row['lot_id'] not in held_outputs:
+            continue
+        physical = held_outputs[row['lot_id']]
+        day, qty = int(row['day']), number(row, 'qty')
+        evidence.check('production_quality_release_identity',
+            (row['node_id'], row['item_id'], row['uom']) ==
+            (physical['node'], physical['item'], physical['uom']), row)
+        evidence.check('production_quality_release_not_early', day >= physical['available_day'], row)
+        evidence.check('production_quality_release_once', 0 <= qty <= physical['remaining'] + 0.00002, row)
+        physical['remaining'] -= qty
+        available[day, row['node_id'], row['item_id']] += qty
+    return available
 
 
 def audit_opening_purchase_availability(orders, events, horizon, evidence):
@@ -224,7 +273,7 @@ def audit_internal_transfer_availability(orders, events, genealogy, horizon, pai
     return len(seen)
 
 
-def audit_external_component_service(series, events, core_rows, policy, horizon, evidence):
+def audit_external_component_service(series, events, core_rows, policy, horizon, evidence, *, observed_policy=None):
     """Independent accounting of a declared incremental-use scenario, not its calibration.
 
     Reconstruct each dated UN demand with integer quotient/remainder arithmetic,
@@ -344,6 +393,48 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
                 "qty": float(amount), "source": {**source, "uom": component["uom"]}, "cycle": 0,
                 "vintage_id": selected["vintage_id"], "period_start_day": start}
             demands[key] += float(amount)
+    # Observations replace only the physical due amount of covered days.
+    # Forecast revision provenance above remains independently audited.
+    physical_audit = {}
+    if observed_policy is not None:
+        evidence.check("observed_physical_policy_contract", all((
+            observed_policy.get("schema_version") == 1,
+            observed_policy.get("physical_use_only") is True,
+            observed_policy.get("repeat_period_days") is None,
+            observed_policy.get("scenario_id") == scenario,
+        )))
+        ids_by_day = defaultdict(list)
+        for identity, requirement in expected.items():
+            ids_by_day[(requirement["day"], *requirement["pair"])].append(identity)
+        for source in observed_policy.get("rows", []):
+            pair = source["node_id"], source["item_id"]
+            day, known = source["period_start_day"], source["known_day"]
+            quantity = Decimal(str(source["qty"]))
+            key = day, *pair
+            valid = (type(day) is int and type(known) is int and day == known
+                     and 0 <= day < 365 and source.get("period_days") == 1
+                     and quantity.is_finite() and quantity >= 0)
+            evidence.check("observed_physical_declared_day_quantity", valid, source.get("demand_id"))
+            evidence.check("observed_physical_unique_day", key not in physical_audit, key)
+            evidence.check("observed_physical_source_provenance", bool(source.get("source_file"))
+                           and bool(source.get("source_cells")), key)
+            if source.get("uom") == "UN":
+                evidence.check("observed_physical_integer_UN", quantity == int(quantity), key)
+            if not valid:
+                continue
+            policy_pairs.add(pair)
+            if day >= horizon:
+                continue
+            physical_audit[key] = source
+            for identity in ids_by_day.get(key, []):
+                expected.pop(identity, None)
+            demands[key] = float(quantity)
+            if quantity > 0:
+                identity = f"external:{scenario}:{source['demand_id']}:C0:D{day}"
+                evidence.check("observed_physical_unique_identity", identity not in expected, identity)
+                expected[identity] = {"pair": pair, "day": day, "known": known,
+                    "qty": float(quantity), "source": source, "cycle": 0,
+                    "physical_source": "observed_other_uses"}
     evidence.check("external_declared_pairs_present", bool(policy_pairs))
     core = Counter()
     for row in core_rows:
@@ -372,7 +463,10 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
         except (ValueError, TypeError):
             note = {}
         evidence.check("external_event_provenance", all((
-            note.get("scope") == "estimated_non_modelled_component_use",
+            note.get("scope") == ("observed_non_modelled_component_use" if
+                source.get("physical_source") == "observed_other_uses" else "estimated_non_modelled_component_use"),
+            observed_policy is None or note.get("physical_demand_source") ==
+                source.get("physical_source", "estimated_other_uses"),
             note.get("due_day") == source["day"], note.get("known_day") == source["known"],
             note.get("cycle_index") == source["cycle"], note.get("scenario_id") == scenario,
             note.get("demand_id") == source["source"]["demand_id"],
@@ -401,6 +495,22 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
         if key in revision_audit:
             for field, value in revision_audit[key].items():
                 evidence.check("external_revision_daily_" + field, str(row.get(field, "")) == str(value), key)
+        if observed_policy is not None:
+            observation = physical_audit.get(key)
+            expected_fields = {
+                "physical_demand_source": "observed_other_uses" if observation else "estimated_other_uses",
+                "physical_source_file": observation["source_file"] if observation else "",
+                "physical_source_cells": observation["source_cells"] if observation else "",
+                "physical_demand_known_day": observation["known_day"] if observation else "",
+            }
+            for field, value in expected_fields.items():
+                evidence.check("external_daily_" + field, str(row.get(field, "")) == str(value), key)
+            if observation:
+                evidence.close("external_daily_physical_observation_qty",
+                    number(row, "physical_observation_qty"), float(observation["qty"]), key)
+            else:
+                evidence.check("external_daily_no_undeclared_observation",
+                    row.get("physical_observation_qty", "") == "", key)
         evidence.check("external_nonnegative", all(v >= -.00002 for v in values.values()), key)
         evidence.close("external_known_daily_demand", values["demand_qty"], demands[key], key)
         evidence.close("external_backlog_continuity", values["backlog_start_qty"], previous[pair], key)
@@ -427,6 +537,18 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
     evidence.check("external_no_orphan_debit", all(key in exported for key in issues),
                    [key for key in issues if key not in exported][:5])
     return len(exported)
+
+
+def observed_policy_from_graph_bytes(data, expected_sha256, evidence):
+    """Check the original graph bytes before accepting declared observations."""
+    valid = bool(expected_sha256) and hashlib.sha256(data).hexdigest() == expected_sha256
+    evidence.check("observed_original_input_sha256", valid)
+    if not valid:
+        return None
+    graph = json.loads(data)
+    policy = graph.get("meta", {}).get("observed_external_component_demands")
+    evidence.check("observed_original_input_policy_present", isinstance(policy, dict))
+    return policy if isinstance(policy, dict) else None
 
 
 def audit_run(run):
@@ -520,7 +642,7 @@ def audit_run(run):
                 integral(e, "availability_physical_integer_UN", value, key)
     reservations = {(r["lot_id"], r["shipment_id"]) for r in events if r["event_type"] == "shipment_reserve"}
     event_ids, state, first = set(), {}, {}
-    produced = Counter()
+    produced_available = audit_production_availability(events, e)
     consumed = Counter()
     receipt_qty = Counter()
     shipment_qty = Counter()
@@ -572,8 +694,6 @@ def audit_run(run):
         state[lot] = after
         stock_by_pair[pair] += delta
         snapshots[(day, *pair)] = stock_by_pair[pair]
-        if typ in {"production_output", "opening_production_order"}:
-            produced[(day, *pair)] += qty
         if typ.startswith("production_consume"):
             consumed[(lot, r["production_campaign_id"])] += qty
         if typ == "lane_receipt":
@@ -595,7 +715,7 @@ def audit_run(run):
             if item_units.get(r["item_id"]) == "UN":
                 integral(e, "physical_stock_integer_UN_" + name, number(r, "stock_end_of_day"), list(key))
             if name == "production_output_products_daily":
-                e.close("released_vs_lot_output", produced[key], number(r, "released_qty"), list(key))
+                e.close("released_vs_lot_output", produced_available[key], number(r, "released_qty"), list(key))
         e.check("stock_rows_present_" + name, bool(observed_days))
         for pair, days in observed_days.items():
             e.check("stock_horizon_" + name, days == list(range(horizon)), list(pair))
@@ -649,12 +769,25 @@ def audit_run(run):
     audit_production_consumption(production_links, consumed, completed_campaigns, e)
 
     external_policy = summary.get("policy", {}).get("external_component_demands")
+    observed_policy = None
+    if summary.get("policy", {}).get("observed_external_component_execution"):
+        declared_path = summary.get("input_file")
+        e.check("observed_original_input_path_declared", bool(declared_path))
+        if declared_path:
+            input_path = Path(declared_path)
+            if not input_path.is_absolute():
+                input_path = Path(__file__).resolve().parents[2] / input_path
+            e.check("observed_original_input_present", input_path.is_file(), str(input_path))
+            if input_path.is_file():
+                observed_policy = observed_policy_from_graph_bytes(
+                    input_path.read_bytes(), summary.get("input_sha256"), e)
     external_csv = run / "data/external_component_demand_daily.csv"
     if external_policy:
         e.check("external_component_export_present", external_csv.is_file(), str(external_csv))
         if external_csv.is_file():
             audit_external_component_service(rows(run, "external_component_demand_daily"), events,
-                rows(run, "production_input_consumption_daily"), external_policy, horizon, e)
+                rows(run, "production_input_consumption_daily"), external_policy, horizon, e,
+                observed_policy=observed_policy)
     else:
         e.check("external_component_absent_without_policy", not external_csv.exists() and
                 not any(row["event_type"] == "external_component_consume" for row in events))

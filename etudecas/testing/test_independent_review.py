@@ -4,7 +4,134 @@ from __future__ import annotations
 import csv
 import json
 import pytest
-from etudecas.testing.independent_review import Evidence, audit_run, audit_service
+from etudecas.testing.independent_review import Evidence, audit_run, audit_service, audit_production_availability
+
+
+@pytest.mark.parametrize('notes', [
+    'semantics=campaign-batch-wip-release-v1;batch_id=CMP-16-B001',
+    '{"semantics":"campaign-batch-wip-release-v1","availability_state":"held","available_day":108}',
+])
+def test_memory_wip_genealogy_recognizes_held_and_legacy_contracts(notes):
+    from etudecas.simulation.analysis.audit_lot_paths import is_campaign_wip_release
+    # Gien T: inputs consumed at J86 and J87 belong to the physical batch
+    # completed at J87, even though its availability is later. The JSON
+    # contract must select the same campaign reconciliation as legacy notes.
+    assert is_campaign_wip_release(notes)
+
+
+@pytest.mark.parametrize('notes', [
+    None, '', '{broken JSON', '[]',
+    '{"semantics":"campaign-batch-wip-release-v2"}',
+    '{"availability_state":"held"}',
+    '{"comment":"semantics=campaign-batch-wip-release-v1"}',
+    '{"semantics":"other","comment":"semantics=campaign-batch-wip-release-v1"}',
+])
+def test_memory_wip_genealogy_does_not_infer_a_contract_from_hold_or_comment(notes):
+    from etudecas.simulation.analysis.audit_lot_paths import is_campaign_wip_release
+    assert not is_campaign_wip_release(notes)
+
+
+def _quality_memory_event(kind, day, qty, *, lot='made', notes=''):
+    return dict(event_type=kind, day=str(day), qty=str(qty), lot_id=lot,
+                node_id='factory', item_id='PF', uom='UN', notes=notes)
+
+
+def test_memory_independent_quality_preserves_physical_creation_and_releases_once():
+    rows = [
+        _quality_memory_event('production_output', 9, 100,
+            notes='{"availability_state":"held","available_day":23}'),
+        _quality_memory_event('stock_availability_hold', 9, 100),
+        _quality_memory_event('stock_availability_release', 23, 100),
+        _quality_memory_event('stock_availability_release', 23, 900, lot='purchased'),
+    ]
+    evidence = Evidence()
+    output = audit_production_availability(rows, evidence)
+    assert output[9, 'factory', 'PF'] == 0
+    assert output[23, 'factory', 'PF'] == 100
+    assert sum(output.values()) == 100
+    assert all(c['failed'] == 0 for c in evidence.checks.values())
+    assert rows[0]['day'] == '9' and rows[0]['qty'] == '100'
+
+
+def test_memory_independent_quality_schedule_alone_does_not_create_available_stock():
+    rows = [
+        _quality_memory_event('opening_production_order', 9, 100,
+            notes='{"availability_state":"held","available_day":23}'),
+        _quality_memory_event('stock_availability_hold', 9, 100),
+    ]
+    evidence = Evidence()
+    assert audit_production_availability(rows, evidence) == {}
+    assert all(c['failed'] == 0 for c in evidence.checks.values())
+
+
+def test_memory_independent_quality_keeps_legacy_unheld_outputs_available_immediately():
+    rows = [_quality_memory_event('opening_production_order', 9, 100),
+            _quality_memory_event('production_output', 12, 50, lot='new')]
+    assert audit_production_availability(rows, Evidence()) == {
+        (9, 'factory', 'PF'): 100, (12, 'factory', 'PF'): 50}
+
+
+def test_memory_independent_quality_rejects_undocumented_initial_hold():
+    rows = [_quality_memory_event('production_output', 9, 100),
+            _quality_memory_event('stock_availability_hold', 9, 100),
+            _quality_memory_event('stock_availability_release', 23, 100)]
+    evidence = Evidence()
+    audit_production_availability(rows, evidence)
+    assert evidence.checks['production_initial_hold_requires_availability_metadata']['failed'] == 1
+
+
+@pytest.mark.parametrize('fault, expected_check', [
+    ('missing_hold', 'production_held_output_matches_neutral_hold'),
+    ('early', 'production_quality_release_not_early'),
+    ('duplicate', 'production_quality_release_once'),
+])
+def test_memory_independent_quality_rejects_invalid_in_memory_release(fault, expected_check):
+    rows = [_quality_memory_event('production_output', 9, 100,
+            notes='{"availability_state":"held","available_day":23}')]
+    if fault != 'missing_hold':
+        rows.append(_quality_memory_event('stock_availability_hold', 9, 100))
+    rows.append(_quality_memory_event('stock_availability_release', 22 if fault == 'early' else 23, 100))
+    if fault == 'duplicate':
+        rows.append(_quality_memory_event('stock_availability_release', 24, 100))
+    evidence = Evidence()
+    audit_production_availability(rows, evidence)
+    assert evidence.checks[expected_check]['failed'] == 1
+
+
+def test_memory_path_completion_separates_work_physical_batch_and_availability():
+    from etudecas.simulation.analysis.audit_lot_paths import physical_production_completions
+    base = dict(campaign_id='campaign', semantics_version='campaign-batch-wip-release-v1')
+    work = dict(base, event_type='execute_campaign', actual_qty='40', released_qty='0',
+                physical_completed_qty='0')
+    completed = dict(base, event_type='execute_campaign', actual_qty='60', released_qty='0',
+                     physical_completed_qty='100',
+                     release_gate_mode='physical_completion_then_source_weekday_quality')
+    release = dict(base, event_type='quality_release', actual_qty='0', released_qty='100',
+                   physical_completed_qty='0', release_gate_mode='source_weekday_quality_release')
+    assert physical_production_completions([work]) == {'campaign': 0}
+    assert physical_production_completions([work, completed]) == {'campaign': 100}
+    assert physical_production_completions([work, completed, release]) == {'campaign': 100}
+
+
+def test_memory_path_completion_keeps_legacy_release_contract():
+    from etudecas.simulation.analysis.audit_lot_paths import physical_production_completions
+    rows = [dict(campaign_id='old', event_type='start_campaign', actual_qty='12'),
+            dict(campaign_id='batch', semantics_version='campaign-batch-wip-release-v1', released_qty='100'),
+            dict(campaign_id='batch', semantics_version='campaign-batch-wip-release-v1',
+                 released_qty='50', physical_completed_qty='')]
+    assert physical_production_completions(rows) == {'old': 12, 'batch': 150}
+
+
+@pytest.mark.parametrize('changes', [
+    {}, {'physical_completed_qty': '-1'}, {'physical_completed_qty': 'nan'},
+    {'physical_completed_qty': '100', 'event_type': 'quality_release'},
+])
+def test_memory_path_completion_rejects_missing_invalid_or_duplicate_physical_quantity(changes):
+    from etudecas.simulation.analysis.audit_lot_paths import physical_production_completions
+    row = dict(campaign_id='held', semantics_version='campaign-batch-wip-release-v1',
+               release_gate_mode='physical_completion_then_source_weekday_quality', **changes)
+    with pytest.raises(ValueError):
+        physical_production_completions([row])
 
 
 @pytest.mark.parametrize('mode,function,names', [
@@ -436,3 +563,85 @@ def test_scenario_cli_publishes_with_canonical_source_paths(tmp_path):
     assert ROOT / 'etudecas/visualization/maps/lot_journey.js' in sources
     assert all(path.is_file() for path in sources)
     assert output.is_file()
+
+
+import hashlib
+import json
+from copy import deepcopy
+
+
+def _observed_qualification_memory_case():
+    source = dict(node_id='M', item_id='X', uom='KG', demand_id='forecast',
+                  known_day=0, period_start_day=0, period_days=3, qty=6,
+                  source_file='forecast.xlsx', source_cells='I2', estimation_basis='forecast')
+    forecast = dict(schema_version=1, scenario_id='memory', repeat_period_days=None, rows=[source])
+    observed_rows = [dict(source, demand_id='observed-' + str(day), known_day=day,
+                         period_start_day=day, period_days=1, qty=qty,
+                         source_file='movements.xlsx', source_cells='I3', estimation_basis='observed I')
+                     for day, qty in ((1, 0), (2, 3))]
+    observed = dict(schema_version=1, physical_use_only=True, repeat_period_days=None,
+                    scenario_id='memory', rows=observed_rows)
+    series = []
+    for day, demand, backlog, available, consumed, end in [(0, 2, 0, 1, 1, 1), (1, 0, 1, 0, 0, 1), (2, 3, 1, 5, 4, 0)]:
+        observation = next((r for r in observed_rows if r['known_day'] == day), None)
+        series.append(dict(day=day, node_id='M', item_id='X', uom='KG', demand_qty=demand,
+            backlog_start_qty=backlog, required_qty=demand + backlog, consumed_qty=consumed,
+            backlog_end_qty=end, available_before_qty=available, available_after_qty=available - consumed,
+            core_consumed_qty=0, total_component_consumed_qty=consumed,
+            physical_demand_source='observed_other_uses' if observation else 'estimated_other_uses',
+            physical_source_file=observation['source_file'] if observation else '',
+            physical_source_cells=observation['source_cells'] if observation else '',
+            physical_observation_qty=observation['qty'] if observation else '',
+            physical_demand_known_day=day if observation else ''))
+    events = []
+    for execution_day, quantity, declared, due in [(0, 1, source, 0), (2, 1, source, 0), (2, 3, observed_rows[1], 2)]:
+        actual = declared is not source
+        note = dict(scope='observed_non_modelled_component_use' if actual else 'estimated_non_modelled_component_use',
+            physical_demand_source='observed_other_uses' if actual else 'estimated_other_uses',
+            due_day=due, known_day=declared['known_day'], cycle_index=0, scenario_id='memory',
+            **{k: declared[k] for k in ('demand_id', 'source_file', 'source_cells', 'estimation_basis')})
+        events.append(dict(event_type='external_component_consume', day=execution_day, node_id='M',
+            item_id='X', uom='KG', qty=quantity,
+            source_id=f"external:memory:{declared['demand_id']}:C0:D{due}", notes=json.dumps(note)))
+    return series, events, forecast, observed
+
+
+def test_memory_observed_qualification_replaces_zero_and_retains_earlier_backlog():
+    from etudecas.testing.independent_review import Evidence, audit_external_component_service
+    series, events, forecast, observed = _observed_qualification_memory_case()
+    e = Evidence()
+    audit_external_component_service(series, events, [], forecast, 3, e, observed_policy=observed)
+    assert not {k: v for k, v in e.checks.items() if v['failed']}
+
+
+def test_memory_observed_qualification_rejects_falsified_quantities_and_provenance():
+    from etudecas.testing.independent_review import Evidence, audit_external_component_service
+    for mutation in ('demand', 'known', 'scope', 'double_debit', 'zero_missing'):
+        series, events, forecast, observed = deepcopy(_observed_qualification_memory_case())
+        if mutation == 'demand':
+            series[2]['demand_qty'] = 4
+        elif mutation == 'known':
+            observed['rows'][1]['known_day'] = 1
+        elif mutation == 'scope':
+            note = json.loads(events[-1]['notes'])
+            note['scope'] = 'estimated_non_modelled_component_use'
+            events[-1]['notes'] = json.dumps(note)
+        elif mutation == 'double_debit':
+            events[-1]['qty'] = 4
+        else:
+            observed['rows'].pop(0)
+        e = Evidence()
+        audit_external_component_service(series, events, [], forecast, 3, e, observed_policy=observed)
+        assert any(v['failed'] for v in e.checks.values()), mutation
+
+
+def test_memory_observed_qualification_requires_original_graph_sha():
+    from etudecas.testing.independent_review import Evidence, observed_policy_from_graph_bytes
+    _, _, _, observed = _observed_qualification_memory_case()
+    data = json.dumps({'meta': {'observed_external_component_demands': observed}}).encode()
+    e = Evidence()
+    assert observed_policy_from_graph_bytes(data, hashlib.sha256(data).hexdigest(), e) == observed
+    assert all(not v['failed'] for v in e.checks.values())
+    bad = Evidence()
+    assert observed_policy_from_graph_bytes(data, '0' * 64, bad) is None
+    assert bad.checks['observed_original_input_sha256']['failed'] == 1
