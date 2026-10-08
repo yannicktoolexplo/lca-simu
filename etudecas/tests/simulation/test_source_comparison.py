@@ -88,6 +88,62 @@ def test_customer_source_rejects_duplicates_without_adding_versions():
         _customer_source_rows([(2, row), (3, row)], [], {'268091': 'UN'})
 
 
+@pytest.mark.parametrize('with_label', [False, True])
+@pytest.mark.parametrize('reordered', [False, True])
+def test_customer_source_reads_projection_headers_and_exact_quantity_cells(with_label, reordered):
+    history_headers = ['SKU Code', 'SKU Label', 'First day of Week Year Horizon', 'Actual Demand']
+    history = ['268091', 'PF historique', '2025-01-06', -13]
+    projection_headers = ['SKU Code', 'First day of Week Year Snapshot',
+                          'First day of Week Year Horizon', 'Forecasted Demand']
+    projection = ['268091', '2024-12-30', '2025-01-06', -70]
+    if with_label:
+        projection_headers.insert(1, 'SKU Label')
+        projection.insert(1, 'PF projection')
+    if reordered:
+        history_headers.reverse()
+        history.reverse()
+        projection_headers.reverse()
+        projection.reverse()
+    result = _customer_source_rows([(2, history)], [(7, projection)], {'268091': 'UN'},
+        history_headers=history_headers, projection_headers=projection_headers)['268091']
+    assert result['name'] == 'PF historique'
+    assert result['history'] == [[5, 13, -13, 2]]
+    assert result['projections'] == {'-2': [[5, 70, -70, 7]]}
+    assert result['source_columns'] == {
+        'history': 'A' if reordered else 'D',
+        'projection': 'A' if reordered else ('E' if with_label else 'D'),
+    }
+
+
+def test_customer_source_projection_without_label_or_history_uses_article_code():
+    result = _customer_source_rows([], [(3, ['268091', '2024-12-30', '2025-01-06', 0])],
+        {'268091': 'UN'}, projection_headers=['SKU Code', 'First day of Week Year Snapshot',
+        'First day of Week Year Horizon', 'Forecasted Demand'])['268091']
+    assert result['name'] == '268091'
+    assert result['projections'] == {'-2': [[5, 0, 0, 3]]}
+    assert result['source_columns']['projection'] == 'D'
+
+
+@pytest.mark.parametrize('missing', ['SKU Code', 'First day of Week Year Snapshot',
+                                    'First day of Week Year Horizon', 'Forecasted Demand'])
+def test_customer_source_rejects_missing_projection_header_even_without_rows(missing):
+    headers = ['SKU Code', 'First day of Week Year Snapshot',
+               'First day of Week Year Horizon', 'Forecasted Demand']
+    headers.remove(missing)
+    with pytest.raises(ValueError, match='Invalid customer source header: Projection!'):
+        _customer_source_rows([], [], {'268091': 'UN'}, projection_headers=headers)
+
+
+def test_customer_source_rejects_duplicate_header_and_incomplete_rows():
+    headers = ['SKU Code', 'First day of Week Year Snapshot',
+               'First day of Week Year Horizon', 'Forecasted Demand']
+    with pytest.raises(ValueError, match='Invalid customer source header: Projection!'):
+        _customer_source_rows([], [], {'268091': 'UN'}, projection_headers=headers + ['Forecasted Demand'])
+    with pytest.raises(ValueError, match='Incomplete customer source row: Projection!7'):
+        _customer_source_rows([], [(7, ['268091', '2024-12-30', '2025-01-06'])],
+                              {'268091': 'UN'}, projection_headers=headers)
+
+
 def test_movement_rows_preserve_raw_signed_net_and_g_to_kg():
     pairs = {}
     _movement_source_rows([(2, ('268091', 'PF', 'PF', '1920', '2025-01-05', 'UN', 2, 0, 10, 0)),

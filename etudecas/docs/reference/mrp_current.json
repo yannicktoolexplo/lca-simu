@@ -1,0 +1,196 @@
+{
+  "schema_version": "etudecas.fixed_reference.v1",
+  "reference_id": "customer-dc-demand-pf-20261008",
+  "recorded_at_utc": "2026-10-08T14:45:24.745804+00:00",
+  "scope": "User-approved demand and distribution-center reference. Industrial response is estimated from delivered/lost revenue, not measured unit shipments. No claim of calibration of every upstream stock.",
+  "roles": [
+    {
+      "role": "working_reference",
+      "label": "Demande client / centre de distribution — référence acceptée",
+      "path": "etudecas/artifacts/testing/demand_pf_20261008/run_pf_zero_362",
+      "scenario_id": "scn:BASE",
+      "days": 362,
+      "is_nominal_reference": true
+    },
+    {
+      "role": "previous_mrp_reference_preserved",
+      "label": "MRP précédent 2025 - commandes connues",
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365",
+      "scenario_id": "scn:BASE",
+      "days": 365,
+      "is_nominal_reference": false
+    }
+  ],
+  "previous_reference": {
+    "id": "C8R",
+    "path": "etudecas/artifacts/testing/mrp_packaging_solutions_20261006/run_C8R_365",
+    "status": "historical_comparator_not_current",
+    "preserved": true
+  },
+  "historical_comparison_C8R_vs_known_demand_365": {
+    "stock_MAE_52_photos_UN": {
+      "268091": {
+        "previous": 254470,
+        "current": 240023
+      },
+      "268967": {
+        "previous": 145076,
+        "current": 177434
+      }
+    },
+    "uniform_superiority": false
+  },
+  "source_equivalence_proof": "etudecas/artifacts/testing/full_map_current_mrp_20261008/validation/source_equivalence.json",
+  "historical_five_year_reference": "etudecas/docs/reference/current.json",
+  "files": [
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/graph_candidate.json",
+      "role": "executed_working_reference",
+      "sha256": "dfb259b4d63e071b5e0f7e476c2f4b41998408c96261c47e71eee5383d799f0e"
+    },
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/report_candidate.json",
+      "role": "executed_working_reference",
+      "sha256": "36082dc44a3536bae794087bad26cd2f8b3e4fb9403fc24bd9ebad7b52fd996f"
+    },
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/run/run_manifest.json",
+      "role": "executed_working_reference",
+      "sha256": "9069825e00b8b43f3cecf1af3d1d2a951f29f6978997f5168bd65f0d7894f18c"
+    },
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/summaries/first_simulation_summary.json",
+      "role": "executed_working_reference",
+      "sha256": "b8098648832c7d8547c852a678d6cd77f4ef99ea79e9aa5a3c8e9e9662b97a68"
+    },
+    {
+      "path": "etudecas/simulation/engine/api.py",
+      "role": "executed_engine",
+      "sha256": "b203e806df48c67a9dc64166a97949d446fe4f6e5e560b8d964e6c40abbb4905"
+    },
+    {
+      "path": "etudecas/simulation/engine/bounded_execution.py",
+      "role": "executed_engine",
+      "sha256": "a8c4baef5e70395a17430726cbc6de5fa514aca4e5eb13942f4165a73d3af7d6"
+    },
+    {
+      "path": "etudecas/simulation/engine/contracts.py",
+      "role": "executed_engine",
+      "sha256": "ef5ab26d69ab199bf42e3547b43a78ea5e286ca8db51dfd8200bf400d08784da"
+    },
+    {
+      "path": "etudecas/simulation/engine/control_probe.py",
+      "role": "executed_engine",
+      "sha256": "fae68ceb6556251d6805f1aedcbb19b102a33bc9e4b5a00470f07193c077810f"
+    },
+    {
+      "path": "etudecas/simulation/engine/control_provider.py",
+      "role": "executed_engine",
+      "sha256": "d39413473f499b8508528ef0d843cb372e4c0c258e7a621a31da8f862b661b46"
+    },
+    {
+      "path": "etudecas/simulation/engine/control_provider_v2.py",
+      "role": "executed_engine",
+      "sha256": "ec589bbb73c474bbba2f5397cf286021bfb3807260a2421cc4999e09bdbdea93"
+    },
+    {
+      "path": "etudecas/simulation/engine/control_provider_v3.py",
+      "role": "executed_engine",
+      "sha256": "439babb2458cfa864a8e1f0c613bfb41408dd18cc50ca4d64be842e3b02444f5"
+    },
+    {
+      "path": "etudecas/simulation/engine/control_schedule.py",
+      "role": "executed_engine",
+      "sha256": "b7c6cd76f9be9567d9e2e91e0c5c6b963e0d4165909be19e792c7bf08837a38d"
+    },
+    {
+      "path": "etudecas/simulation/engine/demand_perturbation.py",
+      "role": "executed_engine",
+      "sha256": "85ddf9da65fe5f80b6daa40dd24360da39d8cdcb523475dccc65672e7f2d867c"
+    },
+    {
+      "path": "etudecas/simulation/engine/http_contract.py",
+      "role": "executed_engine",
+      "sha256": "9d5d8a57827a5c1fc8e0100860a61b6ccdbfde67d3e87b83e449cc748b2bb6b5"
+    },
+    {
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "role": "executed_engine",
+      "sha256": "800e9760d1fa7c825e41e55821f3d731d03571dd446a99ab8ca9187345a08667"
+    },
+    {
+      "path": "etudecas/simulation/engine/mrp_planning.py",
+      "role": "executed_engine",
+      "sha256": "18589e157e44875d59354ebfd788144098edff833062a7e5139838c71ceba7b4"
+    },
+    {
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "role": "executed_engine",
+      "sha256": "c2e708415284b8126c1d6283e7e658d764c05a2de99b745bdf771933e5930037"
+    },
+    {
+      "path": "etudecas/simulation/engine/server.py",
+      "role": "executed_engine",
+      "sha256": "e1aaa534b3e6f5ece3a89d43aca3cc0da5a15d57661f9123c67afcf11c85eb94"
+    },
+    {
+      "path": "etudecas/simulation/engine/__init__.py",
+      "role": "executed_engine",
+      "sha256": "d0b8cca16f04ed0a56644969d4e266cd2481cfd2590aebad2d7408553b6ecb98"
+    },
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/production_dc_stocks_daily.csv",
+      "role": "executed_register",
+      "sha256": "60445138f1bce107d2635bdeb9f92598dfd0f4cbd644f8fa02ef6eb4bf2c8b9e"
+    },
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/production_lot_events.csv",
+      "role": "executed_register",
+      "sha256": "4c72a75eff55860b2bc39f5e43f9f0e3fa0c442de057719849f384575d55ee6b"
+    },
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/production_demand_service_daily.csv",
+      "role": "executed_register",
+      "sha256": "b5303ab753f9344952c326ebd785754c24968a2ffcc45bdabda24fa2484a8aa2"
+    },
+    {
+      "path": "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/customer_forecast_projection_weekly.csv",
+      "role": "executed_register",
+      "sha256": "0c4de45357fec4dd04b2277635ed900c3c9b71ab5d65b1770b5c5c0c39c5020c"
+    },
+    {
+      "path": "etudecas/data/source/Flow_Data_Customer_Demand.xlsx",
+      "role": "current_customer_source_semantically_equivalent_to_executed_input",
+      "sha256": "997a57ccb8c1a7fd46103f88fd43247206089cd40a5cc298c87270a844fbc321"
+    },
+    {
+      "path": "etudecas/resultats/forecast_dispatch_20261008/carte.html",
+      "role": "current_map",
+      "sha256": "4c58fb30d36ec1b9266d68bba73ae703bea4990d903bd47139c53474683b2bf5"
+    }
+  ],
+  "presentation_revision": "Three explicit demand/estimated actual response/simulated response curves; source and simulated MRP separate. User-approved reference.",
+  "accepted_by_user": "2026-10-08 : référence demande et centre de distribution acceptée explicitement ; commit demandé.",
+  "customer_dc_reference": {
+    "archive": "etudecas/config/customer_dc_reference_20261008/reference.zip",
+    "archive_sha256": "b73621a33aeafb8f5fca74036bd2b9cd3ae1c029bc0d062a85d91dda92bc0d68",
+    "archive_bytes": 10218957,
+    "members_sha256": {
+      "graph.json": "232063ad3d1c3d1b20ac3d291b0b004cf11b995de80863a69da737366b9a6201",
+      "comparaison.html": "852ba4f9f463037e27f2437f9dc5a6f26850a18a4e33c274efb336ad828209d6",
+      "execution.json": "45f0468aaffec13253ccb7b0fc3dffb2060f95f78fe3c1a12bc40d9bbae62972",
+      "validation.json": "8a360bb8dd5acc19b0329be10898a3f916c4bd87baa5b8287a73b64b646485b5",
+      "javascript.json": "5b112276f48f65f5abd6f752f2b8833070c6f3207c93a802c78ea166d83a6e39",
+      "render.json": "4ec72e4e9ce08c5ed21089b06df5fb0f1fdac2a65addbeca3831a06109f5a73d"
+    },
+    "live_comparison": "etudecas/resultats/demand_pf_20261008/comparaison.html",
+    "demand_source": "demand_PF.xlsx / Demande / real demand",
+    "negative_demand_policy": "max(0, real demand)",
+    "actual_response": "estimated = demand * delivered revenue / (delivered revenue + lost revenue); common price and scope assumption",
+    "simulated_response": "served_qty from client register, after transport",
+    "mrp_comparison": "source planned requirements I vs simulated planned requirements at same vintage",
+    "start": "2025-01-01",
+    "end": "2025-12-28",
+    "previous_files_registry": "The files list below describes the previous MRP reference, preserved unchanged; the archive members identify the new accepted demand/DC reference."
+  }
+}

@@ -255,22 +255,51 @@ def _number(value, factor=1., *, physical_unit=None):
     return result
 
 
-def _customer_source_rows(history_rows, projection_rows, units):
+def _customer_source_rows(history_rows, projection_rows, units, *,
+                          history_headers=None, projection_headers=None):
     """Read numbered Excel values in memory, retaining signs, dates and cells."""
+    layouts = {}
+    for sheet, headers, defaults, quantity in [
+        ('Historique', history_headers,
+         ('SKU Code', 'SKU Label', 'First day of Week Year Horizon', 'Actual Demand'), 'Actual Demand'),
+        ('Projection', projection_headers,
+         ('SKU Code', 'SKU Label', 'First day of Week Year Snapshot',
+          'First day of Week Year Horizon', 'Forecasted Demand'), 'Forecasted Demand'),
+    ]:
+        # Defaults preserve callers supplying the historical in-memory layout;
+        # workbook callers always pass the actual header row.
+        names = [' '.join(str(value or '').split()).casefold()
+                 for value in (defaults if headers is None else headers)]
+        required = ['SKU Code', 'First day of Week Year Horizon', quantity]
+        if sheet == 'Projection':
+            required.append('First day of Week Year Snapshot')
+        for name in required + ['SKU Label']:
+            count = names.count(name.casefold())
+            if (name in required and count != 1) or count > 1:
+                raise ValueError(f'Invalid customer source header: {sheet}! {name} (found {count})')
+        layouts[sheet] = {name: names.index(name.casefold())
+                          for name in required + ['SKU Label'] if name.casefold() in names}
+        layouts[sheet]['quantity'] = layouts[sheet][quantity]
     products, seen = {}, set()
     for sheet, rows in [('Historique', history_rows), ('Projection', projection_rows)]:
+        columns = layouts[sheet]
         for line, row in rows:
             if not any(value is not None for value in row):
                 continue
-            item = str(row[0]).zfill(6)
+            if len(row) <= max(columns.values()):
+                raise ValueError(f'Incomplete customer source row: {sheet}!{line}')
+            item = str(row[columns['SKU Code']]).zfill(6)
             if units.get(item) != 'UN':
                 raise ValueError(f'Customer unit not established as UN: {item}')
-            product = products.setdefault(item, dict(item=item, name=str(row[1]), unit='UN',
+            name = row[columns['SKU Label']] if 'SKU Label' in columns else None
+            product = products.setdefault(item, dict(item=item, name=str(name or item), unit='UN',
                 history=[], projections={}, unit_basis='Unité UN du même article dans les sources de stock ; absente du classeur client.',
-                site_basis='Demande par article, sans site client dans le classeur.'))
-            vintage = _day(row[2]) if sheet == 'Projection' else None
-            start = _day(row[3] if sheet == 'Projection' else row[2])
-            signed = _number(row[4] if sheet == 'Projection' else row[3], physical_unit='UN')
+                site_basis='Demande par article, sans site client dans le classeur.',
+                source_columns={key: openpyxl.utils.get_column_letter(layouts[tab]['quantity'] + 1)
+                                for key, tab in [('history', 'Historique'), ('projection', 'Projection')]}))
+            vintage = _day(row[columns['First day of Week Year Snapshot']]) if sheet == 'Projection' else None
+            start = _day(row[columns['First day of Week Year Horizon']])
+            signed = _number(row[columns['quantity']], physical_unit='UN')
             if signed is None or signed > 0 or (start + ORIGIN.weekday()) % 7:
                 raise ValueError(f'Invalid customer quantity or Monday: {sheet}!{line}')
             if vintage is not None and ((vintage + ORIGIN.weekday()) % 7 or start <= vintage):
@@ -1729,7 +1758,9 @@ def build_comparison_payload(inventory_path: Path, mrp_path: Path,
         try:
             products = _customer_source_rows(
                 enumerate(book['Historique'].iter_rows(min_row=2, values_only=True), 2),
-                enumerate(book['Projection'].iter_rows(min_row=2, values_only=True), 2), units)
+                enumerate(book['Projection'].iter_rows(min_row=2, values_only=True), 2), units,
+                history_headers=next(book['Historique'].iter_rows(max_row=1, values_only=True)),
+                projection_headers=next(book['Projection'].iter_rows(max_row=1, values_only=True)))
         finally:
             book.close()
         customer_demand = dict(source_file=customer_demand_path.name, products=products,
