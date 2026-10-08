@@ -1,0 +1,27 @@
+{
+  "basis": "User instruction: remove random lead times and use92500M standard for730384",
+  "base_archive": "etudecas/config/mrp_common_rules_20261002/checkpoint.zip",
+  "base_graph": "etudecas/artifacts/testing/mrp_common_rules_20261002/experiment_v2/graph_G.json",
+  "base_graph_sha256": "53292d16d5a236840eb4548b6dc6d6489ea19c837bb14b34cdc2b23914873c5c",
+  "standard_order_override": {
+    "edge_id": "edge:SDC-VD0508918A_TO_M-1430_730384",
+    "source_standard_qty": 370000,
+    "applied_standard_qty": 92500,
+    "unit": "M"
+  },
+  "stochastic_lead_times": false,
+  "supplier_delivery_mode": "source",
+  "scope": "All transport lead-time sampling disabled; source safety and existing other-use hypotheses preserved. Source Excel unchanged.",
+  "comparison_days": 365,
+  "execution_days": 1825,
+  "capacity_reference": {
+    "file": "etudecas/config/mrp_730384_fixed_20261002/capacity_reference.csv",
+    "source_file": "etudecas/artifacts/testing/mrp_common_rules_20261002/experiment_v2/run_G_1825/data/supplier_nominal_parameters.csv",
+    "source_sha256": "890171c70d94897bc2e617ed811a7f97c2ed894d31e063f14ea6668b11033d14",
+    "pair_count": 33,
+    "basis": "Preserve prior G effective simulated supplier capacities; not industrial observations. No opening stock override.",
+    "338928_capacity": 62500
+  },
+  "supersedes": "Initial fixed scenario rejected: recalculated capacity20779.2208 < standard25000 prevented every new338928 purchase.",
+  "status": "prepared_capacity_preserved"
+}

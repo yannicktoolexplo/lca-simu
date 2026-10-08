@@ -10,7 +10,8 @@ from __future__ import annotations
 import argparse
 from collections import defaultdict
 from copy import deepcopy
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal, ROUND_FLOOR
 import hashlib
 import json
 import math
@@ -24,6 +25,10 @@ ORIGIN = datetime(2025, 1, 1)
 SITES = {'1430': 'M-1430', '1450': 'SDC-1450', '1810': 'M-1810', '1920': 'DC-1920'}
 DEFAULT_REFERENCE = ROOT / 'artifacts/testing/mrp_execution_20260928/simulation_v6'
 DEFAULT_WORK = ROOT / 'artifacts/testing/shared_materials_20260929/study'
+# Business scope confirmed by the user, not a measured allocation fraction.
+# The confirmation concerns the item; it does not identify other products,
+# sites, quantities or the status of any particular stock snapshot.
+USER_CONFIRMED_SHARED_ITEMS = frozenset({'693055', '730384', '708073'})
 
 
 def unit(value):
@@ -35,6 +40,229 @@ def unit(value):
     if value in ('KG', 'M'):
         return value, 1.
     raise ValueError(f'Unsupported unit: {value}')
+
+
+def declare_managed_inventory_pairs(graph, records, *, origin='2025-01-01'):
+    """Declare independent observed-use stocks without inventing supply rules.
+
+    Pure, idempotent preparation: existing stock pairs cannot be overwritten.
+    Availability remains an explicitly named convention; dated held quantities
+    belong to the separate existing ``initial_stock_availability`` contract.
+    No forecasts, routes, BOM, safety policy or source observation are changed.
+    """
+    epoch = date.fromisoformat(origin)
+    if not isinstance(records, list):
+        raise ValueError('Managed inventory records must be a list')
+    result = deepcopy(graph)
+    if not records:
+        return result
+    nodes = {n['id']: n for n in result['nodes']}
+    states = {(n['id'], s['item_id']): s for n in result['nodes']
+              for s in n.get('inventory', {}).get('states', [])}
+    known_items = {item for _, item in states}
+    production_pairs = {(n['id'], r['item_id']) for n in result['nodes']
+                        for p in n.get('processes', [])
+                        for r in p.get('inputs', []) + p.get('outputs', [])}
+    inbound = {(e['to'], item) for e in result.get('edges', []) for item in e.get('items', [])}
+    existing = result.get('meta', {}).get('managed_inventory_pairs')
+    payload = existing if existing is not None else dict(schema_version=1, origin=origin, rows=[])
+    if (not isinstance(payload, dict) or type(payload.get('schema_version')) is not int
+            or payload['schema_version'] != 1 or payload.get('origin') != origin
+            or not isinstance(payload.get('rows'), list)):
+        raise ValueError('Invalid existing managed inventory declaration')
+    declared = {(r['node_id'], r['item_id']): r for r in payload['rows']}
+    if len(declared) != len(payload['rows']):
+        raise ValueError('Duplicate existing managed inventory pair')
+    required = {'node_id', 'item_id', 'initial_qty', 'uom', 'source_file', 'source_cells',
+                'source_date', 'initial_availability_status', 'partial_scope'}
+    seen = set()
+    for record in records:
+        if not isinstance(record, dict) or set(record) != required:
+            raise ValueError('Managed inventory requires its explicit stock/provenance fields only')
+        node, item = record['node_id'], record['item_id']
+        if any(not isinstance(v, str) or not v for v in (node, item)):
+            raise ValueError('Managed inventory requires string article/site identities')
+        pair = node, item
+        if pair in seen:
+            raise ValueError('Duplicate managed inventory input pair')
+        seen.add(pair)
+        if node not in nodes or item not in known_items:
+            raise ValueError('Managed inventory requires an existing node and item')
+        if pair in production_pairs or pair in inbound or nodes[node].get('type') == 'customer':
+            raise ValueError('Managed inventory cannot replace a BOM, production or supplied pair')
+        if any(not isinstance(record[k], str) or not record[k].strip() for k in
+               ['source_file', 'source_cells', 'source_date', 'initial_availability_status']):
+            raise ValueError('Managed inventory requires explicit source and availability provenance')
+        if date.fromisoformat(record['source_date']) != epoch:
+            raise ValueError('Managed opening stock must be observed at the declared origin')
+        partial = record['partial_scope']
+        if (not isinstance(partial, list) or len(set(partial)) != len(partial)
+                or set(partial) - {'known_open_orders_only', 'observed_other_use_execution', 'unmodelled_divers'}
+                or not {'known_open_orders_only', 'observed_other_use_execution'} <= set(partial)):
+            raise ValueError('Managed inventory requires explicit partial execution scope')
+        value = record['initial_qty']
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or value < 0):
+            raise ValueError('Managed initial quantity must be finite and nonnegative')
+        canonical, factor = unit(record['uom'])
+        qty = Decimal(str(value)) * Decimal(str(factor))
+        if canonical == 'UN' and qty != qty.to_integral_value():
+            raise ValueError('Managed physical UN stock must contain whole units')
+        item_units = {unit(s['uom'])[0] for (n, i), s in states.items() if i == item}
+        if item_units != {canonical}:
+            raise ValueError('Managed stock unit must match the existing item')
+        state = dict(item_id=item, state_id=f"I_MANAGED_{node.replace('-', '_')}_{item.removeprefix('item:')}",
+            initial=float(qty), uom=canonical, is_default_initial=False,
+            initial_source=f"{record['source_file']}!{record['source_cells']}",
+            initial_source_date=origin, initial_availability_status=record['initial_availability_status'])
+        declaration = dict(node_id=node, item_id=item, role='stock_external_use', supply_status='unconfigured',
+            initial_qty=float(qty), uom=canonical, source_file=record['source_file'],
+            source_cells=record['source_cells'], source_date=origin,
+            initial_availability_status=record['initial_availability_status'], partial_scope=list(partial))
+        if pair in states:
+            if declared.get(pair) != declaration or states[pair] != state:
+                raise ValueError('Managed inventory cannot overwrite an existing stock pair')
+            continue
+        if pair in declared:
+            raise ValueError('Managed declaration refers to a missing existing stock')
+        nodes[node].setdefault('inventory', {}).setdefault('states', []).append(state)
+        states[pair] = state
+        payload['rows'].append(declaration)
+        declared[pair] = declaration
+    result.setdefault('meta', {})['managed_inventory_pairs'] = payload
+    return result
+
+
+def build_observed_external_component_demands(
+    graph, records, *, source_file, source_sha256, scenario_id='scn:BASE',
+    origin='2025-01-01',
+):
+    """Build a physical-only, dated replay of observed OTHER component uses.
+
+    User-confirmed Scan3 concerns the two studied finished products. Its column
+    J is deliberately not injected here: own production must retain its BOM.
+    Column I is a separate signed flow. A positive I anywhere excludes the
+    whole pair, because a net inflow cannot identify another-product issue.
+    Missing rows remain unknown; explicit zero rows do suppress an old estimate.
+
+    ``records`` are in-memory source rows with item, division, article_type,
+    week (ISO date or date/datetime), uom, sorties and row (Excel line number).
+    This function does not read files or change the graph. Future observations
+    are known only on their physical due day, never a forecast input.
+    """
+    if not isinstance(source_file, str) or not source_file.strip():
+        raise ValueError('Observed movements require the source filename')
+    if (not isinstance(source_sha256, str) or len(source_sha256) != 64
+            or any(c not in '0123456789abcdef' for c in source_sha256.lower())):
+        raise ValueError('Observed movements require a SHA256 source fingerprint')
+    if not isinstance(scenario_id, str) or not scenario_id.strip():
+        raise ValueError('Observed movements require a scenario ID')
+    epoch = date.fromisoformat(origin)
+    states = {(node['id'], row['item_id']): row
+              for node in graph['nodes']
+              for row in node.get('inventory', {}).get('states', [])}
+    bom_pairs = {(node['id'], row['item_id'])
+                 for node in graph['nodes'] for process in node.get('processes', [])
+                 for row in process.get('inputs', [])}
+    output_pairs = {(node['id'], row['item_id'])
+                    for node in graph['nodes'] for process in node.get('processes', [])
+                    for row in process.get('outputs', [])}
+    internal_departures = {(edge['from'], item)
+                           for edge in graph.get('edges', []) for item in edge.get('items', [])
+                           if (edge.get('to'), item) in states}
+    managed_pairs = {(r['node_id'], r['item_id']) for r in
+                     graph.get('meta', {}).get('managed_inventory_pairs', {}).get('rows', [])
+                     if r.get('role') == 'stock_external_use' and r.get('supply_status') == 'unconfigured'}
+    grouped, seen = defaultdict(list), set()
+    for row in records:
+        item = 'item:' + str(row['item']).removeprefix('item:').zfill(6)
+        division = str(row['division'])
+        if division not in SITES:
+            raise ValueError(f'Unsupported observed division: {division}')
+        pair = SITES[division], item
+        week = row['week']
+        if isinstance(week, datetime):
+            week = week.date()
+        elif isinstance(week, str):
+            week = date.fromisoformat(week)
+        if not isinstance(week, date) or week.weekday() != 6:
+            raise ValueError('Observed movement markers must be Sundays')
+        if (type(row['row']) is not int or row['row'] < 2
+                or isinstance(row['sorties'], bool)
+                or not isinstance(row['sorties'], (int, float))
+                or not math.isfinite(row['sorties'])):
+            raise ValueError('Observed movements require finite signed I and an Excel row')
+        key = pair, week
+        if key in seen:
+            raise ValueError('Duplicate observed pair/week')
+        seen.add(key)
+        grouped[pair].append(dict(row, week=week))
+    rows, coverage, audit = [], [], []
+    for pair, source_rows in sorted(grouped.items()):
+        info = dict(node_id=pair[0], item_id=pair[1], status='excluded', source_rows=[r['row'] for r in source_rows])
+        audit.append(info)
+        if pair not in states:
+            info['reason'] = 'no_modelled_stock_pair'
+            continue
+        if pair in output_pairs:
+            info['reason'] = 'local_manufactured_output_not_external_consumption'
+            continue
+        if pair in internal_departures:
+            info['reason'] = 'internal_transfer_departure_cannot_be_counted_twice'
+            continue
+        if pair not in bom_pairs and pair not in managed_pairs and any(str(r.get('article_type', '')).upper() != 'MP' for r in source_rows):
+            info['reason'] = 'neither_BOM_component_nor_modeled_raw_material_stock'
+            continue
+        if any(r['sorties'] > 0 for r in source_rows):
+            info['reason'] = 'positive_I_pair_has_ambiguous_net_flows'
+            continue
+        canonical, engine_factor = unit(states[pair]['uom'])
+        info.update(status='selected', reason='observed_other_uses_I_only', uom=states[pair]['uom'],
+                    source_I_outgoing_qty=0., emitted_year_one_qty=0., explicit_zero_weeks=0,
+                    direct_BOM_component=pair in bom_pairs)
+        for record in sorted(source_rows, key=lambda r: r['week']):
+            source_unit, source_factor = unit(record['uom'])
+            if source_unit != canonical:
+                raise ValueError(f'Observed/graph unit mismatch for {pair}')
+            qty = -Decimal(str(record['sorties'])) * Decimal(str(source_factor)) / Decimal(str(engine_factor))
+            if canonical == 'UN' and qty != qty.to_integral_value():
+                raise ValueError('Observed physical UN movements must be whole units')
+            info['source_I_outgoing_qty'] += float(qty)
+            info['explicit_zero_weeks'] += int(qty == 0)
+            monday = record['week'] + timedelta(days=1)
+            start = (monday-epoch).days
+            first, stop = max(0, start), min(365, start+7)
+            if first >= stop:
+                continue
+            cell = f"Feuille1!I{record['row']}"
+            coverage.append(dict(node_id=pair[0], item_id=pair[1], first_day=first,
+                                 end_day_exclusive=stop, source_cells=cell))
+            cumulative = [(qty*i/7).to_integral_value(rounding=ROUND_FLOOR) if canonical == 'UN' else qty*i/7
+                          for i in range(8)]
+            basis = json.dumps(dict(method='observed_other_use_I_only', source_sha256=source_sha256.lower(),
+                source_week_marker=record['week'].isoformat(), physical_week_start=monday.isoformat(),
+                weekly_source_I=record['sorties'], source_uom=record['uom'], weekly_engine_qty=float(qty),
+                scan3_scope='user_confirmed_only_268091_and_268967', scan3_not_injected=True,
+                timing='uniform_Monday_to_Sunday; daily_UN_cumulative_floor; year_one_clipped_without_rescaling',
+                planning_use='forbidden; physical_due_only'), sort_keys=True)
+            for when in range(first, stop):
+                offset = when-start
+                amount = float(cumulative[offset+1]-cumulative[offset])
+                info['emitted_year_one_qty'] += amount
+                rows.append(dict(demand_id=f"observed-I:{pair[0]}:{pair[1]}:R{record['row']}:D{when}",
+                    node_id=pair[0], item_id=pair[1], known_day=when, period_start_day=when, period_days=1,
+                    qty=amount, uom=states[pair]['uom'], source_file=source_file, source_cells=cell, estimation_basis=basis))
+    return dict(schema_version=1, origin=origin, scenario_id=scenario_id,
+        semantics='incremental_non_modelled_component_use', repeat_period_days=None, rows=rows,
+        physical_use_only=True, source_sha256=source_sha256.lower(), coverage_rows=coverage,
+        estimation_audit=audit, assumptions=[
+            'Scan3 is user-confirmed consumption for the two studied finished products; J is not additional external consumption.',
+            'Only negative or zero I of eligible whole pairs enters the physical replay; positive-I pairs remain estimated.',
+            'Explicit zero I is observed coverage. Absent pair/week remains unknown and must fall back to the previous estimate.',
+            'Sunday marker represents the following Monday-Sunday physical week; within-week uniformity is a simulation convention.',
+            'Daily amounts are known only on their due day. This payload must never replace industrial forecast requirements.',
+            'No source receipt, future inventory, safety, BOM ratio or own product consumption is modified.',
+        ])
 
 
 def sha(path):
@@ -141,6 +369,10 @@ def estimate_first_plan(graph, known_day, records, threshold=1.25):
                 'node_id': pair[0], 'item_id': pair[1], 'unit': rows[0]['unit'],
                 'article_type': rows[0]['type'], 'known_day': known_day,
                 'status': 'not_selected', 'reason': None}
+        if rows[0]['item'] in USER_CONFIRMED_SHARED_ITEMS:
+            info.update(shared_use_status='user_confirmed_item_shared',
+                        shared_use_confirmation='user:2026-10-02',
+                        allocation_status='not_confirmed_by_user')
         audit.append(info)
         roots = [item for item, c in coefficients.items() if pair in c]
         if pair not in states or not roots:
@@ -187,7 +419,8 @@ def estimate_first_plan(graph, known_day, records, threshold=1.25):
         fraction = (total - represented) / total
         info.update(status='estimated_complement', reason='first_vintage_excess_after_full_horizon_bom_and_upstream_deduction',
                     estimated_other_use_fraction=fraction,
-                    shared_use_status='user_suspected' if info['pair'] in ('042342/1430', '002612/1810', '007923/1810') else 'hypothesis_only')
+                    shared_use_status=info.get('shared_use_status') or (
+                        'user_suspected' if info['pair'] in ('042342/1430', '002612/1810', '007923/1810') else 'hypothesis_only'))
         canonical_schedule = []
         for row in rows:
             if not start <= row['day'] < end:

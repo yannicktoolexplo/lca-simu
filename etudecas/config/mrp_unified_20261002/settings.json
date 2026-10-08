@@ -1,0 +1,22 @@
+{
+  "policy": "source_safety_additive_v2",
+  "scope": "all aggregate external purchase pairs determined by graph, no article allowlist",
+  "fixed_source_safety": "F plus remaining needs advanced by source working days S",
+  "supplier": "existing admissible roles and choices retained; no invented backups",
+  "procurement_grouping_candidates": {
+    "common": 1,
+    "weekly": 7
+  },
+  "grouping_limit": "one day groups same due date; seven-day window is explicit unconfirmed candidate, not industrial source fact",
+  "production_forecast": "current SD controller output target retained as dated floor for projected BOM; physical SD unchanged",
+  "preserved": [
+    "source safety values",
+    "73038492500M user standard",
+    "fixed source supplier lead times",
+    "33effective reference supplier capacities",
+    "opening stock and existing firm receipts",
+    "existing hypothetical other-use consumption schedules"
+  ],
+  "base_run": "etudecas/artifacts/testing/mrp_730384_fixed_20261002/capacity_fixed/run_fixed_1825",
+  "validation": "sequential365day pilots with actual rule coverage and all-pair metrics; retained candidate must complete1825days; no silent historical replacement"
+}

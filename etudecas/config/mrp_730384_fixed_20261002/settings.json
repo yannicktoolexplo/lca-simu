@@ -1,0 +1,17 @@
+{
+  "basis": "User instruction: remove random lead times and use92500M standard for730384",
+  "base_archive": "etudecas/config/mrp_common_rules_20261002/checkpoint.zip",
+  "base_graph": "etudecas/artifacts/testing/mrp_common_rules_20261002/experiment_v2/graph_G.json",
+  "base_graph_sha256": "53292d16d5a236840eb4548b6dc6d6489ea19c837bb14b34cdc2b23914873c5c",
+  "standard_order_override": {
+    "edge_id": "edge:SDC-VD0508918A_TO_M-1430_730384",
+    "source_standard_qty": 370000,
+    "applied_standard_qty": 92500,
+    "unit": "M"
+  },
+  "stochastic_lead_times": false,
+  "supplier_delivery_mode": "source",
+  "scope": "All transport lead-time sampling disabled; source safety and existing other-use hypotheses preserved. Source Excel unchanged.",
+  "comparison_days": 365,
+  "execution_days": 1825
+}

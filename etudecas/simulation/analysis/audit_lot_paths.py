@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import sys
 from collections import Counter, defaultdict, deque
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +35,7 @@ except ModuleNotFoundError:
 EPS = 1e-6
 CREATION_PRIORITY = {
     "production_output": 0,
+    "opening_production_order": 0,
     "lane_receipt": 1,
     "external_procurement_receipt": 2,
     "estimated_source_receipt": 3,
@@ -91,6 +94,55 @@ def to_int(value: Any, default: int = 0) -> int:
         return int(round(float(str(value).replace(",", "."))))
     except (TypeError, ValueError):
         return default
+
+
+def is_campaign_wip_release(notes: Any) -> bool:
+    """Recognize the same WIP contract in legacy text and held-lot JSON notes."""
+    raw = str(notes or "")
+    try:
+        metadata = json.loads(raw)
+    except (ValueError, TypeError):
+        return (
+            not raw.lstrip().startswith(("{", "["))
+            and "semantics=campaign-batch-wip-release-v1" in raw
+        )
+    return (
+        isinstance(metadata, dict)
+        and metadata.get("semantics") == "campaign-batch-wip-release-v1"
+    )
+
+
+def physical_production_completions(plan_events):
+    """Count completed physical batches, independently of their later usability.
+
+    Under a quality hold, executed work may still be WIP and released_qty is
+    availability at I. The explicit completion exported from the WIP transition
+    at G is compared below to the independently exported physical lot creations.
+    Legacy runs retain their original immediate-release contract.
+    """
+    quantities = {}
+    quality_gates = {'physical_completion_then_source_weekday_quality',
+                     'source_weekday_quality_release'}
+    for row in plan_events:
+        campaign = str(row.get('campaign_id') or '')
+        if not campaign:
+            continue
+        if row.get('semantics_version') == 'campaign-batch-wip-release-v1':
+            physical = row.get('physical_completed_qty')
+            if physical not in (None, ''):
+                qty = to_float(physical, float('nan'))
+                if not math.isfinite(qty) or qty < 0:
+                    raise ValueError('Physical batch completion must be finite and nonnegative')
+                if row.get('event_type') == 'quality_release' and qty != 0:
+                    raise ValueError('Quality release cannot create another physical batch')
+            else:
+                if row.get('release_gate_mode') in quality_gates or row.get('event_type') == 'quality_release':
+                    raise ValueError('Quality-held production requires explicit physical_completed_qty')
+                qty = max(0.0, to_float(row.get('released_qty')))
+            quantities[campaign] = quantities.get(campaign, 0.0) + qty
+        elif row.get('event_type') == 'start_campaign':
+            quantities[campaign] = max(0.0, to_float(row.get('actual_qty')))
+    return quantities
 
 
 def read_input_path(output_root: Path, explicit: str) -> Path | None:
@@ -244,6 +296,105 @@ def qty_mismatch(expected: float, actual: float) -> bool:
     return abs(expected - actual) > max(1e-4, abs(expected) * 1e-5, abs(actual) * 1e-5)
 
 
+def audit_opening_pack_fragments(events, genealogy):
+    """Exact fragment reconciliation, separate from multi-day campaign WIP.
+
+    Pack fragments are complete conditioning operations. Their empty campaign
+    ID is not an identity: several fragments can consume one parent on one day.
+    Check the union of debits and links so an entirely absent link also fails.
+    The untraced non-Pack initial WIP is never fabricated into extra parents.
+    """
+    def metadata(row):
+        try:
+            value = json.loads(str(row.get("notes") or ""))
+        except (ValueError, TypeError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    def is_fragment(row):
+        source = str(row.get("source_id") or "")
+        prefix, sep, number = source.rpartition(";pack_fragment=")
+        return (metadata(row).get("opening_pack_policy") == "pack_at_source_G_v1"
+                or bool(prefix and sep and number.isdigit() and int(number) > 0))
+
+    fragment_ids = {str(row.get("source_id") or "") for row in [*events, *genealogy] if is_fragment(row)}
+    output_lots = {str(row.get("lot_id") or "") for row in events
+                   if str(row.get("source_id") or "") in fragment_ids and row.get("event_type") == "opening_production_order"}
+    link_indices = {i for i, row in enumerate(genealogy) if row.get("link_type") == "production"
+                    and (str(row.get("source_id") or "") in fragment_ids or str(row.get("child_lot_id") or "") in output_lots)}
+    issues, consumed, linked, outputs = [], defaultdict(Decimal), defaultdict(Decimal), defaultdict(list)
+    units = {str(row.get("lot_id") or ""): str(row.get("uom") or "").upper() for row in events if row.get("uom")}
+    examples = {}
+
+    def issue(kind, row, details, *, child=False):
+        issues.append(dict(severity="error", kind=kind,
+            lot_id=row.get("child_lot_id" if child else "parent_lot_id", row.get("lot_id", "")),
+            day=row.get("day", ""), node_id=row.get("child_node_id" if child else "parent_node_id", row.get("node_id", "")),
+            item_id=row.get("child_item_id" if child else "parent_item_id", row.get("item_id", "")), details=details))
+
+    def amount(row, field, unit):
+        try:
+            value = Decimal(str(row.get(field)).replace(",", "."))
+        except (InvalidOperation, ValueError):
+            value = Decimal("NaN")
+        if not value.is_finite() or value < 0 or (unit == "UN" and value != value.to_integral_value()):
+            issue("opening_pack_invalid_quantity", row, f"field={field} value={row.get(field)} unit={unit}")
+            return Decimal(0)
+        return value
+
+    def differs(left, right, unit):
+        return left != right if unit == "UN" else qty_mismatch(float(left), float(right))
+
+    for row in events:
+        fragment = str(row.get("source_id") or "")
+        if fragment not in fragment_ids:
+            continue
+        if row.get("event_type") in PRODUCTION_CONSUME_EVENTS:
+            key = (str(row.get("day", "")), str(row.get("lot_id") or ""),
+                   canonical_node_id(row.get("node_id")), str(row.get("item_id") or ""), fragment)
+            consumed[key] += amount(row, "qty", units.get(key[1], ""))
+            examples.setdefault(key, row)
+        elif row.get("event_type") == "opening_production_order":
+            outputs[fragment].append(row)
+            amount(row, "qty", units.get(str(row.get("lot_id") or ""), ""))
+            if (not fragment or metadata(row).get("opening_pack_policy") != "pack_at_source_G_v1"
+                    or metadata(row).get("non_pack_materials") != "initial_WIP_untraced"):
+                issue("opening_pack_missing_provenance", row, f"fragment={fragment}")
+    for fragment, rows in outputs.items():
+        if len(rows) != 1:
+            issue("opening_pack_duplicate_output", rows[0], f"fragment={fragment} creations={len(rows)}")
+
+    for index in sorted(link_indices):
+        row = genealogy[index]
+        fragment = str(row.get("source_id") or "")
+        key = (str(row.get("day", "")), str(row.get("parent_lot_id") or ""),
+               canonical_node_id(row.get("parent_node_id")), str(row.get("parent_item_id") or ""), fragment)
+        linked[key] += amount(row, "parent_qty", units.get(key[1], ""))
+        examples.setdefault(key, row)
+        candidates = [out for out in outputs.get(fragment, ())
+            if (str(out.get("day", "")), out.get("lot_id"), canonical_node_id(out.get("node_id")), out.get("item_id"))
+            == (str(row.get("day", "")), row.get("child_lot_id"), canonical_node_id(row.get("child_node_id")), row.get("child_item_id"))]
+        if len(candidates) != 1:
+            issue("production_link_missing_output_event", row,
+                  f"fragment={fragment} matching_creations={len(candidates)}", child=True)
+        else:
+            unit = units.get(str(row.get("child_lot_id") or ""), "")
+            expected, actual = amount(row, "child_qty", unit), amount(candidates[0], "qty", unit)
+            if differs(expected, actual, unit):
+                issue("production_link_output_qty_mismatch", row,
+                      f"fragment={fragment} link_child_qty={expected} output_event_qty={actual}", child=True)
+    for key in consumed.keys() | linked.keys():
+        actual, expected = consumed.get(key, Decimal(0)), linked.get(key, Decimal(0))
+        if differs(expected, actual, units.get(key[1], "")):
+            kind = ("production_link_missing_consume_event" if actual == 0 else
+                    "opening_pack_consume_missing_genealogy" if expected == 0 else "production_link_consume_qty_mismatch")
+            issue(kind, examples[key], f"fragment={key[-1]} linked_qty={expected} consumed_qty={actual}")
+    for fragment, rows in outputs.items():
+        if not any(key[-1] == fragment and qty > 0 for key, qty in linked.items()):
+            issue("opening_pack_output_without_pack_genealogy", rows[0], f"fragment={fragment}")
+    return dict(issues=issues, fragment_ids=fragment_ids, link_indices=link_indices, output_lots=output_lots)
+
+
 def pct(numerator: int | float, denominator: int | float) -> str:
     denom = float(denominator or 0)
     if denom <= 0:
@@ -274,7 +425,8 @@ def main() -> None:
         children_by_parent[str(row.get("parent_lot_id") or "")].append(row)
         parents_by_child[str(row.get("child_lot_id") or "")].append(row)
 
-    issues: list[dict[str, Any]] = []
+    pack_audit = audit_opening_pack_fragments(events, genealogy)
+    issues: list[dict[str, Any]] = list(pack_audit["issues"])
     missing_lot_refs = 0
     chronology_errors = 0
     route_mismatches = 0
@@ -550,6 +702,8 @@ def main() -> None:
     for row in events:
         event_type = str(row.get("event_type") or "")
         if event_type in PRODUCTION_CONSUME_EVENTS:
+            if str(row.get("source_id") or "") in pack_audit["fragment_ids"]:
+                continue  # Reconciled by fragment, never pooled into campaign="".
             consumed_qty = max(0.0, to_float(row.get("qty")))
             campaign_parent_key = (
                 str(row.get("lot_id") or ""),
@@ -600,12 +754,12 @@ def main() -> None:
     wip_link_parent_qty_by_campaign: dict[tuple[str, str, str, str], float] = defaultdict(float)
     wip_link_example_by_campaign: dict[tuple[str, str, str, str], dict[str, Any]] = {}
 
-    for row in genealogy:
+    for link_index, row in enumerate(genealogy):
         link_type = str(row.get("link_type") or "")
         if link_type == "production":
-            wip_release_semantics = (
-                "semantics=campaign-batch-wip-release-v1" in str(row.get("notes") or "")
-            )
+            if link_index in pack_audit["link_indices"]:
+                continue  # Includes exact output creation, quantity and identity checks.
+            wip_release_semantics = is_campaign_wip_release(row.get("notes"))
             consume_key = (
                 str(row.get("day") or ""),
                 str(row.get("parent_lot_id") or ""),
@@ -844,16 +998,7 @@ def main() -> None:
     for (day, lot_id, node_id, item_id, campaign_id), qty in production_output_qty.items():
         if campaign_id:
             output_qty_by_campaign[campaign_id] += qty
-    actual_qty_by_campaign: dict[str, float] = {}
-    for row in plan_events_raw:
-        campaign_id = str(row.get("campaign_id") or "")
-        if not campaign_id:
-            continue
-        if str(row.get("semantics_version") or "") == "campaign-batch-wip-release-v1":
-            released_qty = max(0.0, to_float(row.get("released_qty")))
-            actual_qty_by_campaign[campaign_id] = actual_qty_by_campaign.get(campaign_id, 0.0) + released_qty
-        elif str(row.get("event_type") or "") == "start_campaign":
-            actual_qty_by_campaign[campaign_id] = max(0.0, to_float(row.get("actual_qty")))
+    actual_qty_by_campaign = physical_production_completions(plan_events_raw)
     production_plan_output_mismatches = 0
     for campaign_id, actual_qty in actual_qty_by_campaign.items():
         output_qty = output_qty_by_campaign.get(campaign_id, 0.0)
@@ -943,6 +1088,7 @@ def main() -> None:
 {markdown_table(['Flow class', 'Transport links'], top_transport_rows)}
 
 ## Integrity Checks
+- Opening Pack fragment reconciliation errors: `{len(pack_audit['issues'])}`
 - Missing lot references in genealogy: `{missing_lot_refs}`
 - Chronology warnings/errors: `{chronology_errors}`
 - Transport source route mismatches after canonical aliases: `{route_mismatches}`

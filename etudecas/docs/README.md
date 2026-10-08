@@ -8,6 +8,8 @@ Les [résultats locaux](../index.html) ont leur propre accueil.
 
 | Sujet | Guide et références |
 |---|---|
+| Règles MRP courantes et application par liaison | [Les règles simplement](REGLES_MRP.md) ; prévisions, achats, fabrication, transferts et conventions encore à confirmer |
+| Reprendre la conception du MRP à partir des sources | [Refondation du MRP](REFONDATION_MRP.md) ; noyau commun, politiques locales, identification et validation avant remplacement |
 | Entrées de simulation et API locale | [Contrat des entrées](SIMULATION_INPUT_CONTRACT.md) · [Règles liées au code](generated/simulation_input/index.md) |
 | Lots, expéditions et risques | [Registre des impacts](../simulation/lot_trace/RISK_IMPACT_REGISTRY.md) · [Règles liées au code](generated/index.md) |
 | Matières, lots fournisseurs et incidents | [Conventions métier](MATIERES_LOTS_ET_INCIDENTS.md) · [Règles liées au code](generated/material_traceability/index.md) |

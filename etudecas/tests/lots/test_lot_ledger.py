@@ -13,6 +13,93 @@ from pathlib import Path
 
 # Test lot ledger
 
+
+class OpeningPackPathAuditMemoryTest(unittest.TestCase):
+    """Literal ledger oracles only; no temporary files, subprocess or fixture IO."""
+
+    @staticmethod
+    def _rows():
+        events = [dict(event_type="opening_stock", lot_id="PACK", node_id="F-1", item_id="tube",
+                       day=-1, qty=100, uom="UN", source_id="opening")]
+        links = []
+        # Two conditioning fragments share the same parent and day, not identity.
+        for ordinal, pack, pf in [(1, 20, 100), (2, 30, 150)]:
+            fragment = f"OF:1;pack_fragment={ordinal}"
+            notes = json.dumps(dict(opening_pack_policy="pack_at_source_G_v1", non_pack_materials="initial_WIP_untraced"))
+            events.extend([
+                dict(event_type="production_consume", lot_id="PACK", node_id="F-1", item_id="tube",
+                     day=0, qty=pack, uom="UN", source_id=fragment, production_campaign_id=""),
+                dict(event_type="opening_production_order", lot_id=f"PF{ordinal}", node_id="F-1", item_id="PF",
+                     day=0, qty=pf, uom="UN", source_id=fragment, production_campaign_id="", notes=notes),
+            ])
+            links.append(dict(link_type="production", day=0, parent_lot_id="PACK", parent_node_id="F-1",
+                parent_item_id="tube", parent_qty=pack, child_lot_id=f"PF{ordinal}", child_node_id="F-1",
+                child_item_id="PF", child_qty=pf, source_id=fragment, production_campaign_id="", notes=notes))
+        return events, links
+
+    @staticmethod
+    def _audit(events, links):
+        from etudecas.simulation.analysis.audit_lot_paths import audit_opening_pack_fragments
+        return audit_opening_pack_fragments(events, links)
+
+    def test_two_fragments_same_day_parent_reconcile_separately_in_memory(self):
+        events, links = self._rows()
+        result = self._audit(events, links)
+        self.assertEqual(result["issues"], [])
+        self.assertEqual(result["fragment_ids"], {"OF:1;pack_fragment=1", "OF:1;pack_fragment=2"})
+        self.assertEqual(result["link_indices"], {0, 1})
+
+    def test_missing_debit_and_missing_link_are_rejected_in_memory(self):
+        events, links = self._rows()
+        without_debit = [row for row in events if not (row.get("event_type") == "production_consume"
+                                                      and row.get("source_id") == "OF:1;pack_fragment=1")]
+        self.assertIn("production_link_missing_consume_event", {i["kind"] for i in self._audit(without_debit, links)["issues"]})
+        self.assertIn("opening_pack_consume_missing_genealogy", {i["kind"] for i in self._audit(events, links[1:])["issues"]})
+
+    def test_missing_output_and_crossed_fragment_are_rejected_in_memory(self):
+        events, links = self._rows()
+        without_output = [r for r in events if r.get("lot_id") != "PF1"]
+        self.assertIn("production_link_missing_output_event", {i["kind"] for i in self._audit(without_output, links)["issues"]})
+        links[0]["source_id"] = "OF:1;pack_fragment=2"
+        kinds = {i["kind"] for i in self._audit(events, links)["issues"]}
+        self.assertIn("production_link_missing_output_event", kinds)
+        self.assertIn("production_link_consume_qty_mismatch", kinds)
+
+    def test_duplicated_parent_link_or_creation_is_rejected_in_memory(self):
+        events, links = self._rows()
+        result = self._audit(events, links + [dict(links[0])])
+        self.assertIn("production_link_consume_qty_mismatch", {i["kind"] for i in result["issues"]})
+        result = self._audit(events + [dict(events[2])], links)
+        self.assertIn("opening_pack_duplicate_output", {i["kind"] for i in result["issues"]})
+
+    def test_UN_quantities_are_exact_even_at_large_scale_in_memory(self):
+        events, links = self._rows()
+        events[2]["qty"] = 100_000_000
+        links[0]["child_qty"] = 100_000_001
+        self.assertIn("production_link_output_qty_mismatch", {i["kind"] for i in self._audit(events, links)["issues"]})
+        links[0]["child_qty"] = events[2]["qty"]
+        links[0]["parent_qty"] = "20.000001"
+        self.assertIn("opening_pack_invalid_quantity", {i["kind"] for i in self._audit(events, links)["issues"]})
+
+    def test_absent_output_and_links_cannot_hide_orphan_fragment_debit_in_memory(self):
+        events, links = self._rows()
+        events = [r for r in events if r.get("event_type") != "opening_production_order"]
+        result = self._audit(events, [])
+        self.assertEqual(sum(i["kind"] == "opening_pack_consume_missing_genealogy" for i in result["issues"]), 2)
+
+    def test_legacy_campaign_is_not_reclassified_as_opening_pack_in_memory(self):
+        events = [dict(event_type="production_consume", lot_id="PACK", day=1, qty=20,
+                       node_id="F-1", item_id="tube", uom="UN", source_id="F-1|PF", production_campaign_id="CMP")]
+        links = [dict(link_type="production", parent_lot_id="PACK", child_lot_id="PF",
+                      source_id="F-1|PF", production_campaign_id="CMP", notes="semantics=campaign-batch-wip-release-v1")]
+        result = self._audit(events, links)
+        self.assertEqual(result, dict(issues=[], fragment_ids=set(), link_indices=set(), output_lots=set()))
+
+    def test_untraced_initial_material_limit_is_required_in_memory(self):
+        events, links = self._rows()
+        events[2]["notes"] = json.dumps(dict(opening_pack_policy="pack_at_source_G_v1"))
+        self.assertIn("opening_pack_missing_provenance", {i["kind"] for i in self._audit(events, links)["issues"]})
+
 class LotLedgerTest(unittest.TestCase):
     def test_closed_campaign_rejects_unlinked_consumption_in_memory(self) -> None:
         from etudecas.testing.independent_review import Evidence, audit_production_consumption
