@@ -364,3 +364,46 @@ Verification ciblee : `python -B -m pytest POC2026/tests/test_lightweight_seat.p
 POC2026/tests/test_lca_comparison.py -q -p no:cacheprovider`, puis
 `python -B POC2026/supply_geo_case/tools/check_lca_comparison.py` (Chromium local,
 reseau bloque, preuves et captures dans un nouveau dossier outputs/checks).
+
+### Transport de masse : Steinegger A322
+
+Le calcul actif utilise desormais Steinegger, version 1.1 (2017), page 11,
+pour l'A320-200 : 0,07 a 2000 km, 0,12 a 4000 km et 0,16 a 5000 km,
+en kg de carburant par kg transporte et par vol. Ce sont des contributions
+marginales de masse, pas une allocation demontree de la consommation totale.
+
+Parametres confirmes : 109,967 kg (reference), 54,9835 kg (allege),
+5556 km/vol, 700 vols/an et 7 ans, soit 4900 vols et 27 224 400 km.
+La distance depasse les points chiffres de la source : extrapolation lineaire
+du dernier segment, explicitement non validee, a 0,18224 kg/kg/vol.
+Cette hypothese ne constitue ni une nouvelle mesure ni une incertitude chiffree.
+
+Carburant = masse x vols/an x annees x coefficient. Reference : 98 197,891792 kg ;
+allege : 49 098,945896 kg. Le CO2 de combustion OACI est affiche separement
+(3,16 kgCO2/kg), soit 310,305 et 155,153 tCO2.
+L'ACV utilise la quantite de carburant x les facteurs caracterises historiques
+Brightway/OPERA : 407,337 et 203,668 tCO2e. Ne pas ajouter le CO2 direct a l'ACV.
+La decomposition ACV conserve le ratio de combustion de l'inventaire OPERA,
+different du repere OACI ; le solde est nomme autres contributions ACV.
+
+IFE electrique, nettoyage, fin de vie et effets non-CO2 en altitude sont exclus,
+pas supposes sans impact. La production demeure celle des calculs conserves.
+Les 16 indicateurs et le score pondere sont recalcules par les nouvelles
+quantites, sans nouvelle execution Brightway ni revalidation des facteurs.
+Les chiffres STELIA servent uniquement de comparaison historique et de
+convention de ponderation. Le calcul actif n'est plus calibre sur leur usage.
+
+Rafraichissement coordonne, avec archive des precedents resultats, verification
+des caches ACV et conservation numerique de la production et des deltas SDD :
+
+```bash
+python -B POC2026/supply_geo_case/tools/refresh_article_use_outputs.py
+```
+
+Le manifeste est dans `outputs/checks/article_use_refresh_*/manifest.json`.
+Les cohortes des trois scenarios sont recalculees sans rejouer leur simulation
+supply. Les colonnes CSV historiques `cycle_dynamic_with_stelia_usage*` restent
+des alias de compatibilite ; `use_accounting_method` porte la methode active.
+Les vues utilisation calendaire et vie entiere attribuee aux livraisons sont
+deux lectures alternatives, jamais des postes a additionner. La production
+mensuelle n'est comptee qu'une fois, meme avec plusieurs sieges livres.

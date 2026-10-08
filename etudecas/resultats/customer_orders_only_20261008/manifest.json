@@ -1,0 +1,74 @@
+{
+  "status": "passed_numeric_comparison",
+  "created_at_utc": "2026-10-08T10:24:20.031678+00:00",
+  "input_hashes": {
+    "etudecas/artifacts/testing/customer_orders_only_20261008/compare.py": "6a3ccbae41c78d850072512c3af73ff04d6dea45b90434ca85132d57a8abed75",
+    "etudecas/artifacts/testing/reel_muret_demande_20261007/data.json": "e2223252287558bb65f8ece950a6e03de1d7d24408c521dd087531f3878a1e84",
+    "etudecas/data/source/Flow_Data_Inventory_movements.xlsx": "3e0785e356468d958629dcea1f727a06fcee18a9ae2c855e08e8d6409750f05e",
+    "etudecas/data/source/Flow_Data_Inventory_and_Replenishment_rules.xlsx": "549598fa1aab06cd8f3e3d76e73026d09c46ddbf188a3bb1c2019cb3310a4b0c",
+    "etudecas/data/source/Flow_Data_Customer_Demand.xlsx": "7c6cdc642807fdf753802f6d7994119779dc08ae570f3f25e7f6c418a3ba4b74",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/validation/control_prefix.json": "06a9833685add9c3f1ffb3a48bd775b9ced6edbb6abb5b383a9684879934c01b",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/validation/control_differences.json": "da3fe9d6c32bdbbba0f710f3e9813bb1575b1aea3285443d4fef3025706394a9",
+    "etudecas/artifacts/testing/mrp_packaging_solutions_20261006/report_C8R.json": "974f6c4c3f7f31b2b3848d8660fa67596c7319969f92f8dd71de2f87fd33b16e",
+    "etudecas/artifacts/testing/mrp_packaging_solutions_20261006/run_C8R_365/summaries/first_simulation_summary.json": "80384a08bcf6c728c801761ed0d4e114e91b129426149ef773ae4c952a1d9890",
+    "etudecas/artifacts/testing/mrp_packaging_solutions_20261006/run_C8R_365/data/customer_demand_daily.csv": "bc9d6329afe78b071631cd1216e044a973e9a0dbd955f00244ccb469338a42f3",
+    "etudecas/artifacts/testing/mrp_packaging_solutions_20261006/run_C8R_365/data/production_demand_service_daily.csv": "a3ca0322ec73e9b20ba3964ec4ee3bfcbad58713d5b9b5120764bd59af1a85fb",
+    "etudecas/artifacts/testing/mrp_packaging_solutions_20261006/run_C8R_365/data/production_stock_availability_daily.csv": "cd6a24de853994b1dd417665e5d9bdf78592cc2b3eb1b0916344e96b9ebb0b8b",
+    "etudecas/artifacts/testing/mrp_packaging_solutions_20261006/run_C8R_365/data/production_lot_events.csv": "04c0cf7880402626b176480d5df64349a308c168fabfd574e1d1d0d3aae9dcf1",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/report_control.json": "b198995935722141d9e714b3203dca413de9fbe53c0ad9cad350db082dfc00ca",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/graph_control.json": "28ea0015dbfe52e6be0b794ac28bf5ff4a7494eaf2aefb890b35e25350fc9181",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_control_90/summaries/first_simulation_summary.json": "666ff113092d9485c9375e1fd0f9809f06417ef95cbceeff139a4def50ca2f97",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_control_90/data/customer_demand_daily.csv": "f3beeec3c98306305ec95c50889a413e4e37883f1e354e6ea600558d910e8c72",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_control_90/data/production_demand_service_daily.csv": "3f381572460c9ace2fa07c83e4760224433971e7e907cbecc9f69d7cba3fe463",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_control_90/data/production_stock_availability_daily.csv": "25268004d060b37c299ef7c7af975261ee4b1ea5f1ff9712722c48717caadd6f",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_control_90/data/production_lot_events.csv": "20bcc97e8a3150372def48788baf69d28019655c8bcd5adc1fba73258346b60f",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/report_candidate.json": "36082dc44a3536bae794087bad26cd2f8b3e4fb9403fc24bd9ebad7b52fd996f",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/graph_candidate.json": "dfb259b4d63e071b5e0f7e476c2f4b41998408c96261c47e71eee5383d799f0e",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/summaries/first_simulation_summary.json": "b8098648832c7d8547c852a678d6cd77f4ef99ea79e9aa5a3c8e9e9662b97a68",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/customer_demand_daily.csv": "bc9d6329afe78b071631cd1216e044a973e9a0dbd955f00244ccb469338a42f3",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/production_demand_service_daily.csv": "b5303ab753f9344952c326ebd785754c24968a2ffcc45bdabda24fa2484a8aa2",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/production_stock_availability_daily.csv": "c4d81d8bd67970758736ae916c0e58cd0a9ddf200d570c29258cd23766b80e5c",
+    "etudecas/artifacts/testing/customer_orders_only_20261008/run_candidate_365/data/production_lot_events.csv": "4c72a75eff55860b2bc39f5e43f9f0e3fa0c442de057719849f384575d55ee6b"
+  },
+  "inputs_unchanged": true,
+  "checks": [
+    "integer_physical_UN",
+    "same_dated_customer_demands",
+    "strict_customer_shipment_balance",
+    "two_day_transit",
+    "client_stock_balance",
+    "depot_stock_balance",
+    "service_backlog_balance",
+    "candidate_dispatch_not_ahead_of_known_orders",
+    "photo_previous_day_close"
+  ],
+  "horizons": {
+    "C8R": 365,
+    "control": 90,
+    "candidate": 365
+  },
+  "explicit_source_zero_rows_verified": {
+    "C8R": 21,
+    "control": 0,
+    "candidate": 21
+  },
+  "strict_control_reproduction_status": "failed_preexisting_difference_not_masked",
+  "reproduction_proofs": {
+    "control_prefix.json": "differences_or_failure",
+    "control_differences.json": "characterised_reproduction_difference_not_passed"
+  },
+  "artifacts": {
+    "comparaison_268091.png": "678d94933dd587753a9bc071a6accb394a8aae9c1f477f086287500549d323b5",
+    "comparaison_268967.png": "4c1935d04fd1735b29e0a1dc1c3a687f1f0bdf51eefcacb3d1289b1168f88710",
+    "metriques.csv": "c9308881c6ec4536e344be7d761d3a21849b1c53c4f4f7bd933dea67b4d7a368",
+    "photos.csv": "1638c6df77a0d9143486d07ea2b72e73eadfc6fb48d5ce4af7e2a787f7b0d521",
+    "quotidien.csv": "754800e40ce00866384eb0e6e044da7bdf4fe2af5495b886342be447c6bd06c7",
+    "rapport.md": "1e0d97fe942ce0addf002e5a4351516199ba2bc95fef1815a5d23ef25f7be797"
+  },
+  "limitations": [
+    "No observed customer stock or transit",
+    "Historical weekly demand allocated by day is not an order-placement log",
+    "Physical invariants do not establish industrial calibration",
+    "90-day control not extrapolated"
+  ]
+}

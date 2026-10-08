@@ -36,10 +36,12 @@ try:
     from .lightweight_seat import build_lightweight_scenario, is_exact_brightway_rows
     from .supplier_alternatives import build_supplier_alternative_scenarios
     from .lca_comparison import build_lca_comparison
+    from .aircraft_use_accounting import build_article_use_profile, aircraft_use_signature
 except ImportError:
     from lightweight_seat import build_lightweight_scenario, is_exact_brightway_rows
     from supplier_alternatives import build_supplier_alternative_scenarios
     from lca_comparison import build_lca_comparison
+    from aircraft_use_accounting import build_article_use_profile, aircraft_use_signature
 
 
 SCHEMA_VERSION = "poc2026.supply_geo_case.v1"
@@ -7470,7 +7472,10 @@ def brightway_exact_row(
 def aircraft_use_profile(
     brightway_model: dict[str, Any],
 ) -> dict[str, Any]:
-    """Separate the STELIA use phase from production and other lifecycle phases."""
+    """Use the physical mission when present; keep legacy STELIA as history."""
+    article_profile = build_article_use_profile(brightway_model)
+    if article_profile is not None:
+        return article_profile
 
     parameters = parameter_by_name(brightway_model.get("parameters", []))
     aligned = brightway_exact_row(brightway_model, "lifecycle_excel_aligned")
@@ -7707,11 +7712,14 @@ def build_aircraft_use_trajectory(
             profile.get("full_lifetime_use_kgco2e_per_seat")
         )
         lifecycle_per_delivered_seat = (
-            safe_float(production.get("production_dynamic_kgco2e"))
-            + safe_float(profile.get("other_lifecycle_kgco2e_per_seat"))
+            safe_float(profile.get("other_lifecycle_kgco2e_per_seat"))
             + safe_float(profile.get("full_lifetime_use_kgco2e_per_seat"))
         )
-        full_lifecycle_attributed = delivered_after * lifecycle_per_delivered_seat
+        # Production is already a monthly total, not an impact per delivered seat.
+        full_lifecycle_attributed = (
+            safe_float(production.get("production_dynamic_kgco2e"))
+            + delivered_after * lifecycle_per_delivered_seat
+        )
         row = {
             "scenario_id": scenario_id,
             "month_index": month,
@@ -7769,6 +7777,12 @@ def build_aircraft_use_trajectory(
             "calculation_status": clean(profile.get("calculation_status")),
         }
         rows.append(row)
+        if profile.get('accounting_method') == 'cohortes_mensuelles_steinegger_a322_v1':
+            for prefix, key in (('reference_fuel', 'fuel_kg_per_seat'),
+                                ('lightweight_fuel', 'target_fuel_kg_per_seat'),
+                                ('reference_direct_co2_icao', 'direct_co2_icao_kg_per_seat'),
+                                ('lightweight_direct_co2_icao', 'target_direct_co2_icao_kg_per_seat')):
+                row[prefix + '_calendar_kg'] = active_after * float(profile[key]) / lifetime_months
         running_calendar_use += calendar_use
         running_calendar_use_without += calendar_use_without
         running_full_lifetime_use += full_lifetime_use_attributed
@@ -9204,6 +9218,8 @@ def build_sdd_brightway_coupling(
                 9,
             ),
             "lifecycle_accounting_view": "full_lifetime_per_seat_equivalent_produced",
+            "use_accounting_method": use_profile['accounting_method'],
+            "legacy_cycle_field_status": "name_only_alias_to_current_use_method",
             "delta_vs_static_pct": round(100.0 * delta / static, 6) if static else "",
             "legacy_sdd_surimpact_proxy_kgco2e": safe_float(legacy.get("surimpact_total")),
             "legacy_sdd_kgco2e": safe_float(legacy.get("sdd_kgCO2e")),
@@ -11517,6 +11533,7 @@ def run_full_climate_scenario_suite(
             == SDD_ENGINE_VERSION
             and persisted_manifest.get("sdd_brightway_coupling_version")
             == SDD_BRIGHTWAY_COUPLING_VERSION
+            and persisted_manifest.get('aircraft_use_signature') == aircraft_use_signature(brightway_model)
             and all(
                 (data_dir / filename).exists()
                 and (data_dir / filename).stat().st_size > 0
@@ -11736,6 +11753,7 @@ def run_full_climate_scenario_suite(
                     "full_weather_operations_sdd_acv_replay"
                 ),
                 "cascade_algorithm_version": "root_normalized_v2",
+                "aircraft_use_signature": aircraft_use_signature(brightway_model),
                 "sdd_engine_version": SDD_ENGINE_VERSION,
                 "sdd_brightway_coupling_version": (
                     SDD_BRIGHTWAY_COUPLING_VERSION
@@ -12595,6 +12613,8 @@ def build_general_kpi_payload(
         safe_float(current_production.get("score_kgco2e"))
         + safe_float(aligned_lifecycle.get("excel_use_phase_kgco2e_added"))
     )
+    if brightway_model.get('lightweight_seat', {}).get('mission'):
+        production_plus_use_kgco2e = aircraft_use_profile(brightway_model)['aligned_lifecycle_kgco2e_per_seat']
     supplier_context_rows = supplier_context.get("summary_rows", [])
     supplier_context_ok = [row for row in supplier_context_rows if clean(row.get("context_search_status")) == "ok"]
     supplier_context_signal_sites = [
@@ -12642,7 +12662,7 @@ def build_general_kpi_payload(
         {"label": "Indicateurs PE BW", "value": brightway_counts.get("person_equivalent_indicators", 0), "unit": ""},
         {"label": "Scenarios regionaux Brightway", "value": brightway_counts.get("parametric_regional_scenarios", 0), "unit": ""},
         {"label": "Scenarios Brightway recalcules", "value": brightway_counts.get("exact_scenario_lcia", 0), "unit": ""},
-        {"label": "Cycle rapproche STELIA/BW", "value": round(production_plus_use_kgco2e / 1000.0, 1), "unit": "tCO2e"},
+        {"label": "Production + transport de masse" if brightway_model.get('lightweight_seat', {}).get('mission') else "Cycle rapproche STELIA/BW historique", "value": round(production_plus_use_kgco2e / 1000.0, 1), "unit": "tCO2e"},
         {"label": "Couverture ACV chaine", "value": round(100.0 * safe_float(brightway_counts.get("supply_alignment_matched_rows")) / safe_float(brightway_counts.get("supply_alignment_rows"), 1.0), 1), "unit": "%"},
         {"label": "Brightway disponible", "value": 1 if brightway_runtime.get("can_execute_brightway") else 0, "unit": "bool"},
         {"label": "Fournisseurs documentes", "value": len(supplier_context_rows), "unit": ""},
@@ -13685,7 +13705,7 @@ def write_enriched_base_map_html(
   <div class="sdd-dashboard-header">
     <div>
       <h1>Utilisation du siege dans l'avion</h1>
-      <p>Exploitation calendaire de la flotte et ACV complete attribuee aux livraisons.</p>
+      <p>Transport de la masse des sieges : emissions calendaires et sur leur duree de vie.</p>
     </div>
     <div>
       <label for="sddAircraftUseScenario">Scenario</label>
@@ -13696,7 +13716,9 @@ def write_enriched_base_map_html(
   <div class="sdd-ledger-toolbar">
     <label for="sddAircraftUseMetric">Comparaison des masses</label>
     <select id="sddAircraftUseMetric">
-      <option value="climate_kgco2e">Climat - tCO2e</option>
+      <option value="climate_kgco2e">Bilan ACV - tCO2e</option>
+      <option value="direct_co2_kg">CO2 de combustion OACI - tCO2</option>
+      <option value="fuel_kg">Consommation - tonnes de kerosene</option>
       <option value="weighted_score_excel">Score pondere - convention Excel STELIA</option>
     </select>
     <span id="sddAircraftUseComparisonStatus"></span>
@@ -14577,11 +14599,11 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     horizontalBarPlot("baseMapKpiBwSensitivityPlot", bwRows("parametric_sensitivity").slice(0, 14), "Parametrisation: echanges les plus sensibles", "abs_delta_amount", "label", "#fd8d3c", "delta absolu, unite de l'echange");
     horizontalBarPlot("baseMapKpiBwSwitchPlot", bwRows("parametric_switches"), "Parametrisation: switchs Brightway scriptes", "affected_exchange_count", "label", "#6baed6", "echanges affectes");
     horizontalBarPlot("baseMapKpiBwRegionalScenarioPlot", bwRows("parametric_regional_scenarios"), "Parametrisation: sourcing FR / EU / mondialise", "foreground_amount_index", "label", "#2ca25f", "indice transport foreground");
-    horizontalBarPlot("baseMapKpiBwUsageBreakdownPlot", bwRows("usage_calibration").filter(row => row.system === "Consommation passive" || row.system === "Entretien"), "Utilisation STELIA : decomposition climat", "excel_kgco2e", "business_component", "#fb6a4a", "kgCO2e");
+    horizontalBarPlot("baseMapKpiBwUsageBreakdownPlot", bwRows("usage_calibration").filter(row => row.system === "Consommation passive" || row.system === "Entretien"), "Historique STELIA : decomposition climat", "excel_kgco2e", "business_component", "#fb6a4a", "kgCO2e");
     horizontalBarPlot("baseMapKpiBwExactScenarioPlot", bwRows("exact_scenario_lcia").filter(row => row.root_activity_id === "production" && row.scenario_id !== "current_export"), "Brightway exact: delta production par scenario", "delta_kgco2e", "label", "#de2d26", "kgCO2e vs baseline");
-    horizontalBarPlot("baseMapKpiBwAlignedLifecyclePlot", bwRows("exact_scenario_lcia").filter(row => row.root_activity_id === "lifecycle_excel_aligned" && row.scenario_id !== "current_export"), "Brightway exact: cycle complet corrige usage", "delta_kgco2e", "label", "#3182bd", "kgCO2e vs baseline corrige");
+    horizontalBarPlot("baseMapKpiBwAlignedLifecyclePlot", bwRows("exact_scenario_lcia").filter(row => row.root_activity_id === "lifecycle_excel_aligned" && row.scenario_id !== "current_export"), "Historique : production BW + usage STELIA", "delta_kgco2e", "label", "#3182bd", "kgCO2e vs reference historique");
     const excelClimateComparison = bwRows("excel_runtime_comparison");
-    const excelClimateLayout = dashboardLayout("Classeur STELIA d'origine et modele POC2026");
+    const excelClimateLayout = dashboardLayout("Historique : rapprochement STELIA / POC2026");
     excelClimateLayout.margin = { l: 245, r: 24, t: 54, b: 48 };
     excelClimateLayout.xaxis.title = "% par rapport au classeur original";
     renderDashboardPlot(
@@ -14822,8 +14844,8 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       metricSelect.dataset.ready = '1';
     }
     const metric = metricSelect.value;
-    const divisor = metric === 'climate_kgco2e' ? 1000 : 1;
-    const unit = metric === 'climate_kgco2e' ? 'tCO2e' : 'score pondere STELIA';
+    const divisor = metric === 'weighted_score_excel' ? 1 : 1000;
+    const unit = {climate_kgco2e:'tCO2e',direct_co2_kg:'tCO2',fuel_kg:'t kerosene',weighted_score_excel:'score pondere STELIA'}[metric];
     const totals = dashboardPayload.lca_comparison?.totals || [];
     const impact = (scenario, phase) => {
       const v = totals.find(r=>r.scenario_id===scenario && r.phase===phase)?.[metric];
@@ -14833,17 +14855,20 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const comparisonTraces = ['reference','lightweight'].map((scenario,i)=>({type:'scatter',mode:'lines',name:i?'Siege allege de 50 %':'Siege de reference',x:months,y:rows.map(r=>impact(scenario,'use') == null || !(lifetime>0) ? null : impact(scenario,'use')*num(r,'active_seat_equivalent')/lifetime),line:{color:i?'#24936e':'#bd493b'}}));
     renderDashboardPlot('sddAircraftUseMassMonthlyPlot',comparisonTraces,dashboardLayout('Utilisation - meme flotte active, deux masses',unit+'/mois'));
     renderDashboardPlot('sddAircraftUseMassCumulativePlot',comparisonTraces.map(t=>{let sum=0;return {...t,y:t.y.map(v=>v==null?null:(sum+=v))};}),dashboardLayout("Utilisation cumulee - effet de l'allegement",unit));
-    document.getElementById('sddAircraftUseComparisonStatus').textContent = 'Usage de reference calibre STELIA ; gain marginal de carburant. Facteurs Brightway historiques conserves, compatibilite actuelle non revalidee.';
+    const mission = dashboardPayload.brightway_model?.lightweight_seat?.mission;
+    document.getElementById('sddAircraftUseComparisonStatus').textContent = mission
+      ? `A320-200 / Steinegger 2017 : ${fmt(mission.average_flight_distance_km,0)} km, ${fmt(mission.annual_flight_cycles,0)} vols/an, ${fmt(mission.lifetime_years,0)} ans. ${mission.status === 'extrapolated_not_validated' ? 'EXTRAPOLATION hors domaine 2000-5000 km, non validee par cet article.' : 'Coefficient issu des points publies.'} Transport de masse uniquement ; hors IFE, nettoyage et effets non-CO2 en altitude. Facteurs ACV Brightway historiques non revalides. CO2 direct et bilan ACV ne sont pas a additionner.`
+      : 'Reference historique STELIA calibree ; gain marginal de carburant.';
     const last = rows[rows.length - 1] || {};
     const calendarCumulative = rows.reduce((sum, row) => sum + num(row, "aircraft_use_calendar_kgco2e"), 0);
     const attributedCumulative = rows.reduce((sum, row) => sum + num(row, "aircraft_use_full_lifetime_attributed_kgco2e"), 0);
     const cards = [
       ["Duree de vie", num(profile, "lifetime_years"), " ans"],
-      ["Utilisation complete par siege", num(profile, "full_lifetime_use_kgco2e_per_seat") / 1000, " tCO2e"],
+      [mission ? "Transport de masse sur 7 ans / siege" : "Utilisation complete par siege", num(profile, "full_lifetime_use_kgco2e_per_seat") / 1000, " tCO2e"],
       ["Sieges equivalents actifs", num(last, "active_seat_equivalent"), ""],
       ["Emissions des sieges effectivement en service", calendarCumulative / 1000, " tCO2e"],
-      ["Utilisation complete engagee par les livraisons", attributedCumulative / 1000, " tCO2e"],
-      ["Statut ACV usage", "STELIA calibree", ""]
+      ["Transport sur la vie entiere des sieges livres", attributedCumulative / 1000, " tCO2e"],
+      ["Statut ACV usage", mission ? "Steinegger 2017 + facteurs BW conserves" : "STELIA historique", ""]
     ];
     const cardNode = document.getElementById("sddAircraftUseCards");
     if (cardNode) {
@@ -14871,9 +14896,9 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     renderDashboardPlot(
       "sddAircraftUseMonthlyImpactPlot",
       [
-        { type: "bar", name: "Amont carburant", x: months, y: rows.map(row => num(row, "aircraft_use_fuel_upstream_kgco2e") / 1000), marker: { color: "#9ecae1" } },
-        { type: "bar", name: "Emissions en vol", x: months, y: rows.map(row => num(row, "aircraft_use_inflight_kgco2e") / 1000), marker: { color: "#fb6a4a" } },
-        { type: "bar", name: "Nettoyage", x: months, y: rows.map(row => num(row, "aircraft_use_cleaning_kgco2e") / 1000), marker: { color: "#74c476" } }
+        { type: "bar", name: "Autres contributions ACV carburant", x: months, y: rows.map(row => num(row, "aircraft_use_fuel_upstream_kgco2e") / 1000), marker: { color: "#9ecae1" } },
+        { type: "bar", name: "CO2 combustion - inventaire OPERA", x: months, y: rows.map(row => num(row, "aircraft_use_inflight_kgco2e") / 1000), marker: { color: "#fb6a4a" } },
+        ...(!mission ? [{ type: "bar", name: "Nettoyage historique", x: months, y: rows.map(row => num(row, "aircraft_use_cleaning_kgco2e") / 1000), marker: { color: "#74c476" } }] : [])
       ],
       { ...dashboardLayout("Emissions mensuelles des sieges actifs", "tCO2e/mois"), barmode: "stack" }
     );
@@ -14889,11 +14914,12 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       "sddAircraftUseAccountingPlot",
       [
         { type: "scatter", mode: "lines", name: "Emissions des sieges actifs dans l'horizon", x: months, y: cumulativeSeries(rows, "aircraft_use_calendar_kgco2e", 1000), line: { color: "#3182bd" } },
-        { type: "scatter", mode: "lines", name: "Utilisation complete engagee par les livraisons", x: months, y: cumulativeSeries(rows, "aircraft_use_full_lifetime_attributed_kgco2e", 1000), line: { color: "#756bb1" } }
+        { type: "scatter", mode: "lines", name: "Transport sur la vie entiere des sieges livres", x: months, y: cumulativeSeries(rows, "aircraft_use_full_lifetime_attributed_kgco2e", 1000), line: { color: "#756bb1" } }
       ],
       dashboardLayout("Deux lectures de l'utilisation", "tCO2e cumulees")
     );
-    renderDashboardPlot('sddAircraftUsePerSeatPlot', ['reference','lightweight'].map((scenario,i)=>({type:'bar',name:i?'Siege allege de 50 %':'Siege de reference',x:['Production et livraison','Utilisation','Production + utilisation'],y:['production','use','production_use'].map(p=>impact(scenario,p))})), {...dashboardLayout('Comparaison par siege - hors fin de vie',unit+'/siege'),barmode:'group'});
+    const physicalOnly = ['fuel_kg','direct_co2_kg'].includes(metric);
+    renderDashboardPlot('sddAircraftUsePerSeatPlot', ['reference','lightweight'].map((scenario,i)=>({type:'bar',name:i?'Siege allege de 50 %':'Siege de reference',x:physicalOnly?['Transport de masse']:['Production et livraison','Transport de masse','Production + transport'],y:(physicalOnly?['use']:['production','use','production_use']).map(p=>impact(scenario,p))})), {...dashboardLayout('Comparaison par siege - hors fin de vie',unit+'/siege'),barmode:'group'});
     setTimeout(() => {
       [
         "sddAircraftUseFleetPlot",
@@ -14963,7 +14989,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       : 0;
     const status = document.getElementById("sddLightweightSeatStatus");
     if (status) {
-      status.textContent = `${num(summary, "indicator_count")} indicateurs EF 3.0 | ${calculationLabel} | concept non certifie`;
+      status.textContent = `${num(summary, "indicator_count")} indicateurs EF 3.0 | ${calculationLabel} | concept non certifie${scenario.mission ? ' | Usage : transport de masse Steinegger 2017 ; extrapolation non validee a 5556 km ; hors IFE et nettoyage' : ''}`;
     }
     const cards = [
       ["Masse de reference", num(summary, "baseline_mass_kg"), " kg"],
@@ -14972,7 +14998,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       ["Reduction de masse", num(summary, "mass_reduction_pct"), " %"],
       ["Production climat evitee", productionReduction, " %"],
       ["Usage climat evite, central", num(summary, "avoided_use_central_kgco2e") / 1000, " tCO2e"],
-      ["Cycle central du siege allege", num(summary, "lightweight_total_central_kgco2e") / 1000, " tCO2e"],
+      ["Production + transport de masse allege", num(summary, "lightweight_total_central_kgco2e") / 1000, " tCO2e"],
       ["Resultat pondere evite", num(summary, "weighted_reduction_pct"), " %"]
     ];
     const franceLocalization = localizationRows.find(row => row.sourcing_scenario_id === "france_first") || {};
@@ -15034,9 +15060,16 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         marker: { color: "#2ca25f" },
         hovertemplate: "%{y}<br>%{x:.2f} % evites<extra></extra>"
       }],
-      { ...dashboardLayout("Reduction du cycle par indicateur", "% evite"), margin: { l: 275, r: 24, t: 48, b: 46 } }
+      { ...dashboardLayout("Reduction production + transport par indicateur", "% evite"), margin: { l: 275, r: 24, t: 48, b: 46 } }
     );
-    renderDashboardPlot(
+    if (scenario.mission) {
+      const m = scenario.mission;
+      const points = m.source.points;
+      renderDashboardPlot('sddLightweightFuelUncertaintyPlot', [
+        {type:'scatter',mode:'lines+markers',name:'Points publies A322 (2017)',x:points.map(p=>p.distance_km),y:points.map(p=>p.kg_fuel_per_kg_per_flight)},
+        {type:'scatter',mode:'lines+markers',name:'Mission extrapolee - non validee',x:[points[2].distance_km,m.average_flight_distance_km],y:[points[2].kg_fuel_per_kg_per_flight,m.fuel_coefficient_kg_per_kg_per_flight],line:{dash:'dash',color:'#c54832'}}
+      ], {...dashboardLayout('Coefficient carburant - incertitude non quantifiee','kg carburant/kg embarque/vol'),xaxis:{title:'Distance par vol (km)'}});
+    } else renderDashboardPlot(
       "sddLightweightFuelUncertaintyPlot",
       [{
         type: "bar",

@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import gzip
 import json
 from pathlib import Path
 import sys
@@ -27,6 +29,7 @@ from POC2026.supply_geo_case.adapter import (
     write_csv_gzip,
     write_json,
 )
+from POC2026.supply_geo_case.aircraft_use_accounting import aircraft_use_signature, refresh_production_use_rows
 
 
 SCENARIO_ORDER = (
@@ -43,7 +46,21 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path(__file__).resolve().parents[1] / "outputs",
     )
+    parser.add_argument('--production-source-root', type=Path)
     return parser.parse_args()
+
+
+def read_production(path):
+    # Keep source precision: the dashboard CSV reader rounds to six decimals.
+    with gzip.open(path, 'rt', encoding='utf-8-sig', newline='') as stream:
+        rows = list(csv.DictReader(stream))
+    for row in rows:
+        for key, value in row.items():
+            try:
+                row[key] = float(value)
+            except ValueError:
+                pass
+    return rows
 
 
 def scenario_metadata(
@@ -90,8 +107,7 @@ def update_run_metadata(output_root: Path, row_counts: dict[str, int]) -> None:
         ("sdd_aircraft_use_cumulative.csv", "sdd_aircraft_use_cumulative", "month"),
     )
     for name, domain, grain in definitions:
-        if name in existing:
-            continue
+        artifacts = [row for row in artifacts if row.get('name') != name]
         path = output_root / "data" / name
         rows = read_csv_rows(path)
         artifacts.append(
@@ -151,9 +167,12 @@ def main() -> int:
         sdd_monthly = read_csv_gzip(
             scenario_data / "sdd_monthly_impacts.csv.gz"
         )
-        production_monthly = read_csv_gzip(
-            scenario_data / "sdd_brightway_monthly.csv.gz"
-        )
+        production_source = (args.production_source_root or output_root) / 'scenarios' / scenario_id / 'data'
+        production_monthly = read_production(production_source / 'sdd_brightway_monthly.csv.gz')
+        production_cumulative = read_production(production_source / 'sdd_brightway_cumulative.csv.gz')
+        refresh_production_use_rows(production_monthly, production_cumulative, profile)
+        write_csv_gzip(scenario_data / 'sdd_brightway_monthly.csv.gz', production_monthly)
+        write_csv_gzip(scenario_data / 'sdd_brightway_cumulative.csv.gz', production_cumulative)
         max_month = max(
             (
                 int(safe_float(row.get("month_index")))
@@ -212,7 +231,8 @@ def main() -> int:
         manifest_path = scenario_dir / "scenario_manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["sdd_brightway_coupling_version"] = SDD_BRIGHTWAY_COUPLING_VERSION
-        manifest["aircraft_use_accounting_version"] = "cohortes_mensuelles_stelia_v1"
+        manifest["aircraft_use_accounting_version"] = profile['accounting_method']
+        manifest['aircraft_use_signature'] = aircraft_use_signature(brightway_model)
         manifest["scenario_summary"] = summary
         counts = manifest.setdefault("counts", {})
         for filename, rows in outputs.items():
@@ -220,6 +240,9 @@ def main() -> int:
         write_json(manifest_path, manifest)
 
         if scenario_id == "climat_2026_2046_modere":
+            write_csv(data_dir / 'sdd_brightway_monthly.csv', production_monthly)
+            write_csv(data_dir / 'sdd_brightway_cumulative.csv', production_cumulative)
+            dashboard.setdefault('sdd_brightway', {}).update(monthly=production_monthly, cumulative=production_cumulative)
             moderate_outputs = {
                 "aircraft_use_profile": profile_rows,
                 "aircraft_use_components": component_rows,
@@ -245,6 +268,9 @@ def main() -> int:
     write_csv(data_dir / "brightway_usage_calibration.csv", rebuilt_usage)
 
     dashboard["brightway_model"] = brightway_model
+    for card in dashboard.get('cards', []):
+        if card.get('label') in {'Cycle rapproche STELIA/BW', 'Cycle rapproche STELIA/BW historique', 'Production + transport de masse'}:
+            card.update(label='Production + transport de masse', value=round(profile['aligned_lifecycle_kgco2e_per_seat']/1000, 1), unit='tCO2e')
     dashboard["scenario_resilience"] = {
         "summary": summaries,
         "monthly": monthly_suite,
@@ -287,6 +313,7 @@ def main() -> int:
     )
     sdd_brightway_dashboard["summary"] = summary_rows
     write_json(dashboard_path, dashboard)
+    write_json(summaries_dir / 'brightway_model_summary.json', brightway_model)
     update_run_metadata(
         output_root,
         {name: len(rows) for name, rows in main_files.items()},

@@ -85,6 +85,8 @@ def build_lca_comparison(model: dict[str, Any]) -> dict[str, Any]:
                 "scenario_id": scenario, "label": labels[scenario], "phase": phase,
                 "weighted_score_excel": sum(r["weighted_score_excel"] for r in phase_rows) if complete else None,
                 "climate_kgco2e": climate, "indicator_count": len(phase_rows), "complete": complete,
+                "fuel_kg": ((seat.get('mission') or {}).get('baseline_fuel_kg' if scenario == 'reference' else 'target_fuel_kg') if phase == 'use' else None),
+                "direct_co2_kg": ((seat.get('mission') or {}).get('baseline_direct_co2_kg' if scenario == 'reference' else 'target_direct_co2_kg') if phase == 'use' else None),
             })
             details.extend(phase_rows)
 
@@ -95,7 +97,11 @@ def build_lca_comparison(model: dict[str, Any]) -> dict[str, Any]:
         "score_unit": "score pondere STELIA / siege",
         "formula": "Somme des (impact brut / facteur de normalisation) x (16 x poids EF)",
         "weighting_source": "STELIA LCA SEATS v14022022v2.xlsx - Ponderation B2:D17; Graphes pondere B23:B40",
-        "scope": "Production et livraison + utilisation sur 7 ans; hors fin de vie. Usage de reference calibre STELIA; gain marginal de masse.",
+        "scope": ("Production et livraison + transport de la masse du siege sur 7 ans selon Steinegger A322 (2017). "
+                  "A 5556 km : extrapolation non validee par l'article. Hors IFE, nettoyage, fin de vie et effets non-CO2 en altitude."
+                  if seat.get('mission') else
+                  "Production et livraison + utilisation sur 7 ans; hors fin de vie. Usage de reference calibre STELIA; gain marginal de masse."),
+        "mission": seat.get('mission'),
         "reference_excel": {
             "total": complete_sum([number(r.get("impact_total_weighted_score")) for r in reference]) if reference_complete else None,
             "use": complete_sum([number(r.get("use_phase_weighted_score")) for r in reference]) if reference_complete else None,
