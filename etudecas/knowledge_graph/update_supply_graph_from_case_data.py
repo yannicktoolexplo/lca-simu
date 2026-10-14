@@ -976,6 +976,57 @@ def markdown_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def prune_orphan_inventory_states(graph: dict[str, Any], report: dict[str, Any]) -> None:
+    """Keep declared standalone stocks even before their supply route is known.
+
+    A managed stock is not a fabricated BOM input. Its explicit declaration,
+    initial quantity and candidate supply policy remain intact at refresh.
+    This cleanup does not create routes, stock states or industrial policies.
+    """
+    payload = graph.get("meta", {}).get("managed_inventory_pairs")
+    managed_pairs = set()
+    if payload is not None:
+        if (not isinstance(payload, dict) or payload.get("schema_version") != 1
+                or not isinstance(payload.get("rows"), list)):
+            raise ValueError("Invalid managed inventory declaration at graph refresh")
+        for row in payload["rows"]:
+            if (not isinstance(row, dict) or row.get("role") != "stock_external_use"
+                    or row.get("supply_status") not in {"unconfigured", "configured_candidate"}
+                    or any(not isinstance(row.get(key), str) or not row[key]
+                           for key in ("node_id", "item_id"))):
+                raise ValueError("Invalid managed inventory row at graph refresh")
+            managed_pairs.add((row["node_id"], row["item_id"]))
+    edges = graph.get("edges") or []
+    inbound_pairs = {(str(edge.get("to")), str(item)) for edge in edges for item in (edge.get("items") or [])}
+    outbound_pairs = {(str(edge.get("from")), str(item)) for edge in edges for item in (edge.get("items") or [])}
+    demand_pairs = {
+        (str(d.get("node_id")), str(d.get("item_id")))
+        for scenario in (graph.get("scenarios") or []) for d in (scenario.get("demand") or [])
+        if d.get("node_id") and d.get("item_id")
+    }
+    referenced_pairs = inbound_pairs | outbound_pairs | demand_pairs | managed_pairs
+    for node in graph.get("nodes", []):
+        inventory = node.get("inventory") or {}
+        states = inventory.get("states") or []
+        if not states:
+            continue
+        node_id = str(node.get("id"))
+        process_outputs = {
+            str(out.get("item_id")) for process in (node.get("processes") or [])
+            for out in (process.get("outputs") or []) if out.get("item_id")
+        }
+        kept_states = []
+        for state in states:
+            item_id = str(state.get("item_id"))
+            if (node_id, item_id) in referenced_pairs or item_id in process_outputs:
+                kept_states.append(state)
+            else:
+                report["unresolved"].append(
+                    f"Removed orphan inventory state {node_id}/{item_id} because no inbound lane is provided."
+                )
+        inventory["states"] = kept_states
+
+
 def main() -> None:
     args = parse_args()
     input_json = Path(args.input_json)
@@ -1114,50 +1165,7 @@ def main() -> None:
         report=report,
     )
 
-    inbound_pairs = {
-        (str(edge.get("to")), str(item_id))
-        for edge in edges
-        for item_id in (edge.get("items") or [])
-    }
-    outbound_pairs = {
-        (str(edge.get("from")), str(item_id))
-        for edge in edges
-        for item_id in (edge.get("items") or [])
-    }
-    demand_pairs = {
-        (str(d.get("node_id")), str(d.get("item_id")))
-        for scenario in (graph.get("scenarios") or [])
-        for d in (scenario.get("demand") or [])
-        if d.get("node_id") and d.get("item_id")
-    }
-    for node in nodes:
-        inventory = node.get("inventory") or {}
-        states = inventory.get("states") or []
-        if not states:
-            continue
-        node_id = str(node.get("id"))
-        process_outputs = {
-            str(out.get("item_id"))
-            for process in (node.get("processes") or [])
-            for out in (process.get("outputs") or [])
-            if out.get("item_id")
-        }
-        kept_states = []
-        for state in states:
-            item_id = str(state.get("item_id"))
-            keep = (
-                (node_id, item_id) in inbound_pairs
-                or (node_id, item_id) in outbound_pairs
-                or (node_id, item_id) in demand_pairs
-                or item_id in process_outputs
-            )
-            if keep:
-                kept_states.append(state)
-                continue
-            report["unresolved"].append(
-                f"Removed orphan inventory state {node_id}/{item_id} because no inbound lane is provided."
-            )
-        inventory["states"] = kept_states
+    prune_orphan_inventory_states(graph, report)
 
     referenced_items = {
         str(item_id)

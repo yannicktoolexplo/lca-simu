@@ -5495,6 +5495,8 @@ def build_model_panel_metrics(
         by_day: dict[int, float] = defaultdict(float)
         for row in rows:
             day = resolved_order_day(row, day_field)
+            if day is None:
+                continue
             if bucket_days > 1:
                 day = (day // bucket_days) * bucket_days
             by_day[day] += max(0.0, to_float(row.get(field)) or 0.0)
@@ -6538,9 +6540,10 @@ def build_model_panel_metrics(
                 f"{item_labels.get(str(row.get('item_id') or ''), compact_item_label(str(row.get('item_id') or '')))}: "
                 f"{display_order_type(row.get('order_type'))} ; "
                 f"release={row.get('release_day') or 'n/a'} ; "
-                f"ordre_passe={fmt_order_day(row.get('order_date_imt'))} ; "
+                f"decision_MRP={fmt_order_day(order_placed_day(row))} ; "
                 f"arrival_previsionnelle={planned_arrival_day} ; "
-                f"arrival_effective={fmt_order_day(row.get('actual_receipt_day'))} ; "
+                f"reception_physique={fmt_order_day(effective_order_receipt_day(row))} ; "
+                f"disponibilite={fmt_order_day(row.get('actual_available_day'))} ; "
                 f"delai_prev_matiere={fmt_days(planned_lead, 1)} ; "
                 f"delai_effectif_matiere={fmt_days(effective_lead, 1)} ; "
                 f"status={row.get('order_status_end_of_run') or 'n/a'}"
@@ -6559,7 +6562,9 @@ def build_model_panel_metrics(
             for row in item_rows:
                 if str(row.get("order_type") or "") != "lane_release":
                     continue
-                day = int(to_float(row.get("order_date_imt")) or 0)
+                day = resolved_order_day(row, "order_decision_day")
+                if day is None:
+                    continue
                 qty = max(0.0, to_float(row.get("release_qty")) or 0.0)
                 release_by_order_day[day] += qty
                 total_qty += qty
@@ -6744,7 +6749,7 @@ def build_model_panel_metrics(
             supplier_order_received_series = aggregate_order_series(
                 supplier_source_orders,
                 "release_qty",
-                day_field="order_date_imt",
+                day_field="order_decision_day",
                 bucket_days=7,
             )
             supplier_order_send_plan_series = aggregate_order_series(
@@ -6781,19 +6786,19 @@ def build_model_panel_metrics(
 
             supplier_order_send_top = build_line_chart_figure(
                 {
-                    "Commandes MRP recues": supplier_order_received_series,
+                    "Décisions MRP connues": supplier_order_received_series,
                     "Expeditions prevues fournisseur": supplier_order_send_plan_series,
                 },
                 title=f"{node_id} - commandes MRP et expeditions prevues",
                 y_label="Quantite / semaine",
                 event_like=True,
                 note=(
-                    "Commande MRP recue = ordre date a order_date_imt. "
+                    "Décision MRP connue = date enregistrée ; décision d’origine des en-cours inconnue. "
                     "Expedition prevue = release_day, donc date promise/planifiee pour le depart fournisseur. "
                     "Ces deux signaux sont du pilotage, pas une preuve de mouvement physique."
                 ),
                 series_styles={
-                    "Commandes MRP recues": {"color": "#0f766e", "width": 2.2},
+                    "Décisions MRP connues": {"color": "#0f766e", "width": 2.2},
                     "Expeditions prevues fournisseur": {"color": "#2563eb", "width": 2.2, "dash": "dash"},
                 },
             )
@@ -6802,7 +6807,7 @@ def build_model_panel_metrics(
                 {
                     "Expeditions physiques confirmees": bucket_series_points(supplier_actual_send_series, 7),
                     "Receptions prevues aval": supplier_planned_receipt_series,
-                    "Receptions reelles confirmees": actual_receipt_series,
+                    "Réceptions simulées exécutées": actual_receipt_series,
                 },
                 title=f"{node_id} - executions physiques et receptions aval",
                 y_label="Quantite / semaine",
@@ -6810,12 +6815,12 @@ def build_model_panel_metrics(
                 note=(
                     "Expedition physique confirmee = production_supplier_shipments_daily.day. "
                     "Reception prevue aval = carnet MRP date a la date previsionnelle d'arrivee. "
-                    "Reception reelle confirmee = actual_receipt_day du carnet quand disponible, sinon arrival_day des expeditions physiques."
+                    "Réception simulée exécutée = jalon physique du carnet ; le jalon de disponibilité reste distinct. Les anciens exports conservent leur convention."
                 ),
                 series_styles={
                     "Expeditions physiques confirmees": {"color": "#ea580c", "width": 2.3},
                     "Receptions prevues aval": {"color": "#7c3aed", "width": 2.1, "dash": "dot"},
-                    "Receptions reelles confirmees": {"color": "#16a34a", "width": 2.4},
+                    "Réceptions simulées exécutées": {"color": "#16a34a", "width": 2.4},
                 },
             )
             if supplier_order_send_top is not None or supplier_order_send_bottom is not None:
@@ -6857,28 +6862,28 @@ def build_model_panel_metrics(
                     and str(row.get("src_node_id") or "") != node_id
                 ]
             flow_series = {
-                "Ordres passes fournisseurs": aggregate_order_series(
+                "Décisions MRP fournisseurs connues": aggregate_order_series(
                     supplier_order_rows,
                     "release_qty",
-                    day_field="order_date_imt",
+                    day_field="order_decision_day",
                     bucket_days=7,
                 ),
                 "Receptions entree usine": bucket_series_points(actual_input_arrival_series, 7),
             }
             flow_title = f"{node_id} - ordres fournisseurs et receptions entree usine"
             flow_note = (
-                "Ordres passes fournisseurs = date order_date_imt du carnet MRP vers les fournisseurs. "
+                "Décisions MRP fournisseurs = dates enregistrées ; les dates inconnues ne sont pas remplacées par J0 ou par un départ. "
                 "Receptions entree usine = arrivees physiques dans production_input_replenishment_arrivals_daily."
             )
             flow_styles = {
-                "Ordres passes fournisseurs": {"color": "#0f766e", "width": 2.3},
+                "Décisions MRP fournisseurs connues": {"color": "#0f766e", "width": 2.3},
                 "Receptions entree usine": {"color": "#2563eb", "width": 2.3, "dash": "dash"},
             }
         else:
             order_release_series = aggregate_order_series(
                 node_orders,
                 "release_qty",
-                day_field="order_date_imt",
+                day_field="order_decision_day",
                 bucket_days=7,
             )
             order_receipt_series = aggregate_order_series(
@@ -6888,21 +6893,21 @@ def build_model_panel_metrics(
                 bucket_days=7,
             )
             flow_series = {
-                "Ordres MRP hebdo": order_release_series,
+                "Décisions MRP connues par semaine": order_release_series,
                 "Receptions previsionnelles hebdo": order_receipt_series,
             }
             if actual_input_arrival_series:
-                flow_series["Arrivages reels intrants"] = actual_input_arrival_series
+                flow_series["Arrivages simulés intrants"] = actual_input_arrival_series
             flow_title = f"{node_id} - flux MRP intrants"
             flow_note = (
-                "Flux entrants comparables: ordres MRP, receptions previsionnelles et arrivages reels. "
+                "Flux de la simulation : décisions MRP, réceptions prévisionnelles et arrivages exécutés. "
                 "Le besoin net MRP n'est pas affiche ici car c'est un ecart de stock a cible, pas un flux journalier. "
-                "Les ordres sont affiches a leur date d'ordre calculee pour eviter de faire apparaitre le carnet initial comme un ordre massif au 1er janvier."
+                "Les décisions sont affichées à leur date connue ; la décision d’origine des en-cours reste inconnue et ne devient pas un ordre massif au 1er janvier."
             )
             flow_styles = {
-                "Ordres MRP hebdo": {"color": "#0f766e", "width": 2.2},
+                "Décisions MRP connues par semaine": {"color": "#0f766e", "width": 2.2},
                 "Receptions previsionnelles": {"color": "#2563eb", "width": 2.2},
-                "Arrivages reels intrants": {"color": "#0891b2", "width": 2.0, "dash": "dot"},
+                "Arrivages simulés intrants": {"color": "#0891b2", "width": 2.0, "dash": "dot"},
             }
         flow_top_figure = build_line_chart_figure(
             flow_series,
@@ -6980,12 +6985,12 @@ def build_model_panel_metrics(
                 continue
             item_label = item_labels.get(item_id, compact_item_label(item_id))
             color = item_palette[idx % len(item_palette)]
-            release_label = f"{item_label} - ordre hebdo"
+            release_label = f"{item_label} - décision MRP connue"
             receipt_label = f"{item_label} - reception prev. hebdo"
             release_series = aggregate_order_series(
                 item_rows,
                 "release_qty",
-                day_field="order_date_imt",
+                day_field="order_decision_day",
                 bucket_days=7,
             )
             receipt_series = aggregate_order_series(
@@ -7314,9 +7319,10 @@ def build_model_panel_metrics(
                 f"{item_labels.get(str(row.get('item_id') or ''), compact_item_label(str(row.get('item_id') or '')))}: "
                 f"{display_order_type(row.get('order_type'))} ; "
                 f"release={row.get('release_day') or 'n/a'} ; "
-                f"ordre_passe={fmt_order_day(row.get('order_date_imt'))} ; "
+                f"decision_MRP={fmt_order_day(order_placed_day(row))} ; "
                 f"arrival_previsionnelle={planned_arrival_day} ; "
-                f"arrival_effective={fmt_order_day(row.get('actual_receipt_day'))} ; "
+                f"reception_physique={fmt_order_day(effective_order_receipt_day(row))} ; "
+                f"disponibilite={fmt_order_day(row.get('actual_available_day'))} ; "
                 f"delai_prev_matiere={fmt_days(planned_lead, 1)} ; "
                 f"delai_effectif_matiere={fmt_days(effective_lead, 1)} ; "
                 f"status={row.get('order_status_end_of_run') or 'n/a'}"

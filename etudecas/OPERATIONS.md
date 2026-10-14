@@ -16,8 +16,9 @@ Les commandes se lancent depuis la racine du dépôt, qui contient `etudecas/`.
 | Consulter une carte existante | [Accueil des résultats](index.html) | Ouvre les fichiers déjà produits. |
 | Construire le graphe depuis les données source | `python etudecas/run_etudecas_pipeline.py graph` | Écrit le graphe enrichi et géocodé. |
 | Préparer les entrées du moteur | `python etudecas/run_etudecas_pipeline.py prepare` | Écrit un graphe préparé ; ne correspond pas à toute la chaîne de reconstruction. |
-| Recalculer la référence nominale sur cinq ans | `python -m etudecas.regenerate --scenario nominal` | Un calcul de 1 825 jours et ses exports. |
-| Refaire la carte récente avec lots et comparaisons | `python -m etudecas.regenerate --delivery lots` | Quatre calculs, carte et diagnostic ; [périmètre exact](docs/REGENERER_RESULTATS.md). |
+| Projeter le MRP conservé sur cinq ans | `python -B -m etudecas.regenerate --reference current --days 1825 --with-map` | Nominal W prolongé par des hypothèses explicites ; nouvelle carte et deux suivis de lots. |
+| Reproduire le nominal historique de septembre | `python -m etudecas.regenerate --reference historical_20260920 --scenario nominal` | Ancienne configuration sur 1 825 jours ; ne reprend pas W. |
+| Refaire la livraison historique avec lots et comparaisons | `python -m etudecas.regenerate --reference historical_20260920 --delivery lots` | Quatre calculs historiques, carte et diagnostic ; [périmètre exact](docs/REGENERER_RESULTATS.md). |
 | Choisir une étude | `python -m etudecas.simulation.studies --help` | Sensibilité, rejeux, incertitude temporelle, cascades et études fournisseurs ; chaque mode garde ses règles et ses options. |
 | Recalculer et produire une carte | `python etudecas/run_etudecas_pipeline.py rebuild-map-5y` | Lance des calculs et crée un dossier de résultats ; détails ci-dessous. |
 

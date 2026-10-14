@@ -100,6 +100,59 @@ class OpeningPackPathAuditMemoryTest(unittest.TestCase):
         events[2]["notes"] = json.dumps(dict(opening_pack_policy="pack_at_source_G_v1"))
         self.assertIn("opening_pack_missing_provenance", {i["kind"] for i in self._audit(events, links)["issues"]})
 
+class OpeningMaterialPathAuditMemoryTest(unittest.TestCase):
+    """Initial full-BOM OF: literal events and links, without fixture files."""
+
+    @staticmethod
+    def _rows():
+        events, links = OpeningPackPathAuditMemoryTest._rows()
+        note = json.dumps(dict(opening_production_material_policy="materials_at_source_G_v1",
+            source_material_state="unknown", scenario_material_state="to_issue",
+            materials="complete_active_BOM_including_declared_virtual_inputs"))
+        for row in events + links:
+            if ";pack_fragment=" in row.get("source_id", ""):
+                row["source_id"] = row["source_id"].replace(";pack_fragment=", ";material_fragment=")
+                row["notes"] = note
+        return events, links
+
+    def test_material_fragments_reconcile_separately_with_empty_campaign_in_memory(self):
+        events, links = self._rows()
+        result = OpeningPackPathAuditMemoryTest._audit(events, links)
+        self.assertEqual(result["issues"], [])
+        self.assertEqual(result["fragment_ids"], {"OF:1;material_fragment=1", "OF:1;material_fragment=2"})
+        self.assertEqual(result["link_indices"], {0, 1})
+
+    def test_missing_material_debit_output_or_link_is_rejected_in_memory(self):
+        events, links = self._rows()
+        audit = OpeningPackPathAuditMemoryTest._audit
+        without_debit = [r for r in events if not (r.get("event_type") == "production_consume"
+                                                  and r.get("source_id") == "OF:1;material_fragment=1")]
+        self.assertIn("production_link_missing_consume_event", {i["kind"] for i in audit(without_debit, links)["issues"]})
+        self.assertIn("production_link_missing_output_event", {i["kind"] for i in audit(
+            [r for r in events if r.get("lot_id") != "PF1"], links)["issues"]})
+        self.assertIn("opening_pack_consume_missing_genealogy", {i["kind"] for i in audit(events, links[1:])["issues"]})
+
+    def test_material_crossed_fragments_and_duplicate_output_are_rejected_in_memory(self):
+        events, links = self._rows()
+        audit = OpeningPackPathAuditMemoryTest._audit
+        self.assertIn("opening_pack_duplicate_output", {i["kind"] for i in audit(events + [dict(events[2])], links)["issues"]})
+        links[0]["source_id"] = "OF:1;material_fragment=2"
+        kinds = {i["kind"] for i in audit(events, links)["issues"]}
+        self.assertIn("production_link_missing_output_event", kinds)
+        self.assertIn("production_link_consume_qty_mismatch", kinds)
+
+    def test_material_hypothesis_cannot_be_replaced_by_pack_WIP_provenance_in_memory(self):
+        events, links = self._rows()
+        audit = OpeningPackPathAuditMemoryTest._audit
+        note = json.loads(events[2]["notes"])
+        note.pop("source_material_state")
+        events[2]["notes"] = json.dumps(note)
+        self.assertIn("opening_pack_missing_provenance", {i["kind"] for i in audit(events, links)["issues"]})
+        events[2]["notes"] = json.dumps(dict(opening_pack_policy="pack_at_source_G_v1",
+                                            non_pack_materials="initial_WIP_untraced"))
+        self.assertIn("opening_pack_missing_provenance", {i["kind"] for i in audit(events, links)["issues"]})
+
+
 class LotLedgerTest(unittest.TestCase):
     def test_closed_campaign_rejects_unlinked_consumption_in_memory(self) -> None:
         from etudecas.testing.independent_review import Evidence, audit_production_consumption
