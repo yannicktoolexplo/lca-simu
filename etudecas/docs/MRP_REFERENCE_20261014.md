@@ -53,5 +53,5 @@ certifient pas à eux seuls la calibration industrielle du modèle.
 
 Les anciens CSV, cartes et campagnes intermédiaires ont été retirés des
 résultats courants. Les artefacts de travail sont passés d'environ 80 Go à
-1,27 Go. Le dossier de preuve de l'incident Sophos du 23 septembre 2026 est
-conservé sans modification.
+1,40 Go après ajout des preuves finales. Le dossier de preuve de l'incident
+Sophos du 23 septembre 2026 est conservé sans modification.
