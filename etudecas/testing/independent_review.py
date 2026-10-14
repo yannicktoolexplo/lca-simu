@@ -9,10 +9,13 @@ from __future__ import annotations
 import argparse
 from collections import Counter, defaultdict
 import csv
+import gzip
 import hashlib
+import io
 import json
 import math
 from decimal import Decimal
+from datetime import date, timedelta
 from pathlib import Path
 
 
@@ -156,8 +159,368 @@ def audit_production_availability(events, evidence):
     return available
 
 
-def audit_opening_purchase_availability(orders, events, horizon, evidence):
+def audit_declared_receipt_dates(meta, policy, events, orders, evidence):
+    """Recount new G-to-I dates from declared calendars, without engine helpers.
+
+    Source-dated opening orders and initial held stock are deliberately excluded.
+    This optional contract certifies date arithmetic, not the industrial duration.
+    """
+    declaration = meta.get("receipt_calendar_policy")
+    if declaration is None:
+        return
+    exported = policy.get("dated_component_planning", {}).get("receipt_calendar_policy", {})
+    evidence.check("receipt_calendar_export_matches_input",
+                   isinstance(exported, dict) and all(exported.get(k) == v for k, v in declaration.items()))
+    valid = (type(declaration.get("schema_version")) is int and declaration.get("schema_version") == 1
+             and declaration.get("mode") == "explicit_site_nonworking_dates_v1"
+             and isinstance(declaration.get("sites"), list))
+    evidence.check("receipt_calendar_declared_contract", valid)
+    if not valid:
+        return
+    try:
+        origin = date.fromisoformat(meta.get("mrp_forecasts", {}).get("origin", ""))
+    except (TypeError, ValueError):
+        evidence.check("receipt_calendar_origin_documented", False)
+        return
+    evidence.check("receipt_calendar_origin_documented", True)
+    closed = {}
+    for row in declaration["sites"]:
+        node = row.get("node_id")
+        evidence.check("receipt_calendar_unique_site", bool(node) and node not in closed, node)
+        try:
+            values = row["nonworking_dates"]
+            parsed = {date.fromisoformat(v) for v in values}
+            valid = (isinstance(values, list) and len(parsed) == len(values)
+                     and all(d.isoformat() in values for d in parsed))
+        except (KeyError, TypeError, ValueError):
+            valid, parsed = False, set()
+        evidence.check("receipt_calendar_explicit_unique_dates", valid, node)
+        closed[node] = parsed
+    receipt_rows = meta.get("supplier_delivery_receipt_policy", {}).get("rows", [])
+    suppliers = {(r["node_id"], r["item_id"]): r for r in receipt_rows}
+    transfers = {(r["node_id"], r["item_id"]): r
+                 for r in meta.get("internal_component_policy", {}).get("rows", [])}
+    productions = {(r["node_id"], r["item_id"]): r
+                   for key in ("production_release_policy", "finished_goods_release_policy")
+                   for r in meta.get(key, {}).get("rows", [])}
+
+    def check_date(g, available, rule, pair, context, kind):
+        days = rule.get("receipt_days")
+        valid = (type(g) is int and g >= 0 and type(available) is int
+                 and type(days) is int and days >= 0)
+        evidence.check("receipt_calendar_" + kind + "_integers", valid, context)
+        if not valid:
+            return
+        exclusions = set(closed.get(pair[0], set()))
+        try:
+            exclusions.update(date.fromisoformat(v) for v in rule.get("nonworking_dates", []))
+        except (TypeError, ValueError):
+            evidence.check("receipt_calendar_pair_dates_valid", False, context)
+            return
+        target, remaining = origin + timedelta(days=g), days
+        while remaining:
+            target += timedelta(days=1)
+            if target.weekday() < 5 and target not in exclusions:
+                remaining -= 1
+        evidence.check("receipt_calendar_" + kind + "_exact_date",
+                       available == (target - origin).days,
+                       {"id": context, "actual": available, "expected": (target - origin).days})
+
+    for event in events:
+        pair = event["node_id"], event["item_id"]
+        if event["event_type"] != "production_output" or pair not in productions:
+            continue
+        text = event.get("notes", "")
+        note = json.loads(text) if text.lstrip().startswith("{") else {}
+        day = int(event["day"])
+        check_date(day, note.get("available_day", day), productions[pair], pair,
+                   event["lot_id"], "production")
+        if "physical_day" in note:
+            evidence.check("receipt_calendar_production_physical_anchor", note["physical_day"] == day,
+                           event["lot_id"])
+    for order in orders:
+        pair = order["node_id"], order["item_id"]
+        kind = order["order_type"]
+        rule = (suppliers.get(pair) if kind == "external_procurement_supplier_delivery"
+                else transfers.get(pair) if kind == "lane_release" else None)
+        if rule is None or "receipt_days" not in rule:
+            continue
+        identity = order.get("mrp_order_id", "")
+        try:
+            g, available = int(order["physical_delivery_day"]), int(order["available_day"])
+        except (KeyError, TypeError, ValueError):
+            evidence.check("receipt_calendar_order_dates_present", False, identity)
+            continue
+        if kind == "external_procurement_supplier_delivery":
+            evidence.check("receipt_calendar_order_source_duration",
+                           str(order.get("receipt_source_days", "")) == str(rule["receipt_days"]), identity)
+        check_date(g, available, rule, pair, identity, "order")
+
+
+def audit_opening_receipt_fragments(orders, events, horizon, evidence, *, meta, fragments,
+                                  execution_summary, item_units):
+    """Reconstruct the declared execution in Decimal, without runtime helpers.
+
+    The hashed input book and historical-execution input determine the oracle;
+    neither the exported fragments nor their summary determine expected flows.
+    This verifies a conditional scenario, not the industrial truth of that input.
+    """
+    policy = (meta or {}).get("opening_receipt_execution_policy")
+    exported = any(r.get("opening_execution_mode") for r in orders)
+    if policy is None:
+        evidence.check("opening_execution_no_undeclared_replay",
+                       not fragments and not execution_summary and not exported)
+        return set(), set()
+    valid = (isinstance(policy, dict) and type(policy.get("schema_version")) is int
+             and policy.get("schema_version") == 1 and policy.get("mode") == "known_weekly_receipts_fifo_v1"
+             and policy.get("calendar") == "monday_friday" and isinstance(policy.get("pairs"), list)
+             and bool(policy["pairs"]) and isinstance(policy.get("events"), list))
+    evidence.check("opening_execution_declared_contract", valid)
+    if not valid:
+        return set(), set()
+    try:
+        pairs = [(p["node_id"], p["item_id"]) for p in policy["pairs"]]
+        origin = date.fromisoformat(meta["mrp_forecasts"]["origin"])
+        valid = all(all(isinstance(s, str) and s.strip() for s in p) for p in pairs)
+    except (KeyError, TypeError, ValueError):
+        valid = False
+    evidence.check("opening_execution_origin_and_pairs", valid)
+    if not valid:
+        return set(), set()
+    evidence.check("opening_execution_unique_pairs", len(pairs) == len(set(pairs)))
+    pairs = set(pairs)
+    evidence.check("opening_execution_summary_present", isinstance(execution_summary, dict))
+    summary = execution_summary if isinstance(execution_summary, dict) else {}
+    evidence.check("opening_execution_summary_contract", summary.get("mode") == policy["mode"]
+                   and summary.get("pairs") == policy["pairs"])
+
+    def integer(raw):
+        if isinstance(raw, bool):
+            raise ValueError("Boolean date")
+        value = Decimal(str(raw))
+        if not value.is_finite() or value < 0 or value != int(value):
+            raise ValueError("Expected nonnegative integral date")
+        return int(value)
+
+    def positive(raw, unit):
+        if isinstance(raw, bool):
+            raise ValueError("Boolean quantity")
+        value = Decimal(str(raw))
+        if not value.is_finite() or value <= 0 or (unit == "UN" and value != int(value)):
+            raise ValueError("Expected positive physical quantity")
+        return value
+
+    def release_day(physical, days):
+        current = origin + timedelta(days=physical)
+        while days:
+            current += timedelta(days=1)
+            if current.weekday() < 5:
+                days -= 1
+        return (current - origin).days
+
+    # Independent dimensional conversion; unsupported conversions fail closed.
+    scales = {"G": ("mass", Decimal(".001")), "KG": ("mass", Decimal(1)),
+              "MG": ("mass", Decimal(".000001")), "T": ("mass", Decimal(1000)),
+              "ML": ("volume", Decimal(".001")), "L": ("volume", Decimal(1))}
+    original, remaining, queues = {}, {}, defaultdict(list)
+    book = meta.get("opening_open_orders", {})
+    for raw in book.get("rows", []):
+        pair = raw.get("dst_node_id"), raw.get("item_id")
+        if raw.get("order_type") != "purchase_open_order" or pair not in pairs:
+            continue
+        try:
+            source_file = raw.get("source_file") or book["source_file"]
+            source_row = str(raw["source_row"])
+            unit = str((item_units or {}).get(pair[1], raw["uom"])).upper()
+            source_unit = str(raw["uom"]).upper()
+            qty = positive(raw["quantity"], source_unit)
+            if source_unit != unit:
+                if scales[source_unit][0] != scales[unit][0]:
+                    raise ValueError("Incompatible source quantity")
+                qty *= scales[source_unit][1] / scales[unit][1]
+            qty = positive(qty, unit)
+            g, available, days = (integer(raw[k]) for k in ("physical_delivery_day", "usable_day", "receipt_release_days"))
+            valid = (isinstance(source_file, str) and bool(source_file.strip()) and bool(source_row.strip())
+                     and not isinstance(raw["source_row"], bool) and available >= g)
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            valid = False
+        evidence.check("opening_execution_original_source_contract", valid, raw)
+        if not valid:
+            continue
+        identity = "OPENING_DATED_PURCHASE|" + json.dumps([source_file, source_row], ensure_ascii=False, separators=(",", ":"))
+        evidence.check("opening_execution_unique_original_source", identity not in original, identity)
+        if identity in original:
+            continue
+        original[identity] = dict(pair=pair, qty=qty, unit=unit, g=g, available=available, days=days,
+                                  source_file=source_file, source_row=source_row, supplier=raw.get("src_node_id"))
+        remaining[identity] = qty
+        queues[pair].append(identity)
+    evidence.check("opening_execution_all_pairs_have_source_orders", set(queues) == pairs)
+    for pair in queues:
+        queues[pair].sort(key=lambda identity: (original[identity]["g"], original[identity]["available"],
+                         original[identity]["source_file"], original[identity]["source_row"]))
+
+    source_receipts, known_sources = [], set()
+    for raw in policy["events"]:
+        try:
+            pair = raw["node_id"], raw["item_id"]
+            known = integer(raw["known_day"])
+            source_row = integer(raw["source_row"])
+            source_key = raw["source_file"], source_row, raw["source_cell"]
+            unit = raw["uom"]
+            qty = positive(raw["quantity"], unit)
+            valid = (pair in queues and source_row > 0 and unit == original[queues[pair][0]]["unit"]
+                     and all(isinstance(s, str) and s.strip() for s in (source_key[0], source_key[2])))
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            valid = False
+        evidence.check("opening_execution_receipt_input_contract", valid, raw)
+        if not valid:
+            continue
+        evidence.check("opening_execution_unique_receipt_source_cell", source_key not in known_sources, source_key)
+        known_sources.add(source_key)
+        if known < horizon:
+            source_receipts.append((known, pair, source_key, qty))
+    expected = {}
+    for known, pair, source_key, qty in sorted(source_receipts, key=lambda row: row[0]):
+        unassigned = qty
+        for identity in queues[pair]:
+            assigned = min(remaining[identity], unassigned)
+            if assigned <= 0:
+                continue
+            expected[identity, source_key] = dict(quantity=assigned, physical=known,
+                available=release_day(known, original[identity]["days"]))
+            remaining[identity] -= assigned
+            unassigned -= assigned
+            if not unassigned:
+                break
+        evidence.check("opening_execution_source_within_original_book", unassigned == 0, source_key)
+
+    by_origin = defaultdict(list)
+    for event in events:
+        by_origin[event.get("source_id", "")].append(event)
+    markers, exported_keys, lots = set(), set(), set()
+    actual_received = defaultdict(Decimal)
+    for row in fragments:
+        marker, identity = row.get("marker", ""), row.get("original_marker", "")
+        try:
+            source_key = row["receipt_source_file"], integer(row["receipt_source_row"]), row["receipt_source_cell"]
+            key = identity, source_key
+            source = original[identity]
+            wanted = expected[key]
+            qty = positive(row["quantity"], source["unit"])
+            physical, available, known, days = (integer(row[k]) for k in (
+                "physical_delivery_day", "arrival_day", "receipt_known_day", "receipt_release_days"))
+            encoded = json.loads(marker.removeprefix("OPENING_EXECUTED_FRAGMENT|"))
+            valid = (marker.startswith("OPENING_EXECUTED_FRAGMENT|") and len(encoded) == 2
+                     and encoded[0] == identity and json.loads(encoded[1]) == list(source_key))
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            valid = False
+        evidence.check("opening_execution_fragment_declared_identity", valid, row)
+        if not valid:
+            continue
+        evidence.check("opening_execution_unique_fragment", marker not in markers and key not in exported_keys, marker)
+        markers.add(marker)
+        exported_keys.add(key)
+        actual_received[identity] += qty
+        evidence.close("opening_execution_fragment_fifo_quantity", float(qty), float(wanted["quantity"]), marker)
+        evidence.check("opening_execution_fragment_dates", physical == known == wanted["physical"]
+                       and available == wanted["available"] and days == source["days"] and physical < horizon, marker)
+        evidence.check("opening_execution_fragment_source_preserved",
+            (row.get("node_id"), row.get("item_id")) == source["pair"] and row.get("uom") == source["unit"]
+            and row.get("original_source_file") == source["source_file"]
+            and str(row.get("original_source_row", "")) == source["source_row"]
+            and str(row.get("original_promised_physical_day", "")) == str(source["g"])
+            and str(row.get("original_promised_available_day", "")) == str(source["available"]), marker)
+        evidence.check("opening_execution_fragment_hypothesis_explicit",
+            row.get("allocation_basis") == "fifo_technical_not_observed_order_identity"
+            and row.get("availability_basis") == "original_receipt_workdays_after_known_physical_receipt", marker)
+        matching = by_origin[marker]
+        stages = (("physical", "opening_purchase_order_receipt", wanted["physical"]),
+                  ("hold", "stock_availability_hold", wanted["physical"]),
+                  ("availability", "stock_availability_release", wanted["available"]))
+        stage_lots = set()
+        for stage, kind, due in stages:
+            group = [event for event in matching if event["event_type"] == kind]
+            evidence.check("opening_execution_single_" + stage, len(group) == int(due < horizon), marker)
+            for event in group:
+                lot = event.get("lot_id", "")
+                stage_lots.add(lot)
+                evidence.check("opening_execution_" + stage + "_date_pair_unit",
+                    str(event["day"]) == str(due) and bool(lot.strip())
+                    and (event["node_id"], event["item_id"]) == source["pair"]
+                    and event.get("uom") == source["unit"], marker)
+                evidence.close("opening_execution_" + stage + "_quantity",
+                               number(event, "qty"), float(wanted["quantity"]), marker)
+                if stage == "physical":
+                    evidence.check("opening_execution_creation_original_genealogy",
+                        event.get("planned_order_id") == identity and event.get("baseline_reference_id") == identity
+                        and str(event.get("source_row", "")) == source["source_row"]
+                        and event.get("supplier_id") == source["supplier"], marker)
+        evidence.check("opening_execution_same_unique_lot", len(stage_lots) == 1 and not (stage_lots & lots), marker)
+        lots.update(stage_lots)
+    evidence.check("opening_execution_complete_fragment_export", exported_keys == set(expected),
+                   {"missing": len(set(expected) - exported_keys), "unexpected": len(exported_keys - set(expected))})
+    evidence.check("opening_execution_no_orphan_fragment_events", all(
+        event.get("source_id") in markers for event in events
+        if str(event.get("source_id", "")).startswith("OPENING_EXECUTED_FRAGMENT|")))
+    evidence.check("opening_execution_no_undeclared_order_mode", all(
+        row.get("mrp_order_id") in original for row in orders if row.get("opening_execution_mode")))
+    selected = [r for r in orders if r.get("order_type") == "opening_purchase_order"
+                and (r.get("node_id"), r.get("item_id")) in pairs]
+    evidence.check("opening_execution_original_identities_preserved",
+                   len(selected) == len(original) and {r.get("mrp_order_id") for r in selected} == set(original))
+    for row in selected:
+        identity = row.get("mrp_order_id")
+        if identity not in original:
+            continue
+        source = original[identity]
+        received = source["qty"] - remaining[identity]
+        available = sum((r["quantity"] for (parent, _), r in expected.items()
+                         if parent == identity and r["available"] < horizon), Decimal(0))
+        amounts = dict(received=received, available=available, pending=remaining[identity], held=received-available)
+        evidence.close("opening_execution_fragments_plus_pending_equal_original",
+            float(actual_received[identity] + remaining[identity]), float(source["qty"]), identity)
+        evidence.check("opening_execution_no_overreceipt", actual_received[identity] <= source["qty"], identity)
+        evidence.check("opening_execution_no_duplicate_original_receipt", not any(event["event_type"] in {
+            "opening_purchase_order_receipt", "stock_availability_hold", "stock_availability_release"}
+            for event in by_origin[identity]), identity)
+        evidence.close("opening_execution_original_planned_quantity", number(row, "planned_receipt_qty"), float(source["qty"]), identity)
+        evidence.close("opening_execution_original_release_quantity", number(row, "release_qty"), float(source["qty"]), identity)
+        evidence.check("opening_execution_original_promises_preserved", all(
+            str(row.get(field, "")) == str(value) for field, value in (
+                ("physical_delivery_day", source["g"]), ("available_day", source["available"]),
+                ("arrival_day", source["available"]), ("source_file", source["source_file"]),
+                ("source_row", source["source_row"]), ("baseline_reference_id", identity))), identity)
+        evidence.check("opening_execution_order_mode", row.get("opening_execution_mode") == policy["mode"], identity)
+        for field, value in amounts.items():
+            evidence.close("opening_execution_order_" + field, number(row, "opening_execution_" + field + "_qty"), float(value), identity)
+        completed_physical = received == source["qty"]
+        completed_available = available == source["qty"]
+        own = [r for (parent, _), r in expected.items() if parent == identity]
+        g = str(max(r["physical"] for r in own)) if completed_physical else ""
+        available_day = str(max(r["available"] for r in own)) if completed_available else ""
+        for field, wanted in (("actual_physical_receipt_day", g), ("actual_available_day", available_day),
+                              ("actual_receipt_day", available_day)):
+            evidence.check("opening_execution_" + field, str(row.get(field, "")) == wanted, identity)
+        state = ("available" if completed_available else "held_pending_availability" if completed_physical else
+                 "partially_received_opening_commitment" if received else "awaiting_physical_delivery")
+        evidence.check("opening_execution_final_status", row.get("order_status_end_of_run") == state, identity)
+    evidence.check("opening_execution_summary_counts", summary.get("original_order_count") == len(original)
+                   and summary.get("known_receipt_fragment_count") == len(expected))
+    pending = summary.get("pending_by_marker", {})
+    evidence.check("opening_execution_pending_identities", isinstance(pending, dict) and set(pending) == set(original))
+    if isinstance(pending, dict):
+        for identity, qty in remaining.items():
+            evidence.close("opening_execution_summary_pending", float(pending.get(identity, float("nan"))), float(qty), identity)
+    return set(original), markers
+
+
+def audit_opening_purchase_availability(orders, events, horizon, evidence, *, meta=None,
+                                       fragments=(), execution_summary=None, item_units=None):
     """Reconcile source-book G/I against one physical lot, without engine helpers."""
+    orders = list(orders)
+    managed, fragment_markers = audit_opening_receipt_fragments(orders, events, horizon, evidence,
+        meta=meta, fragments=fragments, execution_summary=execution_summary, item_units=item_units)
     by_origin = defaultdict(list)
     for event in events:
         by_origin[event.get("source_id", "")].append(event)
@@ -178,6 +541,8 @@ def audit_opening_purchase_availability(orders, events, horizon, evidence):
         evidence.check("opening_purchase_positive_quantity", quantity > 0, identity)
         evidence.check("opening_purchase_valid_dates", 0 <= physical_day <= available_day, identity)
         evidence.check("opening_purchase_legacy_arrival_is_availability", int(order["arrival_day"]) == available_day, identity)
+        if identity in managed:
+            continue
         relevant = by_origin[identity]
         created = [row for row in relevant if row["event_type"] == "opening_purchase_order_receipt"]
         holds = [row for row in relevant if row["event_type"] == "stock_availability_hold"]
@@ -196,7 +561,7 @@ def audit_opening_purchase_availability(orders, events, horizon, evidence):
             expected = str(due) if due < horizon else ""
             evidence.check("opening_purchase_" + field, order[field] == expected, identity)
     orphaned = [row["event_id"] for row in events
-                if row["event_type"] == "opening_purchase_order_receipt" and row.get("source_id") not in seen]
+                if row["event_type"] == "opening_purchase_order_receipt" and row.get("source_id") not in seen | fragment_markers]
     evidence.check("opening_purchase_no_unmatched_creation", not orphaned, orphaned[:5])
     return count
 
@@ -273,7 +638,302 @@ def audit_internal_transfer_availability(orders, events, genealogy, horizon, pai
     return len(seen)
 
 
-def audit_external_component_service(series, events, core_rows, policy, horizon, evidence, *, observed_policy=None):
+def declared_scan3_requirements(contract, budgets, events, horizon, scenario, evidence):
+    """Rebuild declared historical residuals without reading their runtime export.
+
+    Own withdrawals come from executed BOM lot events. Earlier residuals are
+    credited when requested, including amounts still waiting for stock.
+    """
+    valid = (isinstance(contract, dict)
+             and set(contract) == {"schema_version", "mode", "cumulative_pairs"}
+             and type(contract.get("schema_version")) is int and contract["schema_version"] == 1
+             and contract.get("mode") == "scan3_residual_v1"
+             and isinstance(contract.get("cumulative_pairs"), list)
+             and isinstance(budgets, list) and bool(budgets))
+    evidence.check("scan3_declared_contract", valid)
+    if not valid:
+        return {}
+    cumulative = contract["cumulative_pairs"]
+    valid = all(isinstance(p, list) and len(p) == 2
+                and all(isinstance(s, str) and s for s in p) for p in cumulative)
+    evidence.check("scan3_cumulative_pair_contract", valid)
+    if not valid:
+        return {}
+    cumulative = [tuple(p) for p in cumulative]
+    evidence.check("scan3_cumulative_pairs_unique", len(set(cumulative)) == len(cumulative))
+    seen, intervals, pairs, normalized = set(), defaultdict(list), set(), []
+    for source in budgets:
+        try:
+            pair = source["node_id"], source["item_id"]
+            first, end, closing = (source[k] for k in ("first_day", "end_day_exclusive", "closing_day"))
+            qty = Decimal(str(source["covered_scan3_qty"]))
+            full = Decimal(str(source["full_week_scan3_qty"]))
+            signed = Decimal(str(source["raw_signed_scan3_qty"]))
+            valid = (all(isinstance(s, str) and s for s in pair)
+                     and all(type(d) is int for d in (first, end, closing))
+                     and 0 <= first < end <= horizon and end - first <= 7 and closing == end - 1
+                     and (closing - 4) % 7 == 0 and source["covered_days"] == end - first
+                     and source["uom"] in {"G", "KG", "UN"}
+                     and type(source.get("source_row")) is int and source["source_row"] > 0
+                     and all(v.is_finite() for v in (qty, full, signed))
+                     and qty >= 0 and full >= 0 and signed == -full
+                     and all(isinstance(source.get(k), str) and source[k].strip()
+                             for k in ("source_file", "scan3_source_cell", "source_week_marker", "budget_id")))
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            valid = False
+        evidence.check("scan3_budget_contract", valid, source)
+        if not valid:
+            continue
+        identity = source["budget_id"]
+        evidence.check("scan3_budget_identity", identity == f"{pair[0]}:{pair[1]}:R{source.get('source_row')}", identity)
+        evidence.check("scan3_budget_unique", identity not in seen, identity)
+        evidence.check("scan3_budget_disjoint", all(end <= a or first >= b for a, b in intervals[pair]), identity)
+        partial = end - first != 7
+        evidence.check("scan3_partial_week_convention",
+            source.get("partial_week") is partial
+            and source.get("include_in_main_source_balance") is (not partial)
+            and (not partial or (first == 0 and end == 5)), identity)
+        evidence.check("scan3_source_cell_and_coverage",
+            source["scan3_source_cell"].split("!")[-1] == f"J{source['source_row']}"
+            and source.get("coverage_status") == ("documented_zero" if full == 0 else "documented_withdrawals"), identity)
+        # R5 retains the full source quantity at the initial partial closing.
+        # It is explicitly excluded from complete-week calibration balances.
+        # Audit that frozen convention; do not introduce a new prorating rule.
+        if source["uom"] == "UN":
+            evidence.check("scan3_source_integer_UN", full == int(full) and qty == int(qty), identity)
+        evidence.close("scan3_covered_source_quantity", float(qty), float(full), identity)
+        seen.add(identity)
+        intervals[pair].append((first, end))
+        pairs.add(pair)
+        normalized.append(source)
+    evidence.check("scan3_cumulative_pairs_have_budgets", set(cumulative) <= pairs)
+    own = defaultdict(Decimal)
+    units = { (s["node_id"], s["item_id"]): s["uom"] for s in normalized }
+    evidence.check("scan3_pair_unit_consistent", all(s["uom"] == units[s["node_id"], s["item_id"]]
+                                                    for s in normalized))
+    for event in events:
+        if event["event_type"] == "production_consume" and (event["node_id"], event["item_id"]) in pairs:
+            key = int(event["day"]), event["node_id"], event["item_id"]
+            amount = Decimal(str(event["qty"]))
+            valid = amount.is_finite() and amount >= 0
+            evidence.check("scan3_own_quantity", valid, key)
+            evidence.check("scan3_own_unit", event.get("uom") == units[key[1:]], key)
+            if valid:
+                own[key] += amount
+    totals, result = defaultdict(lambda: [Decimal(0), Decimal(0), Decimal(0)]), {}
+    for source in sorted(normalized, key=lambda s: (s["closing_day"], s["budget_id"])):
+        pair = source["node_id"], source["item_id"]
+        day = source["closing_day"]
+        quantity = Decimal(str(source["covered_scan3_qty"]))
+        used = sum((own[d, *pair] for d in range(source["first_day"], source["end_day_exclusive"])), Decimal(0))
+        excess = max(Decimal(0), used - quantity)
+        if pair in cumulative:
+            total = totals[pair]
+            total[0] += quantity
+            total[1] += used
+            previous = total[2]
+            requested = max(Decimal(0), total[0] - total[1] - previous)
+            total[2] += requested
+            basis = dict(method="cumulative_documented_scan3_minus_own_and_prior_requested",
+                node_id=pair[0], item_id=pair[1], closing_day=day, source_cells=source["scan3_source_cell"],
+                covered_source_cumulative_qty=float(total[0]), covered_own_cumulative_qty=float(total[1]),
+                prior_requested_including_backlog_qty=float(previous), new_residual_qty=float(requested),
+                total_requested_qty=float(total[2]),
+                cumulative_unreversed_excess_qty=float(max(Decimal(0), total[1] + total[2] - total[0])),
+                timing="Sunday closing, not measured production date", planning_use="no future observation supplied to planner")
+        else:
+            requested = max(Decimal(0), quantity - used)
+            basis = dict(method="weekly_scan3_minus_actual_own_BOM_residual", budget_id=source["budget_id"],
+                source_week_marker=source["source_week_marker"], first_day=source["first_day"],
+                end_day_exclusive=source["end_day_exclusive"], J_covered_qty=float(quantity),
+                own_BOM_qty=float(used), residual_qty=float(requested), own_excess_qty=float(excess),
+                I_preserved_separately=True, actual_alternate_SKU_scope="not_identified",
+                timing="Sunday closing accounting convention, not a measured production date",
+                planning_use="not available before closing day")
+        if source["uom"] == "UN":
+            evidence.check("scan3_residual_integer_UN", used == int(used) and requested == int(requested), source["budget_id"])
+        if requested <= 0:
+            continue
+        identity = f"external:{scenario}:zz-reconciled-F3:{source['budget_id']}:D{day}"
+        result[identity] = dict(pair=pair, day=day, known=day, qty=float(requested), cycle=0,
+            source=dict(demand_id=source["budget_id"], source_file=source["source_file"],
+                        source_cells=source["scan3_source_cell"], uom=source["uom"]),
+            physical_source="reconstructed_scan3_residual_not_identified_other_format", reconciliation_basis=basis)
+    return result
+
+
+def declared_prospective_other_uses(meta, policy, horizon, evidence, source_bytes):
+    """Verify the frozen exogenous profile from original CSV bytes, not engine helpers.
+
+    The caller supplies metadata only from the SHA-256-verified input graph.
+    The opening fragment is expanded only for future seasons. Requested use,
+    not served use or backlog, is the fixed scenario quantity.
+    """
+    before = sum(row["failed"] for row in evidence.checks.values())
+    expected_contract = dict(
+        mode="retained_W_historical_then_synthetic_v1", first_synthetic_day=362,
+        historical_days=362, season_days=364, annual_growth=0.05,
+        planning_horizon_days=364,
+        physical_other_uses="fixed_W_requested_weekly_profile_not_future_BOM_residual",
+        first_partial_week="five_observed_days_scaled_to_seven_for_future_only",
+        customer_orders="historical_weekly_orders_times_1.05_per_52_week_cycle",
+        forecast="known_source_first_then_same_week_known_forecast_times_growth",
+        closures="Avene_first_two_full_August_workweeks_assumed_after_2025",
+        initial_orders="opening_once_never_repeated",
+        industrial_status="scenario_assumptions_not_observations",
+        schema_version=1, scenario_id="scn:BASE", days=horizon)
+    declaration = meta.get("current_reference_projection")
+    # Two exact contracts, independently enumerated here. A source-priority
+    # contract mixed with candidate fields is rejected, never silently accepted.
+    coherent = isinstance(declaration, dict) and declaration.get("forecast_mode") == "coherent_scenario"
+    if coherent:
+        expected_contract.update(
+            forecast_mode="coherent_scenario", forecast="coherent_scenario_after_2025",
+            known_day=365, first_target_day=369,
+            customer_forecast="same_synthetic_customer_week_as_executed_orders",
+            other_use_forecast="same_fixed_W_requested_profile_as_executed_other_uses",
+            industrial_total="source_I_not_substituted_for_BOM_plus_other_uses_after_cutover",
+            status="explicit_candidate_not_industrial_observation")
+    valid = (isinstance(declaration, dict) and declaration == expected_contract
+             and type(horizon) is int and 362 < horizon <= 1825
+             and all(type(declaration.get(k)) is type(v) for k, v in expected_contract.items())
+             and policy.get("scenario_id") == "scn:BASE")
+    evidence.check("prospective_projection_contract", valid)
+    if not valid:
+        return None
+    profile = meta.get("current_reference_other_use_profile")
+    fields = {"schema_version", "quantity", "source_file", "source_sha256", "first_partial_week", "rows"}
+    valid = (isinstance(profile, dict) and set(profile) == fields
+             and type(profile.get("schema_version")) is int and profile["schema_version"] == 1
+             and profile.get("quantity") == "W_requested_weekly_not_served"
+             and profile.get("first_partial_week") == "Only future copy of W day0..4 normalized by7/5"
+             and isinstance(profile.get("rows"), list)
+             and isinstance(profile.get("source_file"), str) and bool(profile["source_file"].strip())
+             and isinstance(profile.get("source_sha256"), str) and len(profile["source_sha256"]) == 64)
+    evidence.check("prospective_profile_contract", valid)
+    if not valid:
+        return None
+    matched = isinstance(source_bytes, bytes) and hashlib.sha256(source_bytes).hexdigest() == profile["source_sha256"]
+    evidence.check("prospective_profile_original_csv_sha256", matched)
+    if not matched:
+        return None
+    units = {}
+    declarations = (list(policy.get("rows", [])) + list(policy.get("versioned_series", []))
+                    + list(meta.get("observed_external_component_demands", {}).get("rows", []))
+                    + list(meta.get("formats_reconciled_weekly_budgets", [])))
+    for row in declarations:
+        pair = row["node_id"], row["item_id"]
+        evidence.check("prospective_declared_unit_consistency",
+                       row["uom"] in {"UN", "KG", "G", "M"} and units.get(pair, row["uom"]) == row["uom"], pair)
+        units[pair] = row["uom"]
+    evidence.check("prospective_declared_27_pairs", len(units) == 27)
+    seen, weekly = set(), defaultdict(Decimal)
+    try:
+        csv_bytes = gzip.decompress(source_bytes) if profile["source_file"].lower().endswith(".gz") else source_bytes
+        raw_rows = csv.DictReader(io.StringIO(csv_bytes.decode("utf-8-sig"), newline=""))
+        for row in raw_rows:
+            day = int(row["day"])
+            pair = row["node_id"], row["item_id"]
+            key = day, *pair
+            qty = Decimal(row["demand_qty"])
+            valid = (0 <= day < 362 and key not in seen and pair in units
+                     and row["uom"] == units[pair] and qty.is_finite() and qty >= 0
+                     and (row["uom"] != "UN" or qty == int(qty)))
+            evidence.check("prospective_profile_original_daily_row", valid, key)
+            if not valid:
+                continue
+            seen.add(key)
+            weekly[pair, day - (day + 2) % 7] += qty
+    except (OSError, UnicodeError, KeyError, ValueError, ArithmeticError) as exc:
+        evidence.check("prospective_profile_original_csv_parse", False, str(exc))
+        return None
+    wanted_days = {(day, *pair) for pair in units for day in range(362)}
+    evidence.check("prospective_profile_original_complete_362_days", seen == wanted_days)
+    # W begins on Wednesday. Only the first future Monday week is normalized.
+    for pair in units:
+        weekly[pair, -2] = weekly[pair, -2] * 7 / 5
+    declared = {}
+    row_fields = {"node_id", "item_id", "uom", "period_start_day", "qty"}
+    for row in profile["rows"]:
+        try:
+            pair = row["node_id"], row["item_id"]
+            start = row["period_start_day"]
+            key = pair, start
+            qty = Decimal(row["qty"])
+            valid = (set(row) == row_fields and pair in units and row["uom"] == units[pair]
+                     and type(start) is int and start in range(-2, 356, 7)
+                     and isinstance(row["qty"], str) and qty.is_finite() and qty >= 0
+                     and key not in declared)
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            valid = False
+        evidence.check("prospective_profile_declared_week", valid, row)
+        if valid:
+            declared[key] = qty
+            evidence.check("prospective_profile_exact_requested_week", qty == weekly.get(key), [pair, start])
+    expected_weeks = {(pair, start) for pair in units for start in range(-2, 356, 7)}
+    evidence.check("prospective_profile_complete_27_by_52", set(declared) == expected_weeks)
+    evidence.check("prospective_scan3_historical_only", all(
+        type(row.get("end_day_exclusive")) is int and row["end_day_exclusive"] <= 362
+        for row in meta.get("formats_reconciled_weekly_budgets", [])))
+    if sum(row["failed"] for row in evidence.checks.values()) != before:
+        return None
+    result = dict(units=units, weekly=declared, source_file=profile["source_file"])
+    if coherent:
+        result.update(forecast_mode="coherent_scenario", known_day=365, first_target_day=369)
+    return result
+
+
+def prospective_other_use_requirement(profile, pair, day):
+    """Independent 52-week arithmetic: weekly UN floor then daily remainders."""
+    cycle = (day + 2) // 364
+    local = day - 364 * cycle
+    start = local - (local + 2) % 7
+    weekly = profile["weekly"][pair, start] * Decimal("1.05") ** cycle
+    unit = profile["units"][pair]
+    offset = local - start
+    quantity = (int(weekly) * (offset + 1) // 7 - int(weekly) * offset // 7
+                if unit == "UN" else float(weekly / 7))
+    identity = f"external:scn:BASE:synthetic_W:{pair[0]}:{pair[1]}:D{day}"
+    source = dict(demand_id=identity, source_file=profile["source_file"], uom=unit,
+        source_cells="demand_qty; fixed W requested weekly profile",
+        estimation_basis="52-week repeat with 5% growth; independent of future production and shortages")
+    return identity, dict(pair=pair, day=day, known=start+6, qty=float(quantity), source=source,
+                          cycle=cycle, physical_source="synthetic_fixed_W_other_uses")
+
+
+def prospective_forecast_day_audit(audit, component, day, profile):
+    """Independent source-priority or explicitly published coherent-scenario audit."""
+    if profile.get("forecast_mode") == "coherent_scenario" and day >= profile["first_target_day"]:
+        # Publication365 precedes the first affected Monday369. These fields
+        # label a hypothesis; source observations and physical demands stay intact.
+        return dict(audit, forecast_selection_mode="coherent_synthetic_other_uses_52_week_5pct_growth",
+                    forecast_coverage_reason="declared_scenario_not_industrial_source",
+                    forecast_source_covered=0, forecast_known_day=profile["known_day"],
+                    forecast_vintage_id="coherent_scenario_20260101",
+                    forecast_latest_known_day=profile["known_day"],
+                    forecast_latest_known_vintage_id="coherent_scenario_20260101",
+                    forecast_period_start_day=day - (day + 2) % 7,
+                    forecast_source_file=profile["source_file"],
+                    forecast_source_cells="W requested demand_qty profile")
+    if day < 362 or audit["forecast_source_covered"]:
+        return audit
+    pair = component["node_id"], component["item_id"]
+    cycle = (day + 2) // 364
+    local = day - cycle * 364
+    start = 4 + ((local - 4) // 7) * 7  # MRP periods use Sunday, unlike physical weeks.
+    candidates = [v for v in component["versions"] if v["known_day"] <= min(day, 361, start-1)]
+    version = max(candidates, key=lambda v: v["known_day"]) if candidates else None
+    source = next((r for r in version["rows"] if r["period_start_day"] == start), None) if version and local >= 0 else None
+    if source is not None or pair in profile["units"]:
+        known = version["known_day"] if source is not None else local - (local+2) % 7 + 6
+        return dict(audit, forecast_selection_mode="synthetic_52_week_forecast_5pct_growth",
+                    forecast_coverage_reason="synthetic_scenario_not_source_observation",
+                    forecast_source_covered=0, forecast_known_day=known)
+    return audit
+
+
+def audit_external_component_service(series, events, core_rows, policy, horizon, evidence, *,
+                                     observed_policy=None, reconciliation=None, projection=None):
     """Independent accounting of a declared incremental-use scenario, not its calibration.
 
     Reconstruct each dated UN demand with integer quotient/remainder arithmetic,
@@ -282,6 +942,10 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
     """
     expected, demands, policy_pairs = {}, Counter(), set()
     revision_audit = {}
+    prospective = None
+    if projection is not None:
+        prospective = declared_prospective_other_uses(projection["meta"], policy, horizon,
+            evidence, projection.get("source_bytes"))
     repeat = policy.get("repeat_period_days")
     evidence.check("external_repeat_convention", repeat in (None, 365), repeat)
     scenario = policy.get("scenario_id")
@@ -374,7 +1038,8 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
                 "forecast_source_file": source["source_file"] if source else "",
                 "forecast_source_cells": source["source_cells"] if source else "",
             }
-            revision_audit[key] = audit
+            revision_audit[key] = (prospective_forecast_day_audit(audit, component, day, prospective)
+                                   if prospective is not None else audit)
             if source is None:
                 continue
             quantity, length = Decimal(str(source["qty"])), source["period_days"]
@@ -393,6 +1058,19 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
                 "qty": float(amount), "source": {**source, "uom": component["uom"]}, "cycle": 0,
                 "vintage_id": selected["vintage_id"], "period_start_day": start}
             demands[key] += float(amount)
+    # From day362, every estimated physical use is replaced by the frozen W
+    # scenario. Real observations below still override it, including zero.
+    if prospective is not None:
+        expected = {identity: value for identity, value in expected.items() if value["day"] < 362}
+        demands = Counter({key: value for key, value in demands.items() if key[0] < 362})
+        policy_pairs.update(prospective["units"])
+        for day in range(362, horizon):
+            for pair in prospective["units"]:
+                identity, requirement = prospective_other_use_requirement(prospective, pair, day)
+                demands[day, *pair] = requirement["qty"]
+                if requirement["qty"] > 0:
+                    evidence.check("prospective_unique_external_identity", identity not in expected, identity)
+                    expected[identity] = requirement
     # Observations replace only the physical due amount of covered days.
     # Forecast revision provenance above remains independently audited.
     physical_audit = {}
@@ -439,6 +1117,14 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
     core = Counter()
     for row in core_rows:
         core[(int(row["day"]), row["node_id"], row["item_id"])] += number(row, "consumed_qty")
+    if reconciliation is not None:
+        extra = declared_scan3_requirements(reconciliation["contract"], reconciliation["budgets"],
+                                            events, horizon, scenario, evidence)
+        for identity, requirement in extra.items():
+            evidence.check("scan3_unique_external_identity", identity not in expected, identity)
+            expected[identity] = requirement
+            demands[requirement["day"], *requirement["pair"]] += requirement["qty"]
+            policy_pairs.add(requirement["pair"])
     issues, issued_by_identity = Counter(), Counter()
     for row in events:
         if row["event_type"] != "external_component_consume":
@@ -472,8 +1158,25 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
             note.get("demand_id") == source["source"]["demand_id"],
             note.get("source_file") == source["source"]["source_file"],
             note.get("source_cells") == source["source"]["source_cells"],
-            note.get("estimation_basis") == source["source"]["estimation_basis"],
+            "reconciliation_basis" in source or note.get("estimation_basis") == source["source"].get("estimation_basis"),
         )), identity)
+        if source.get("physical_source") == "synthetic_fixed_W_other_uses":
+            evidence.check("prospective_event_exact_provenance_fields", set(note) == {
+                "scope", "due_day", "demand_id", "scenario_id", "cycle_index", "known_day",
+                "source_file", "source_cells", "physical_demand_source", "estimation_basis"}, identity)
+        if "reconciliation_basis" in source:
+            try:
+                basis = json.loads(note.get("estimation_basis", ""))
+            except (ValueError, TypeError):
+                basis = None
+            expected_basis = source["reconciliation_basis"]
+            evidence.check("scan3_event_basis_fields", isinstance(basis, dict) and set(basis) == set(expected_basis), identity)
+            for field, value in expected_basis.items():
+                actual = basis.get(field) if isinstance(basis, dict) else None
+                if type(value) in (int, float) and type(actual) in (int, float):
+                    evidence.close("scan3_event_basis_" + field, actual, value, identity)
+                else:
+                    evidence.check("scan3_event_basis_" + field, actual == value, identity)
         if "vintage_id" in source:
             evidence.check("external_event_frozen_revision_provenance", all((
                 note.get("vintage_id") == source["vintage_id"],
@@ -503,6 +1206,16 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
                 "physical_source_cells": observation["source_cells"] if observation else "",
                 "physical_demand_known_day": observation["known_day"] if observation else "",
             }
+            if prospective is not None and day >= 362 and observation is None:
+                _, requirement = prospective_other_use_requirement(prospective, pair, day)
+                synthetic_fields = {
+                    "physical_demand_source": "synthetic_fixed_W_other_uses",
+                    "physical_source_file": prospective["source_file"],
+                    "physical_source_cells": "W demand_qty weekly profile",
+                    "physical_demand_known_day": requirement["known"],
+                }
+                # These fields must replace the expected values before their checks.
+                expected_fields.update(synthetic_fields)
             for field, value in expected_fields.items():
                 evidence.check("external_daily_" + field, str(row.get(field, "")) == str(value), key)
             if observation:
@@ -511,6 +1224,8 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
             else:
                 evidence.check("external_daily_no_undeclared_observation",
                     row.get("physical_observation_qty", "") == "", key)
+        if prospective is not None:
+            evidence.check("prospective_daily_unit", row.get("uom") == prospective["units"].get(pair), key)
         evidence.check("external_nonnegative", all(v >= -.00002 for v in values.values()), key)
         evidence.close("external_known_daily_demand", values["demand_qty"], demands[key], key)
         evidence.close("external_backlog_continuity", values["backlog_start_qty"], previous[pair], key)
@@ -557,6 +1272,29 @@ def audit_run(run):
     kpis = summary["kpis"]
     horizon = int(summary["sim_days"])
     events = list(rows(run, "production_lot_events"))
+    # Inspect the hashed input even when the summary omits its calendar export.
+    # Otherwise omission of the field under audit would silently disable it.
+    calendar_exported = bool(summary.get("policy", {}).get("dated_component_planning", {}).get("receipt_calendar_policy"))
+    execution_export = summary.get("policy", {}).get("opening_receipt_execution_policy")
+    fragment_path = run / "data/opening_receipt_execution.csv"
+    declared_meta = None
+    if summary.get("input_file"):
+        declared = Path(summary["input_file"])
+        if not declared.is_absolute():
+            declared = Path(__file__).resolve().parents[2] / declared
+        present = declared.is_file()
+        if calendar_exported or execution_export or fragment_path.exists():
+            e.check("receipt_calendar_original_input_present", present)
+        if present:
+            raw = declared.read_bytes()
+            matches = hashlib.sha256(raw).hexdigest() == summary.get("input_sha256")
+            e.check("receipt_calendar_original_input_sha256", matches)
+            if matches:
+                declared_meta = json.loads(raw).get("meta", {})
+                audit_declared_receipt_dates(declared_meta, summary["policy"],
+                                             events, rows(run, "mrp_orders_daily"), e)
+    elif calendar_exported or execution_export or fragment_path.exists():
+        e.check("receipt_calendar_original_input_present", False)
     item_units = {r["item_id"]: r["uom"] for r in events if r["uom"]}
     service = audit_service(rows(run, "production_demand_service_daily"), e, item_units)
     e.check("service_complete_horizon", bool(service["last_days"]) and all(d == horizon - 1 for d in service["last_days"]))
@@ -619,9 +1357,20 @@ def audit_run(run):
     opening_availability = summary.get("policy", {}).get("opening_purchase_availability")
     if summary.get("policy", {}).get("initial_stock_availability_enabled") or opening_availability:
         e.check("enabled_availability_export_present", bool(availability_rows))
-    if opening_availability:
-        checked_orders = audit_opening_purchase_availability(rows(run, "mrp_orders_daily"), events, horizon, e)
-        e.check("opening_purchase_exported_order_count", checked_orders == opening_availability["row_count"], checked_orders)
+    declared_execution = (declared_meta or {}).get("opening_receipt_execution_policy")
+    if opening_availability or declared_execution or execution_export or fragment_path.exists():
+        if declared_execution:
+            e.check("opening_execution_fragment_csv_present", fragment_path.exists())
+            e.check("opening_execution_availability_summary_present", isinstance(opening_availability, dict))
+        fragments = list(rows(run, "opening_receipt_execution")) if fragment_path.exists() else []
+        checked_orders = audit_opening_purchase_availability(rows(run, "mrp_orders_daily"), events, horizon, e,
+            meta=declared_meta, fragments=fragments, execution_summary=execution_export, item_units=item_units)
+        # Availability contains original bookkeeping rows AND each physical
+        # execution fragment. Orders still contain only the original identities.
+        expected_rows = checked_orders + (len(fragments) if declared_execution else 0)
+        e.check("opening_purchase_exported_order_count", isinstance(opening_availability, dict)
+                and expected_rows == opening_availability.get("row_count"),
+                {"original_orders": checked_orders, "execution_fragments": len(fragments), "availability_rows": expected_rows})
         for row in rows(run, "mrp_trace_daily"):
             held = number(row, "held_pending_availability_qty")
             undelivered = number(row, "recv_prev_undelivered_qty")
@@ -770,6 +1519,7 @@ def audit_run(run):
 
     external_policy = summary.get("policy", {}).get("external_component_demands")
     observed_policy = None
+    reconciliation = None
     if summary.get("policy", {}).get("observed_external_component_execution"):
         declared_path = summary.get("input_file")
         e.check("observed_original_input_path_declared", bool(declared_path))
@@ -779,15 +1529,33 @@ def audit_run(run):
                 input_path = Path(__file__).resolve().parents[2] / input_path
             e.check("observed_original_input_present", input_path.is_file(), str(input_path))
             if input_path.is_file():
-                observed_policy = observed_policy_from_graph_bytes(
-                    input_path.read_bytes(), summary.get("input_sha256"), e)
+                input_bytes = input_path.read_bytes()
+                observed_policy = observed_policy_from_graph_bytes(input_bytes, summary.get("input_sha256"), e)
+                if hashlib.sha256(input_bytes).hexdigest() == summary.get("input_sha256"):
+                    meta = json.loads(input_bytes).get("meta", {})
+                    if "formats_reconciled_execution" in meta:
+                        reconciliation = dict(contract=meta["formats_reconciled_execution"],
+                            budgets=meta.get("formats_reconciled_weekly_budgets"))
+    projection = None
+    if declared_meta is not None and ("current_reference_projection" in declared_meta
+                                      or "current_reference_other_use_profile" in declared_meta):
+        projection = dict(meta=declared_meta, source_bytes=None)
+        profile_declaration = declared_meta.get("current_reference_other_use_profile")
+        source_file = profile_declaration.get("source_file") if isinstance(profile_declaration, dict) else None
+        root = Path(__file__).resolve().parents[2]
+        source_path = (root / source_file).resolve() if isinstance(source_file, str) and source_file else None
+        valid_path = (source_path is not None and source_path.is_relative_to(root)
+                      and not Path(source_file).is_absolute() and source_path.is_file())
+        e.check("prospective_original_profile_path", valid_path, source_file)
+        if valid_path:
+            projection["source_bytes"] = source_path.read_bytes()
     external_csv = run / "data/external_component_demand_daily.csv"
     if external_policy:
         e.check("external_component_export_present", external_csv.is_file(), str(external_csv))
         if external_csv.is_file():
             audit_external_component_service(rows(run, "external_component_demand_daily"), events,
                 rows(run, "production_input_consumption_daily"), external_policy, horizon, e,
-                observed_policy=observed_policy)
+                observed_policy=observed_policy, reconciliation=reconciliation, projection=projection)
     else:
         e.check("external_component_absent_without_policy", not external_csv.exists() and
                 not any(row["event_type"] == "external_component_consume" for row in events))

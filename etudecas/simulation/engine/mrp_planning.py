@@ -142,8 +142,9 @@ class IndustrialComponentPlanningCalendar:
     """Total industrial forecasts used only for planning, never physical demand.
 
     Complete supplied weeks include explicit zero. Unprovided weeks remain
-    absent. Current weeks freeze the preceding vintage; future weeks use the
-    latest vintage actually known at the decision. Fractional UN forecasts are
+    absent. Current weeks normally freeze the preceding vintage. A per-series
+    opt-in can revise their future days using the latest known vintage; no past
+    consumption is rewritten. Future weeks use the latest known vintage. UN forecasts are
     legitimate here: the physical external-use calendar is separate.
     """
 
@@ -162,12 +163,14 @@ class IndustrialComponentPlanningCalendar:
             raise ValueError("Industrial planning requires explicit total-forecast schema1 and matching origin")
         self._series = {}
         self._period_versions = {}
+        self.current_bucket_policies = {}
         for series in payload["versioned_series"]:
             pair = (series.get("node_id"), series.get("item_id"))
+            current_policy = series.get("current_bucket_policy")
             if (pair not in pair_uoms or pair in self._series or series.get("uom") != pair_uoms[pair]
                     or series.get("repeat_period_days") != 0 or series.get("period_days") != 7
                     or series.get("period_anchor_day") != 4
-                    or series.get("current_bucket_policy") != "freeze_previous_exclude_current_vintage"
+                    or current_policy not in ("freeze_previous_exclude_current_vintage", "latest_known_remaining_current_v1")
                     or series.get("missing_future_policy") != "unprovided_not_observed_zero"):
                 raise ValueError("Industrial planning series requires a unique modeled pair and dated non-repeating weeks")
             versions, days = [], set()
@@ -181,9 +184,10 @@ class IndustrialComponentPlanningCalendar:
                 periods = {}
                 for row in version["rows"]:
                     start = row.get("period_start_day")
-                    if (type(start) is not int or not known < start <= known + 364
+                    earliest = known - 6 if current_policy == "latest_known_remaining_current_v1" else known + 1
+                    if (type(start) is not int or not earliest <= start <= known + 364
                             or (start - 4) % 7 or row.get("period_days") != 7 or start in periods):
-                        raise ValueError("Industrial forecast weeks must be future Sundays inside the known 52-week horizon")
+                        raise ValueError("Industrial forecast weeks must be eligible Sundays inside the known 52-week horizon")
                     quantity = _number(row.get("qty"), "industrial total forecast")
                     if quantity < 0 or any(not isinstance(row.get(k), str) or not row[k].strip()
                                            for k in ("source_file", "source_cells")):
@@ -192,6 +196,7 @@ class IndustrialComponentPlanningCalendar:
                 versions.append((known, periods))
             versions.sort(key=lambda entry: entry[0])
             self._series[pair] = ([known for known, _ in versions], versions)
+            self.current_bucket_policies[pair] = current_policy
             # Index each supplied period separately. A later omission must not
             # erase an older forecast in the opt-in policy; an explicit zero can.
             by_period = defaultdict(list)
@@ -205,6 +210,12 @@ class IndustrialComponentPlanningCalendar:
             }
         self.pairs = tuple(sorted(self._series))
 
+    def selection_cutoff(self, pair, *, decision_day, period_start_day):
+        """Same causal vintage rule for source cells and horizon coverage."""
+        if self.current_bucket_policies[pair] == "latest_known_remaining_current_v1":
+            return decision_day
+        return min(decision_day, period_start_day - 1)
+
     def windows(self, pair, *, decision_day: int, first_day: int, through_day: int):
         if (any(type(day) is not int for day in (decision_day, first_day, through_day))
                 or first_day <= decision_day or through_day < first_day):
@@ -213,7 +224,7 @@ class IndustrialComponentPlanningCalendar:
         result = []
         first_period = 4 + ((first_day - 4) // 7) * 7
         for start in range(first_period, through_day + 1, 7):
-            cutoff = min(decision_day, start - 1)
+            cutoff = self.selection_cutoff(pair, decision_day=decision_day, period_start_day=start)
             index = bisect_right(known_days, cutoff) - 1
             row = versions[index][1].get(start) if index >= 0 else None
             selected_known = versions[index][0] if index >= 0 else None
@@ -236,8 +247,8 @@ def industrial_forecast_missing_policy(revision_policy, legacy_missing_policy):
 
     A missing week in a newer plan is not permission to resurrect an older
     industrial requirement: it may have moved. Keep it unknown (BOM/other-use
-    fallback), not an invented observed zero. The ongoing week still uses
-    the last vintage known before that week, as the calendar already does.
+    fallback), not an invented observed zero. The ongoing-week vintage is
+    selected independently by the calendar's per-series current-bucket policy.
     """
     if revision_policy is None:
         return legacy_missing_policy
@@ -318,7 +329,8 @@ class IndustrialPlanningHorizonCoverage:
         actual, unreported = [], []
         first_period = 4 + ((first_day - 4) // 7) * 7
         for start in range(first_period, through_day + 1, 7):
-            index = bisect_right(self.known_days, min(decision_day, start - 1)) - 1
+            cutoff = self.calendar.selection_cutoff(pair, decision_day=decision_day, period_start_day=start)
+            index = bisect_right(self.known_days, cutoff) - 1
             if index < 0:
                 continue
             row = self.rows[index]
@@ -744,6 +756,144 @@ def reconcile_industrial_purchase_envelope(requirements, windows, omitted_window
         output_requirements=[[r.requirement_id,r.due_day,r.qty] for r in retained],
         source_commitment_allocations=firm_allocations,revocable_allocations=allocations,cumulative_points=points)
     return retained,audits,audit
+
+
+def reconcile_manufactured_output_requirements(requirements, windows, *, pair, decision_day,
+                                             mode, committed_ids=()):
+    """Compare local output I with network needs, without creating physical flows.
+
+    Known covered I and firm output withdrawals are matched FIFO in quantity,
+    not asserted to be the same industrial orders. Firm dates/IDs never move.
+    Local authority replaces covered revocable needs; the common candidate
+    uses their cumulative maximum with residual I, never a weekly sum/max.
+    The horizon candidate includes all snapshot revocable needs in that
+    envelope, so needs outside I coverage are not added a second time.
+    Fragments retain aliases to original needs for optional transfer pegging.
+    """
+    if mode not in {"local_source_v1", "common_cumulative_v1", "common_horizon_cumulative_v2"}:
+        raise ValueError("Unknown manufactured-output reconciliation mode")
+    whole_snapshot = mode == "common_horizon_cumulative_v2"
+    original, windows = tuple(requirements), tuple(sorted(windows, key=lambda w: w.first_day))
+    if type(decision_day) is not int or len({r.requirement_id for r in original}) != len(original):
+        raise ValueError("Manufactured-output planning requires a dated snapshot and unique needs")
+    for r in original:
+        if type(r.due_day) is not int or _number(r.qty, "manufactured-output need") < 0:
+            raise ValueError("Manufactured-output needs must be finite nonnegative dated quantities")
+    zero = Fraction(0)
+    quantity = lambda rows: float(sum((Fraction(str(r.qty)) for r in rows), zero))
+    covered, source_parts, records = set(), [], []
+    for w in windows:
+        if any(type(d) is not int for d in (w.known_day, w.period_start_day, w.first_day, w.end_day_exclusive)):
+            raise ValueError("Local output I requires integer dated windows")
+        days = set(range(w.first_day, w.end_day_exclusive))
+        if (w.known_day > decision_day or w.first_day <= decision_day
+                or not w.period_start_day <= w.first_day < w.end_day_exclusive <= w.period_start_day + 7
+                or covered & days or _number(w.qty, "local output I") < 0
+                or not w.source_file or not w.source_cells):
+            raise ValueError("Local output I requires disjoint known future windows with provenance")
+        covered.update(days)
+        record = dict(period_start_day=w.period_start_day, first_day=w.first_day,
+            end_day_exclusive=w.end_day_exclusive, known_day=w.known_day,
+            source_file=w.source_file, source_cells=w.source_cells, source_qty=w.qty,
+            matched_committed_qty=0.0, residual_source_qty=0.0)
+        records.append(record)
+        source_parts.extend([d, Fraction(str(qty)), len(records)-1]
+            for d, qty in _conserved_weekly_forecast_parts(Fraction(str(w.qty)), sorted(days)))
+    firm_ids = set(committed_ids)
+    # These are actual requirements ON this output pair, never its own OF
+    # receipts. The latter remain supply and are netted by the network once.
+    prefixes = ("internal_commitment:", "initial_snapshot_hypothesis:",
+                "campaign:", "opening-pack:", "opening_production:")
+    firm = [r for r in original if r.requirement_id in firm_ids or r.requirement_id.startswith(prefixes)]
+    firm_ids.update(r.requirement_id for r in firm)
+    revocable = sorted((r for r in original if (whole_snapshot or r.due_day in covered)
+        and r.requirement_id not in firm_ids and not r.requirement_id.startswith("reserve:")),
+        key=lambda r: (r.due_day, r.requirement_id))
+    replaced = {r.requirement_id for r in revocable}
+    retained = [r for r in original if r.requirement_id not in replaced]
+    matches, pointer = [], 0
+    for r in sorted((r for r in firm if r.due_day in covered), key=lambda r: (r.due_day, r.requirement_id)):
+        left = Fraction(str(r.qty))
+        while left and pointer < len(source_parts):
+            source_day, amount, index = source_parts[pointer]
+            taken = min(left, amount)
+            if taken:
+                matches.append(dict(requirement_id=r.requirement_id, original_target_day=r.due_day,
+                    source_day=source_day, qty=float(taken), date_delta_days=r.due_day-source_day,
+                    source_cells=records[index]["source_cells"], known_day=records[index]["known_day"]))
+                source_parts[pointer][1] -= taken
+                left -= taken
+            if source_parts[pointer][1] == 0:
+                pointer += 1
+    source_by_day, downstream_by_day = defaultdict(Fraction), defaultdict(Fraction)
+    residual_by_window = defaultdict(Fraction)
+    for source_day, amount, index in source_parts:
+        source_by_day[source_day] += amount
+        residual_by_window[index] += amount
+    for index, record in enumerate(records):
+        record["residual_source_qty"] = float(residual_by_window[index])
+        record["matched_committed_qty"] = float(Fraction(str(record["source_qty"]))-residual_by_window[index])
+    for r in revocable:
+        downstream_by_day[r.due_day] += Fraction(str(r.qty))
+    profile, cumulative = [], []
+    source_cum = downstream_cum = previous = zero
+    for when in sorted(set(source_by_day) | set(downstream_by_day)):
+        source_cum += source_by_day[when]
+        downstream_cum += downstream_by_day[when]
+        envelope = source_cum if mode == "local_source_v1" else max(source_cum, downstream_cum)
+        if envelope > previous:
+            profile.append((when, envelope-previous))
+        cumulative.append(dict(day=when, residual_I_cumulative_qty=float(source_cum),
+            downstream_cumulative_qty=float(downstream_cum), planning_cumulative_qty=float(envelope)))
+        previous = envelope
+    queue = deque((r, Fraction(str(r.qty))) for r in revocable if r.qty > 0)
+    added, aliases, fragments = [], {}, []
+    for when, budget in profile:
+        while budget:
+            original_row, amount = queue.popleft() if queue else (None, budget)
+            taken = min(budget, amount)
+            for _, published in _conserved_weekly_forecast_parts(taken, (when,)):
+                identity = f"manufactured-output:{pair[0]}:{pair[1]}:D{when}:F{len(added)+1}"
+                added.append(Requirement(identity, when, published))
+                fragment = dict(requirement_id=identity, planned_day=when, qty=published,
+                    original_requirement_id=original_row.requirement_id if original_row else "",
+                    original_target_day=original_row.due_day if original_row else None,
+                    allocation_basis=(("snapshot_fifo_hypothesis" if whole_snapshot else "covered_fifo_hypothesis")
+                                      if original_row else "local_excess_without_destination"))
+                if original_row:
+                    aliases[identity] = original_row.requirement_id
+                fragments.append(fragment)
+            if original_row and amount > taken:
+                queue.appendleft((original_row, amount-taken))
+            budget -= taken
+    if len({r.requirement_id for r in retained + added}) != len(retained + added):
+        raise ValueError("Manufactured-output reconciliation generated duplicate identities")
+    row_record = lambda r: dict(requirement_id=r.requirement_id, original_target_day=r.due_day, qty=r.qty)
+    fallback = [r for r in (retained if whole_snapshot else original) if r.due_day not in covered]
+    audit = dict(windows=records, committed_matches=matches, fragments=fragments,
+        preserved_commitments=[row_record(r) for r in firm],
+        replaced_revocable=[row_record(r) for r in revocable],
+        fallback=[row_record(r) for r in fallback], cumulative=cumulative, requirement_aliases=aliases,
+        summary=dict(mode=mode, source_qty=sum(w.qty for w in windows), covered_days=len(covered),
+            covered_committed_qty=quantity([r for r in firm if r.due_day in covered]),
+            matched_committed_qty=sum(x["qty"] for x in matches),
+            residual_source_qty=float(source_cum),
+            covered_revocable_qty=quantity([r for r in revocable if r.due_day in covered]) if whole_snapshot else quantity(revocable),
+            reconciled_revocable_qty=quantity(added), retained_qty=quantity(retained),
+            fallback_qty=quantity(fallback), total_planning_qty=quantity(retained + added)))
+    if whole_snapshot:
+        # I is a partial local constraint on the common horizon, not an extra
+        # demand beside D falling between its explicitly supplied weeks.
+        # Missing I never removes D, including already-due downstream needs.
+        for row in audit["replaced_revocable"]:
+            row["source_covered"] = row["original_target_day"] in covered
+        audit["summary"].update(
+            reconciliation_scope="all_snapshot_revocable_requirements",
+            all_revocable_input_qty=quantity(revocable),
+            outside_source_coverage_revocable_qty=quantity([r for r in revocable if r.due_day not in covered]),
+            missing_I_semantics="no_local_constraint_network_needs_retained_in_envelope",
+            committed_matching_scope="explicit_I_coverage_only")
+    return retained + added, audit
 
 
 def reconcile_industrial_requirements(requirements, windows, *, pair, decision_day, policy=None):
@@ -1313,7 +1463,7 @@ class InternalTransferCommitments:
             **extra))
 
     def from_started_campaign(self, *, day, campaign_id, source_pair, campaign_qty, plan, pegs, uom,
-                              existing_campaign=False):
+                              existing_campaign=False, requirement_aliases=None):
         if campaign_id in self.seen_campaigns:
             return ()
         if not campaign_id or type(day) is not int or day < 0 or campaign_qty <= 0:
@@ -1329,6 +1479,7 @@ class InternalTransferCommitments:
                 budget -= taken
         support, new_work = defaultdict(list), defaultdict(Decimal)
         for allocation in plan.allocations:
+            requirement_id = (requirement_aliases or {}).get(allocation.requirement_id, allocation.requirement_id)
             qty = Decimal(str(allocation.qty))
             if allocation.supply_kind == "proposal" or (existing_campaign and allocation.supply_id == "campaign:" + campaign_id):
                 funded = min(qty, launched.get(allocation.supply_id, Decimal(0)))
@@ -1337,10 +1488,12 @@ class InternalTransferCommitments:
             else:
                 funded, kind = qty, allocation.supply_kind
             if funded > 0:
-                support[allocation.requirement_id].append(dict(supply_id=allocation.supply_id,
-                    kind=kind, qty=float(funded), available_day=allocation.available_day))
+                support[requirement_id].append(dict(supply_id=allocation.supply_id,
+                    kind=kind, qty=float(funded), available_day=allocation.available_day,
+                    **({"planning_requirement_id": allocation.requirement_id}
+                       if requirement_id != allocation.requirement_id else {})))
                 if kind == "started_campaign":
-                    new_work[allocation.requirement_id] += funded
+                    new_work[requirement_id] += funded
         created = []
         for requirement_id, peg in sorted(pegs.items(), key=lambda kv: (kv[1]["release_day"], kv[0])):
             if tuple(peg["source_pair"]) != tuple(source_pair) or new_work[requirement_id] <= 0:

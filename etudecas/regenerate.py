@@ -121,16 +121,23 @@ def _record_run(scenario: str, output: Path, command: list[str], *, companions=F
     _write(output / 'run_manifest.json', manifest)
 
 
-def _map_command(output: Path, graph: Path, map_path: Path) -> list[str]:
+def _map_command(output: Path, graph: Path, map_path: Path, *, current: bool = False) -> list[str]:
     missing = output / '__not_attached_optional_campaigns__'
     if missing.exists():
         raise ValueError(f'Optional-campaign sentinel must not exist: {missing}')
     command = [sys.executable, '-B', '-m', 'etudecas.visualization.maps.build_supplychain_worldmap',
                '--input', str(graph), '--run-package', str(output / 'run'),
-               '--simulated-risk-output-dir', str(output / 'scenario_runs/state_dependent_full'),
+               '--simulated-risk-output-dir', str(missing if current else output / 'scenario_runs/state_dependent_full'),
                '--output', str(map_path), '--title', 'Simulation - lots et bilans corriges',
                '--read-only-source', '--chunked-embedded-payload',
-               '--supplier-audit-xlsx', str(ROOT / 'etudecas/data/source')]
+               '--supplier-audit-xlsx', str(missing if current else ROOT / 'etudecas/data/source')]
+    if current:
+        for flag, filename in (
+            ('--supplier-stock-flows-csv', 'production_supplier_stock_flows_daily.csv'),
+            ('--supplier-nominal-parameters-csv', 'supplier_nominal_parameters.csv'),
+            ('--factory-nominal-capacities-csv', 'production_capacity_nominal_parameters.csv'),
+        ):
+            command += [flag, str(output / 'data' / filename)]
     # Attach only the retained four calculations. Repository defaults must never
     # silently supply an unrelated historical sensitivity or risk campaign.
     for flag in (
@@ -150,7 +157,7 @@ def _map_command(output: Path, graph: Path, map_path: Path) -> list[str]:
         '--threshold-sensitivity-summary-json', '--threshold-parameter-summary-csv',
         '--threshold-sweep-cases-csv',
     ):
-        command += [flag, '']
+        command += [flag, str(missing) if current else '']
     return command
 
 
@@ -347,16 +354,79 @@ def _deliver_comparison(output: Path, commands: list[tuple[str, Path, list[str]]
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--reference', choices=('current', 'historical_20260920'),
+                        default='current',
+                        help='Current is the maintained MRP reference. Use historical_20260920 explicitly to reproduce the September delivery.')
     parser.add_argument('--scenario', choices=('nominal', 'risques', 'securite_150', 'acceleration_50'), default='nominal')
     parser.add_argument('--days', type=int, help='Omit to keep the retained 1825-day horizon.')
+    parser.add_argument('--forecast-mode', choices=('source_priority', 'coherent_scenario'), default='coherent_scenario',
+                        help='Current reference only: coherent_scenario is maintained; source_priority remains available explicitly for comparison.')
     parser.add_argument('--output-dir', type=Path)
-    parser.add_argument('--with-map', action='store_true', help='Build a basic map of this single run; use --delivery lots for the full portable comparison and diagnostic.')
+    parser.add_argument('--with-map', action='store_true', help='Build the complete offline map with both lot views, annual panel and 2025 source comparisons.')
+    parser.add_argument('--comparison-run', type=Path,
+                        help='Current --with-map only: explicitly add a retained run to the annual and 2025 comparisons.')
     parser.add_argument('--delivery', choices=('lots', 'comparaison_2025'), help='Recreate the lots delivery or add source/MRP comparisons and two separate diagnostics to the retained map.')
     parser.add_argument('--base-map', type=Path, help='For comparaison_2025 only: existing map to enrich; defaults to resultats/02_carte_lots_recente.html.')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     if args.days is not None and args.days < 1:
         parser.error('--days must be positive')
+    if args.reference == 'current':
+        if args.scenario != 'nominal' or args.delivery or args.base_map:
+            parser.error('The current reference supports the nominal calculation and --with-map; historical risk deliveries require --reference historical_20260920.')
+        if args.comparison_run is not None and not args.with_map:
+            parser.error('--comparison-run requires --with-map')
+        comparison_run = args.comparison_run.resolve() if args.comparison_run is not None else None
+        if comparison_run is not None and not comparison_run.is_dir():
+            parser.error(f'Missing comparison run: {comparison_run}')
+        output = (args.output_dir or Path('etudecas/simulation/result') /
+                  f'current_{datetime.now():%Y%m%d_%H%M%S}').resolve()
+        if output.exists() and (not output.is_dir() or any(output.iterdir())):
+            parser.error(f'Output must be new or empty: {output}')
+        command = [sys.executable, '-B', '-m', 'etudecas.simulation.current_reference',
+                   '--days', str(args.days if args.days is not None else 1825),
+                   '--forecast-mode', args.forecast_mode,
+                   '--output-dir', str(output)]
+        graph = output / 'input_graph.json'
+        map_path = output / 'maps' / f'supply_graph_{output.name}.html'
+        base_map_path = output / 'maps' / f'.base_supply_graph_{output.name}.html'
+        map_command = _map_command(output, graph, base_map_path, current=True) if args.with_map else None
+        if map_command:
+            map_command[map_command.index('--title') + 1] = 'MRP actuel — simulation nominale et suivi des lots'
+        if args.dry_run:
+            print(json.dumps({'reference': 'current', 'command': command,
+                              'map_command': map_command,
+                              'map_assembly': ({'builder': 'etudecas.visualization.maps.current_reference_map.build_complete_current_map',
+                                                'base_map': str(base_map_path), 'output': str(map_path),
+                                                'comparison_run': str(comparison_run) if comparison_run is not None else None}
+                                               if map_command else None),
+                              'scope': 'W historical rules; beyond 2025, explicitly declared prospective assumptions. No historical risk campaign attached.'},
+                             ensure_ascii=False, indent=2))
+            return
+        result = subprocess.run(command, cwd=ROOT, check=False)
+        if result.returncode:
+            raise SystemExit(result.returncode)
+        if map_command:
+            result = subprocess.run(map_command, cwd=ROOT, check=False)
+            if result.returncode:
+                raise SystemExit(result.returncode)
+            if not base_map_path.is_file():
+                raise SystemExit('Simulation completed but the requested base map was not generated.')
+            from etudecas.visualization.maps.current_reference_map import build_complete_current_map
+            delivery = build_complete_current_map(
+                base_map_path, output, map_path, comparison_run=comparison_run)
+            _write(output / 'complete-map-delivery.json', delivery)
+            # Remove the large intermediate only after the complete delivery and
+            # its manifest both exist.  On failure it remains available for
+            # diagnosis instead of losing the successfully built lot map.
+            base_map_path.unlink()
+            if not map_path.is_file():
+                raise SystemExit('Simulation completed but the complete requested map was not generated.')
+        return
+    if args.comparison_run is not None:
+        parser.error('--comparison-run is only supported with --reference current --with-map')
+    if args.forecast_mode != 'source_priority':
+        parser.error('--forecast-mode coherent_scenario requires --reference current')
     if args.delivery and (args.scenario != 'nominal' or args.with_map):
         parser.error('--delivery already includes its scenarios and map; omit --scenario and --with-map')
     if args.base_map is not None and args.delivery != 'comparaison_2025':

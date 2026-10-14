@@ -12,7 +12,6 @@ from .causal_links import (
     PLAN_CAUSAL_FIELDS,
 )
 from dataclasses import dataclass, field
-from etudecas.case_config import is_upstream_internal_site
 
 
 # Schema
@@ -405,6 +404,7 @@ class LotTraceItemSets:
     produced_item_ids: frozenset[str] = field(default_factory=frozenset)
     consumed_item_ids: frozenset[str] = field(default_factory=frozenset)
     semi_finished_item_ids: frozenset[str] = field(default_factory=frozenset)
+    raw_material_item_ids: frozenset[str] = field(default_factory=frozenset)
 
     @classmethod
     def from_raw(
@@ -419,6 +419,7 @@ class LotTraceItemSets:
         produced_item_ids: set[str] = set()
         consumed_item_ids: set[str] = set()
         semi_finished_item_ids: set[str] = set()
+        raw_material_item_ids: set[str] = set()
 
         for edge in raw.get("edges", []) or []:
             src = str(edge.get("from") or "")
@@ -428,33 +429,33 @@ class LotTraceItemSets:
             edge_items = {str(item_id) for item_id in (edge.get("items") or []) if str(item_id)}
             if dst_type == "customer":
                 final_good_item_ids.update(edge_items)
-            if src_type == "factory" and dst_type == "factory":
-                semi_finished_item_ids.update(edge_items)
-            if is_upstream_internal_site(src) or is_upstream_internal_site(dst):
-                semi_finished_item_ids.update(edge_items)
+            if src_type == "supplier_dc":
+                raw_material_item_ids.update(edge_items)
 
         for node in raw.get("nodes", []) or []:
-            node_id = str(node.get("id") or "")
             for proc in node.get("processes") or []:
                 for output in proc.get("outputs") or []:
                     item_id = str(output.get("item_id") or "")
                     if not item_id:
                         continue
                     produced_item_ids.add(item_id)
-                    if is_upstream_internal_site(node_id):
-                        semi_finished_item_ids.add(item_id)
                 for input_row in proc.get("inputs") or []:
                     item_id = str(input_row.get("item_id") or "")
                     if item_id:
                         consumed_item_ids.add(item_id)
 
+        # A mixed site can manufacture semi-finished goods and redistribute raw
+        # materials. Location or a factory-to-factory lane is not a conversion.
         semi_finished_item_ids.update(produced_item_ids & consumed_item_ids)
         semi_finished_item_ids.difference_update(final_good_item_ids)
+        raw_material_item_ids.update(consumed_item_ids - produced_item_ids)
+        raw_material_item_ids.difference_update(final_good_item_ids | semi_finished_item_ids)
         return cls(
             final_good_item_ids=frozenset(final_good_item_ids),
             produced_item_ids=frozenset(produced_item_ids),
             consumed_item_ids=frozenset(consumed_item_ids),
             semi_finished_item_ids=frozenset(semi_finished_item_ids),
+            raw_material_item_ids=frozenset(raw_material_item_ids),
         )
 
 
@@ -480,11 +481,11 @@ class LotTraceItemClassifier:
         item = str(item_id or "")
         node = str(node_id or "")
         node_type = self.node_type_by_id.get(node, "")
-        if item in self.item_sets.final_good_item_ids or node_type in {"distribution_center", "customer"}:
+        if item in self.item_sets.final_good_item_ids:
             return "finished_product"
-        if item in self.item_sets.semi_finished_item_ids or is_upstream_internal_site(node):
+        if item in self.item_sets.semi_finished_item_ids:
             return "semi_finished"
-        if item in self.item_sets.consumed_item_ids or node_type == "supplier_dc":
+        if item in self.item_sets.raw_material_item_ids or node_type == "supplier_dc":
             return "raw_material"
         if item in self.item_sets.produced_item_ids:
             return "produced_item"

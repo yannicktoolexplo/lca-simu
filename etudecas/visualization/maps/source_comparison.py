@@ -13,10 +13,13 @@ from __future__ import annotations
 from collections import defaultdict
 import csv
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 import hashlib
+import io
 import json
 import math
 from pathlib import Path
+import unicodedata
 
 import openpyxl
 
@@ -537,6 +540,146 @@ def _customer_response_run(service_rows, availability_rows, event_rows):
     return result
 
 
+def _demand_pf_rows(rows, headers):
+    """Read the agreed weekly demand, preserving signed industrial quantities."""
+    expected = ('product', 'customer_id', 'step', 'forecast_demand', 'real demand')
+    if tuple(headers[:5]) != expected:
+        raise ValueError('Unexpected demand_PF!Demande columns')
+    products, seen = {}, set()
+    for row_number, row in rows:
+        item, _, step, _, raw = row[:5]
+        if item is None:
+            continue
+        item = str(int(item))
+        if item not in CUSTOMER_RESPONSE_ITEMS:
+            raise ValueError(f'Unexpected demand_PF product: {item}')
+        if not isinstance(step, (int, float)) or not math.isfinite(step) or int(step) != step or not 1 <= step <= 52:
+            raise ValueError(f'Invalid demand_PF week at row {row_number}')
+        raw = _number(raw, physical_unit='UN')
+        if raw is None or (item, step) in seen:
+            raise ValueError(f'Missing or duplicate demand_PF week at row {row_number}')
+        seen.add((item, step))
+        products.setdefault(item, dict(item=item, unit='UN', history=[]))['history'].append(
+            [-2 + 7 * (int(step) - 1), max(int(raw), 0), int(raw), row_number])
+    if set(products) != set(CUSTOMER_RESPONSE_ITEMS):
+        raise ValueError('demand_PF must document both finished products')
+    for product in products.values():
+        product['history'].sort()
+        if [row[0] for row in product['history']] != list(range(-2, 356, 7)):
+            raise ValueError('demand_PF must contain 52 distinct weeks per product')
+        product['source_total_corrected_52_weeks'] = sum(row[1] for row in product['history'])
+        product['complete_2025_total_corrected_51_weeks'] = sum(row[1] for row in product['history'][1:])
+        product['negative_rows'] = [row[3] for row in product['history'] if row[2] < 0]
+    return dict(sheet='Demande', value_column='E', unit='UN',
+        columns=['period_start_day', 'corrected_demand_qty', 'signed_source_qty', 'excel_row'],
+        products=products, calendar='step 1 = lundi 30/12/2024 ; 52 semaines jusqu’au 28/12/2025',
+        assumption='Convention retenue : step 1 commence le 30/12/2024 ; max(real demand, 0). '
+                   'La source signée est conservée. Ce traitement ne prouve pas les expéditions industrielles.')
+
+
+def _observed_customer_response_rows(rows, headers, demand_pf):
+    """Estimate units from signed revenue, never substitute net stock movements.
+
+    A complete week requires all five source weekdays. Negative daily financial
+    corrections are summed unchanged; a negative weekly basis is unusable.
+    """
+    def normalize(value):
+        return ''.join(c for c in unicodedata.normalize('NFKD', value)
+                       if not unicodedata.combining(c)).strip().lower()
+
+    normalized = {normalize(h): h for h in headers}
+    required = ('product code', 'first delivery date', 'ca_livre', 'ca_perdu')
+    if len(normalized) != len(headers) or any(key not in normalized for key in required):
+        raise ValueError('Unexpected delivered/lost revenue CSV columns')
+    by_week, seen, corrections = defaultdict(list), set(), []
+    for line, row in rows:
+        item = row[normalized['product code']].strip()
+        when = date.fromisoformat(row[normalized['first delivery date']])
+        if item not in CUSTOMER_RESPONSE_ITEMS or when.year != 2025 or (item, when) in seen:
+            raise ValueError(f'Invalid or duplicate customer revenue row {line}')
+        seen.add((item, when))
+        delivered = Decimal(row[normalized['ca_livre']])
+        lost = Decimal(row[normalized['ca_perdu']])
+        if not delivered.is_finite() or not lost.is_finite():
+            raise ValueError(f'Nonfinite customer revenue row {line}')
+        start = (when - timedelta(days=when.weekday()) - ORIGIN).days
+        by_week[item, start].append((when, delivered, lost, line))
+        if delivered < 0 or lost < 0:
+            corrections.append(dict(item=item, date=when.isoformat(), ca_delivered=float(delivered),
+                                    ca_lost=float(lost), source_row=line))
+    products = {}
+    for item in CUSTOMER_RESPONSE_ITEMS:
+        demands = {row[0]: Decimal(row[1]) for row in demand_pf['products'][item]['history']}
+        weekly = []
+        for start in range(5, 356, 7):
+            records = by_week[item, start]
+            expected = {ORIGIN + timedelta(days=start + offset) for offset in range(5)}
+            complete = {r[0] for r in records} == expected
+            delivered = sum((r[1] for r in records), Decimal(0)) if complete else None
+            lost = sum((r[2] for r in records), Decimal(0)) if complete else None
+            total = delivered + lost if complete else None
+            valid = complete and delivered >= 0 and lost >= 0 and total > 0
+            ratio = delivered / total if valid else None
+            demand = demands.get(start)
+            estimate = demand * ratio if ratio is not None and demand is not None and demand > 0 else None
+            status = ('missing_source_dates' if not complete else
+                      'zero_pf_demand_with_positive_revenue' if total > 0 and demand == 0 else
+                      'invalid_or_zero_revenue_basis' if not valid else 'complete')
+            weekly.append(dict(start_day=start, end_day=start + 6,
+                ca_delivered=float(delivered) if delivered is not None else None,
+                ca_lost=float(lost) if lost is not None else None,
+                ca_total=float(total) if total is not None else None,
+                financial_service_pct=float(100 * ratio) if ratio is not None else None,
+                estimated_served_qty=float(estimate) if estimate is not None else None,
+                observed_weekdays_count=len(records), source_rows=[r[3] for r in records], status=status))
+        products[item] = dict(weekly=weekly)
+    return dict(schema_version=1,
+        monetary_unit='valeur monétaire source · devise non précisée',
+        financial_definition='CA livré / (CA livré + CA perdu), montants signés additionnés sur la période ; pas un taux de service en unités ni un OTIF.',
+        quantity_estimate_definition='demande demand_PF corrigée × part de CA livrée ; hypothèse de prix moyen identique entre demande satisfaite et non satisfaite dans la semaine, et de périmètre commun.',
+        quantity_estimate_limit='Aucun prix client renseigné. Estimation absente lorsque la demande PF vaut zéro alors que du CA est enregistré. Ni le stock net ni le flux MRP ne sont utilisés comme livraisons réelles.',
+        negative_adjustments=corrections, period_start='2025-01-06', period_end='2025-12-28', products=products)
+
+
+def _customer_delivery_sources(source_dir, *, demand_pf_path=None, customer_revenue_path=None):
+    """Load native customer comparison sources; missing optional inputs stay absent."""
+    if demand_pf_path is None:
+        candidate = source_dir / 'demand_PF.xlsx'
+        demand_pf_path = candidate if candidate.is_file() else None
+    if customer_revenue_path is None:
+        candidates = sorted(source_dir.glob('CA_Perdu*.csv'))
+        if len(candidates) > 1:
+            raise ValueError('Several customer revenue CSVs: specify customer_revenue_path')
+        customer_revenue_path = candidates[0] if candidates else None
+    demand_pf, observed, hashes = None, None, {}
+    if demand_pf_path is not None:
+        path = Path(demand_pf_path)
+        hashes[str(path)] = _hash(path)
+        book = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        try:
+            sheet = book['Demande']
+            demand_pf = _demand_pf_rows(enumerate(sheet.iter_rows(min_row=2, values_only=True), 2),
+                                      next(sheet.iter_rows(max_row=1, values_only=True)))
+        finally:
+            book.close()
+        demand_pf.update(source=path.name, source_sha256=hashes[str(path)])
+    if customer_revenue_path is not None and demand_pf is not None:
+        path = Path(customer_revenue_path)
+        hashes[str(path)] = _hash(path)
+        raw = path.read_bytes()
+        try:
+            decoded, encoding = raw.decode('utf-8-sig'), 'utf-8-sig'
+        except UnicodeDecodeError:
+            decoded, encoding = raw.decode('cp1252'), 'cp1252'
+        reader = csv.DictReader(io.StringIO(decoded), delimiter=';')
+        observed = _observed_customer_response_rows(enumerate(reader, 2), reader.fieldnames, demand_pf)
+        observed.update(source_file=path.name, source_sha256=hashes[str(path)], encoding=encoding)
+    for path, digest in hashes.items():
+        if _hash(Path(path)) != digest:
+            raise ValueError(f'Customer source changed during reading: {path}')
+    return demand_pf, observed, hashes
+
+
 def _customer_response_payload(customer_demand, pairs, run_info):
     """Join only observed weekly demand, photos and signed source movements."""
     if customer_demand is None:
@@ -818,6 +961,308 @@ def build_factory_dispatch_comparison(customer_demand, pairs, runs: dict[str, Pa
                 'Une source manquante reste null. Les 51 semaines complètes vont du 6 janvier au 28 décembre 2025.',
                 'Réservations, fabrication, libérations et départs dépôt–clients sont exclus des départs usine.'],
         provenance=provenance)
+
+
+FACTORY_ACTIVITY_PRODUCTS = {
+    '268091/1810': ('UN', '338929/1810'),
+    '268967/1430': ('UN', '333362/1430'),
+    '773474/1450': ('KG', None),
+    '693055/1450': ('KG', None),
+}
+FACTORY_ACTIVITY_FLOW_FIELDS = (
+    'external_receipt_qty', 'transport_receipt_qty', 'physical_output_qty',
+    'opening_output_qty', 'new_output_qty', 'boundary_receipt_qty',
+    'available_output_qty', 'availability_release_qty', 'transport_shipped_qty',
+    'core_consumption_qty', 'other_consumption_qty',
+)
+
+
+def _factory_activity_sources(pairs):
+    """Expose source G/H/I/J without interpreting a signed net as gross usage."""
+    components = {}
+    for key, entry in sorted(pairs.items()):
+        item, division = key.split('/')
+        if division not in ('1430', '1450', '1810'):
+            continue
+        unit = entry['unit']
+        photos, movements = {}, {}
+        for row in entry.get('observed', []):
+            if row[0] in photos:
+                raise ValueError(f'Duplicate activity source photo: {key}, {row[0]}')
+            photos[row[0]] = row
+        for row in entry.get('source_movements', {}).get('rows', []):
+            if row[1] in movements:
+                raise ValueError(f'Duplicate activity source movement: {key}, {row[1]}')
+            movements[row[1]] = row
+
+        def number(value):
+            result = _number(value, physical_unit=unit)
+            return int(round(result)) if unit == 'UN' and result is not None else result
+
+        weeks = []
+        for _, start, end in _weekly_windows('monday_after'):
+            op, cl, movement = photos.get(start), photos.get(end + 1), movements.get(start)
+            if movement is not None and (movement[0] != start - 1 or movement[2] != end):
+                raise ValueError(f'Activity source movement interval mismatch: {key}, {start}')
+            opening, closing = number(op[1]) if op else None, number(cl[1]) if cl else None
+            delta = closing - opening if opening is not None and closing is not None else None
+            g, h, i, j = [number(v) for v in movement[3:7]] if movement is not None else [None] * 4
+            outbound = -(i + j) if i is not None and j is not None else None
+            implied = delta - g - i - j if all(v is not None for v in (delta, g, i, j)) else None
+            residual = implied - h if implied is not None and h is not None else None
+            double = (key == '773474/1450' and implied is not None and implied > 0
+                      and h is not None and h > 0 and abs(h - 2 * implied) < 1e-6)
+            weeks.append(dict(start_day=start, end_day=end,
+                start_date=(ORIGIN + timedelta(days=start)).isoformat(),
+                end_date=(ORIGIN + timedelta(days=end)).isoformat(),
+                stock_open_qty=opening, stock_close_qty=closing, stock_delta_qty=delta,
+                misc_G_qty=g, incoming_H_qty=h, other_signed_I_qty=i, scan3_signed_J_qty=j,
+                net_outbound_assumption_qty=outbound, implied_receipt_qty=implied,
+                balance_residual_qty=residual, incoming_double_candidate=double,
+                status='documented' if residual is not None else 'missing_source',
+                movement_excel_row=movement[7] if movement is not None else None,
+                movement_label_date=(ORIGIN + timedelta(days=movement[0])).isoformat() if movement else None,
+                opening_photo_excel_row=op[2] if op else None,
+                opening_photo_date=(ORIGIN + timedelta(days=op[0])).isoformat() if op else None,
+                closing_photo_excel_row=cl[2] if cl else None,
+                closing_photo_date=(ORIGIN + timedelta(days=cl[0])).isoformat() if cl else None))
+        components[key] = dict(item=item, site=SITES[division], site_name=SITE_NAMES[division],
+                               unit=unit, weeks=weeks, simulations={})
+    return components
+
+
+def _factory_activity_bom_rows(numbered_rows, item, *, source_file, output_source_unit='UN'):
+    """Read the primary BOM layout; ratios stay theoretical and may be fractional."""
+    output_unit, output_factor = _unit(output_source_unit)
+    result, seen = [], set()
+    # The intermediate workbook adds its designation between item and batch.
+    offset = 1 if item == '773474' else 0
+    for line, row in numbered_rows:
+        if not any(value is not None for value in row):
+            continue
+        if str(row[0]).zfill(6) != item:
+            raise ValueError(f'Unexpected product in activity BOM: {source_file}!{line}')
+        component = str(row[2 + offset]).zfill(6)
+        if component in seen:
+            raise ValueError(f'Duplicate activity BOM component: {item}, {component}')
+        seen.add(component)
+        raw_component_unit = str(row[5 + offset]).strip().rstrip('.')
+        component_unit, component_factor = _unit(raw_component_unit)
+        batch = _number(row[1 + offset], output_factor)
+        qty = _number(row[4 + offset], component_factor)
+        if batch is None or batch <= 0 or qty is None or qty <= 0:
+            raise ValueError(f'Invalid activity BOM coefficient: {source_file}!{line}')
+        result.append(dict(item=item, component=component, coefficient=qty / batch,
+            component_unit=component_unit, output_unit=output_unit,
+            source=dict(file=source_file, sheet='BOM', excel_row=line,
+                batch_qty=row[1 + offset], batch_unit=output_source_unit,
+                component_qty=row[4 + offset], component_unit=raw_component_unit,
+                normalized_batch_qty=batch, normalized_component_qty=qty,
+                batch_cell=f'{openpyxl.utils.get_column_letter(2 + offset)}{line}',
+                component_qty_cell=f'{openpyxl.utils.get_column_letter(5 + offset)}{line}',
+                component_unit_cell=f'{openpyxl.utils.get_column_letter(6 + offset)}{line}')))
+    return result
+
+
+def _factory_activity_indicators(components, boms):
+    products = {}
+    for key, (unit, primary_component) in FACTORY_ACTIVITY_PRODUCTS.items():
+        item, division = key.split('/')
+        indicators = []
+        if primary_component is None and key in components:
+            weeks = []
+            for week in components[key]['weeks']:
+                raw = week['implied_receipt_qty']
+                weeks.append({**week, 'raw_qty': raw,
+                    'estimate_qty': raw if raw is not None and raw >= 0 else None,
+                    'source_row': week['movement_excel_row'],
+                    'status': 'missing_source' if raw is None else 'negative_estimate' if raw < 0 else 'estimated'})
+            indicators.append(dict(id='stock_balance', label='Entrées impliquées par le bilan de stock',
+                primary=True, component=key, coefficient=1,
+                basis='Variation du stock − G Divers − I signé − J Scan3 ; entrées impliquées, pas preuve de fabrication.',
+                source=dict(file='Flow_Data_Inventory_movements.xlsx', sheet='Feuille1',
+                            columns=['G', 'I', 'J'], photos_file='Flow_Data_Inventory_and_Replenishment_rules.xlsx'),
+                weeks=weeks))
+        for bom in boms.get(item, []):
+            component_key = f'{bom["component"]}/{division}'
+            component = components.get(component_key)
+            if component is None:
+                continue
+            if component['unit'] != bom['component_unit'] or unit != bom['output_unit']:
+                raise ValueError(f'Activity BOM/source unit mismatch: {component_key}')
+            weeks = []
+            for week in component['weeks']:
+                scan3 = week['scan3_signed_J_qty']
+                outgoing = -scan3 if scan3 is not None else None
+                raw = outgoing / bom['coefficient'] if outgoing is not None else None
+                weeks.append({**week, 'raw_qty': raw,
+                    'estimate_qty': raw if raw is not None and raw >= 0 else None,
+                    'source_row': week['movement_excel_row'], 'component_signed_outbound_qty': outgoing,
+                    'component_scan3_outbound_qty': outgoing,
+                    'status': 'missing_source' if raw is None else 'negative_estimate' if raw < 0 else 'estimated'})
+            role = ('Primaire' if component_key == primary_component else
+                    'Corroborant' if component_key == '338928/1810' else 'Diagnostic')
+            indicators.append(dict(id=f'bom:{component_key}', label=f'{role} · composant {bom["component"]}',
+                primary=component_key == primary_component, component=component_key,
+                coefficient=bom['coefficient'], component_unit=bom['component_unit'],
+                basis='−J Scan3 / coefficient BOM ; I autres usages reste exclu. Hypothèse d’affectation au produit, pas consommation brute certifiée.',
+                source=bom['source'], weeks=weeks))
+        indicators.sort(key=lambda indicator: (not indicator['primary'], indicator['component']))
+        products[key] = dict(item=item, site=SITES[division], site_name=SITE_NAMES[division],
+                              unit=unit, indicators=indicators, simulations={})
+    return products
+
+
+def _factory_activity_run(availability_rows, event_rows, scopes, *, has_event_ledger=True):
+    """Separate physical production, later availability and boundary supply.
+
+    Only executed event rows contribute. Existing production availability logic
+    follows the same lot; an initial-stock release never becomes production.
+    A missing daily state prevents treating event absence as a weekly zero.
+    """
+    lookup = {(entry['site'], f'item:{entry["item"]}'): key for key, entry in scopes.items()}
+    stocks, flows, seen, retained = {}, defaultdict(lambda: defaultdict(lambda: defaultdict(float))), set(), []
+
+    def quantity(row, field, key):
+        unit, factor = _unit(row['uom'])
+        if unit != scopes[key]['unit']:
+            raise ValueError(f'Activity register unit mismatch: {key}')
+        value = _number(row[field], factor, physical_unit=unit)
+        if value is None or value < 0:
+            raise ValueError(f'Invalid activity register quantity: {key}, {field}')
+        return int(round(value)) if unit == 'UN' else value
+
+    for row in availability_rows:
+        key, day = lookup.get((row['node_id'], row['item_id'])), int(row['day'])
+        if key is None or not 0 <= day < DAYS:
+            continue
+        if (key, day) in stocks:
+            raise ValueError(f'Duplicate activity stock: {key}, {day}')
+        stocks[key, day] = quantity(row, 'physical_qty', key)
+    field_for_kind = {'external_receipt': 'external_receipt_qty', 'transport_receipt': 'transport_receipt_qty',
+        'transport_shipment': 'transport_shipped_qty', 'availability_release': 'availability_release_qty',
+        'core_consumption': 'core_consumption_qty', 'other_consumption': 'other_consumption_qty',
+        'simplified_supply': 'boundary_receipt_qty'}
+    for row in event_rows:
+        key, day = lookup.get((row['node_id'], row['item_id'])), int(row['day'])
+        if key is None or not 0 <= day < DAYS:
+            continue
+        identity = row.get('event_id')
+        if not identity or identity in seen:
+            raise ValueError('Duplicate or missing activity lot event identity')
+        seen.add(identity)
+        retained.append(row)
+        kind = site_flow_kind(row)
+        if kind is None:
+            continue
+        qty = quantity(row, 'qty', key)
+        if kind == 'production_output':
+            flows[key][day]['physical_output_qty'] += qty
+            field = 'opening_output_qty' if row['event_type'] == 'opening_production_order' else 'new_output_qty'
+            flows[key][day][field] += qty
+        else:
+            flows[key][day][field_for_kind[kind]] += qty
+    for row in production_availability_events(sorted(retained, key=lambda event: int(event['day']))):
+        key, day = lookup[row['node_id'], row['item_id']], int(row['day'])
+        flows[key][day]['available_output_qty'] += quantity(row, 'qty', key)
+    result = {}
+    for key, scope in scopes.items():
+        documented = sorted(day for day in range(DAYS) if (key, day) in stocks)
+        coverage = set(documented) if has_event_ledger else set()
+        weeks = []
+        for _, start, end in _weekly_windows('monday_after'):
+            complete = all(day in coverage for day in range(start, end + 1))
+            totals = {field: math.fsum(flows[key][day][field] for day in range(start, end + 1))
+                      if complete else None for field in FACTORY_ACTIVITY_FLOW_FIELDS}
+            if scope['unit'] == 'UN':
+                totals = {field: int(round(value)) if value is not None else None for field, value in totals.items()}
+            received = (sum(totals[field] for field in ('external_receipt_qty', 'transport_receipt_qty',
+                         'physical_output_qty', 'boundary_receipt_qty')) if complete else None)
+            opening, closing = stocks.get((key, start - 1)), stocks.get((key, end))
+            delta = closing - opening if opening is not None and closing is not None else None
+            residual = (delta - received + totals['transport_shipped_qty'] + totals['core_consumption_qty']
+                        + totals['other_consumption_qty'] if delta is not None and complete else None)
+            weeks.append(dict(start_day=start, end_day=end, **totals, total_receipt_qty=received,
+                stock_open_qty=opening, stock_close_qty=closing, stock_delta_qty=delta,
+                balance_residual_qty=residual, status='documented' if complete else 'missing_coverage'))
+        result[key] = dict(weeks=weeks, documented_days=documented, has_event_ledger=has_event_ledger)
+    return result
+
+
+def build_factory_activity_comparison(pairs, runs: dict[str, Path], *, source_dir=None):
+    """Read source BOMs and frozen run ledgers; never rerun or calibrate them."""
+    source_dir = Path(source_dir) if source_dir is not None else ROOT / 'etudecas/data/source'
+    components, boms, hashes = _factory_activity_sources(pairs), {}, {}
+    if not components:
+        return None
+    for item, source_unit in [('268091', 'UN'), ('268967', 'UN'), ('773474', 'G')]:
+        path = source_dir / f'{item}.xlsx'
+        if not path.is_file():
+            boms[item] = []
+            continue  # An absent BOM is not replaced by a model coefficient.
+        hashes[str(path)] = _hash(path)
+        book = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        try:
+            boms[item] = _factory_activity_bom_rows(
+                enumerate(book['BOM'].iter_rows(min_row=2, values_only=True), 2), item,
+                source_file=path.name, output_source_unit=source_unit)
+        finally:
+            book.close()
+    products = _factory_activity_indicators(components, boms)
+    scopes = {**components, **products}
+    run_provenance = {}
+    for label, folder in runs.items():
+        run, files = Path(folder), {}
+
+        def recorded(path):
+            files[str(path)] = _hash(path)
+            return path
+
+        def rows(name):
+            path = run / 'data' / name
+            if not path.is_file():
+                return []
+            with recorded(path).open(encoding='utf-8-sig', newline='') as stream:
+                return list(csv.DictReader(stream))
+
+        summary = json.loads(recorded(run / 'summaries/first_simulation_summary.json').read_text(encoding='utf-8'))
+        if summary.get('warmup_days') != 0:
+            raise ValueError('Factory activity requires no warm-up')
+        graph_path = Path(summary['input_file'])
+        if not graph_path.is_absolute():
+            graph_path = ROOT / graph_path
+        if _hash(recorded(graph_path)) != summary['input_sha256']:
+            raise ValueError(f'Graph changed since activity simulation: {graph_path}')
+        graph = json.loads(graph_path.read_text(encoding='utf-8'))
+        if graph.get('meta', {}).get('opening_open_orders', {}).get('snapshot_date') != ORIGIN.isoformat():
+            raise ValueError('Activity graph does not establish 2025-01-01 as day zero')
+        ledger = run / 'data/production_lot_events.csv'
+        has_ledger = ledger.is_file() and bool(summary.get('policy', {}).get('lot_trace_enabled'))
+        simulated = _factory_activity_run(rows('production_stock_availability_daily.csv'),
+            rows(ledger.name), scopes, has_event_ledger=has_ledger)
+        for group in (components, products):
+            for key, entry in group.items():
+                entry['simulations'][label] = simulated[key]
+        for path, digest in files.items():
+            if _hash(Path(path)) != digest:
+                raise ValueError(f'Input changed during factory activity comparison: {path}')
+        run_provenance[label] = dict(run_directory=str(run), sim_days=summary['sim_days'], inputs=files)
+    for path, digest in hashes.items():
+        if _hash(Path(path)) != digest:
+            raise ValueError(f'BOM changed during factory activity comparison: {path}')
+    return dict(schema_version=1, origin=ORIGIN.isoformat(), calendar='monday_sunday_complete_2025',
+        components=components, products=products, provenance=dict(source_boms=hashes, runs=run_provenance),
+        missing_boms=[f'{item}.xlsx' for item, rows_ in boms.items() if not rows_],
+        source_files=dict(movements='Flow_Data_Inventory_movements.xlsx',
+                          photos='Flow_Data_Inventory_and_Replenishment_rules.xlsx'),
+        limits=['Les entrées H sont des mouvements signés sources ; les entrées simulées séparent achat externe, transport, production physique et approvisionnement simplifié.',
+                'I signé et J Scan3 restent séparés puis s’additionnent. Leur opposé est une sortie nette candidate, pas une consommation brute certifiée ni une affectation industrielle au seul produit.',
+                'Les équivalents BOM utilisent seulement −J Scan3, sans I autres usages. Ils sont théoriques, éventuellement fractionnaires en UN ; les quantités physiques simulées UN restent entières. Aucun arrondi ni moyenne entre indicateurs incompatibles.',
+                'La production PF primaire utilise les étuis 338929 pour 268091 et 333362 pour 268967 ; les tubes 338928 corroborent 268091. Les autres BOM restent des diagnostics distincts.',
+                'À Gaillac, variation de stock − G − I − J reconstitue des entrées, pas une preuve de fabrication. H brut reste visible, notamment lorsqu’il vaut deux fois cette entrée pour 773474.',
+                'Production physique = événements production_output et opening_production_order exécutés. La disponibilité ultérieure du même lot ne crée pas de nouvelle production ; les libérations du stock initial restent séparées.',
+                'Un ordre initial planifié ne prouve pas une fabrication industrielle. Seul son événement exécuté simulé est compté ici. tau_process reste inchangé et n’est pas utilisé comme durée physique.',
+                'Les 51 fenêtres sont lundi–dimanche, du 6 janvier au 28 décembre 2025. Aucun flux source n’est réparti en observations journalières ; source absente ou semaine simulée incomplète reste null.'])
 
 
 CUSTOMER_FORECAST_FIELDS = (
@@ -1970,17 +2415,24 @@ def chain_stock_equivalence(pairs, runs):
 
 def build_comparison_payload(inventory_path: Path, mrp_path: Path,
                              runs: dict[str, Path], *, customer_demand_path: Path | None = None,
-                             movements_path: Path | None = None) -> dict:
+                             movements_path: Path | None = None, demand_pf_path: Path | None = None,
+                             customer_revenue_path: Path | None = None) -> dict:
     """Read full runs and both Excel files; return the self-contained UI payload.
 
     Each run needs daily stock/production/service/MRP CSVs, initialization stock,
     the lot event ledger, its summary and the unchanged input graph. At least the
     ``nominal`` run is mandatory. No historical artifact is used at runtime.
+    The demand_PF and delivered/lost revenue files are discovered beside the
+    inventory workbook unless explicit paths are supplied. Missing optional
+    sources remain absent; the view must not silently relabel Flow history.
     """
     if 'nominal' not in runs:
         raise ValueError('The unchanged nominal run must be supplied.')
     inventory_path, mrp_path = Path(inventory_path), Path(mrp_path)
     source_hashes = {str(p): _hash(p) for p in (inventory_path, mrp_path)}
+    demand_pf, observed_response, customer_hashes = _customer_delivery_sources(
+        inventory_path.parent, demand_pf_path=demand_pf_path, customer_revenue_path=customer_revenue_path)
+    source_hashes.update(customer_hashes)
     pairs, coverage, lot_rules = _read_sources(inventory_path, mrp_path)
     customer_demand = None
     if movements_path is not None:
@@ -2037,9 +2489,11 @@ def build_comparison_payload(inventory_path: Path, mrp_path: Path,
         'last_end_day': windows[-1][2] if windows else None,
     } for key in WEEKLY_CONVENTIONS}
     return {'schema_version': 7 if customer_demand or movements_path else 6, 'origin': ORIGIN.isoformat(), 'end': '2025-12-31',
+        'demand_pf': demand_pf, 'observed_customer_response': observed_response,
         'customer_demand': customer_demand,
         'customer_response': _customer_response_payload(customer_demand, pairs, run_info),
         'factory_dispatch': build_factory_dispatch_comparison(customer_demand, pairs, runs),
+        'factory_activity': build_factory_activity_comparison(pairs, runs, source_dir=inventory_path.parent),
         'movements_source': Path(movements_path).name if movements_path else None,
         'columns': COLUMNS, 'runs': run_info, 'pairs': dict(sorted(pairs.items())),
         'weekly_conventions': WEEKLY_CONVENTIONS, 'default_weekly_alignment': 'sunday_start',

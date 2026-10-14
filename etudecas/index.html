@@ -1,51 +1,69 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Etudecas — les résultats à conserver</title>
-<style>body{font:17px system-ui;color:#183247;background:#f4f7fa;max-width:960px;margin:40px auto;padding:0 24px}p{line-height:1.6}section{background:white;border:1px solid #cfdae3;border-radius:12px;padding:20px;margin:18px 0}a{color:#075985}small{color:#526675}h2{font-size:23px}</style>
-</head><body>
-<small>Carte et comparaison actualisées le 8 octobre 2026 · fichiers HTML consultables séparément</small>
-<h1>Les quatre résultats à conserver</h1>
-<p>Ces documents se trouvent dans <a href="resultats/">resultats</a>. Les dates ci-dessous désignent leurs résultats d'origine ; leur rassemblement ne relance aucune simulation.</p>
-<section><h2>1. Démonstration complète</h2>
-<p><a href="resultats/01_demonstration_complete.html">Ouvrir la démonstration avec contexte et audits fournisseurs</a></p>
-<p>Version du 15 septembre : neuf vues regroupant réseau, lots historiques, incidents, analyses et SCAN. Le document embarque ses données et ses pièces jointes.</p>
-<p><strong>Plusieurs calculs historiques sont réunis.</strong> Les horizons et campagnes Monte Carlo diffèrent selon la vue. Ce document ne représente pas le nominal corrigé du 20 septembre.</p></section>
-<section><h2>2. Référence demande / centre de distribution et carte complète</h2>
-<p><a href="resultats/factory_dispatch_20261008/comparaison.html"><strong>Nouvel onglet : sorties d'usines reconstituées et simulées vers Muret</strong></a>. Avène / Cicalfate et Gien / Permixon : volumes estimés par bilan des stocks, sous hypothèse que l'historique Flow représente les sorties clients. Le délai de transport retenu est réglable ; les deux courbes portent sur les mêmes intervalles. Les comparaisons demande/client précédentes sont conservées, sans nouvelle simulation.</p>
-<p><strong>Décision du 8 octobre : la comparaison demand_PF ci-dessous est désormais la référence acceptée pour la demande client et le centre de distribution.</strong> Le <a href="docs/reference/mrp_current.json">registre</a> conserve son scénario, son HTML, les preuves et leurs empreintes dans un instantané compressé. La réponse industrielle reste une estimation. Les cartes complètes listées ensuite conservent leurs calculs précédents.</p>
-<p><a href="resultats/demand_pf_20261008/comparaison.html"><strong>Demande client, réponse réelle estimée et réponse simulée</strong></a>. Trois courbes : demande demand_PF, livré estimé depuis la part de CA livré/perdu, et service simulé. L'estimation suppose un prix moyen et un périmètre communs ; le tableau rapproche aussi les sorties de stock. Second graphique : besoins du MRP réel et du MRP simulé à la même date. Les détails financiers, prévisions et stocks restent consultables. L'essai couvre le 1er janvier au 28 décembre 2025, avec les demandes négatives ramenées à zéro. L'ancienne simulation est sélectionnable ; cet essai ne remplace pas le calcul de la carte complète ci-dessous.</p>
-<p><a href="resultats/forecast_dispatch_20261008/carte.html"><strong>Référence de travail actuelle : MRP 2025, prévisions et départs de Muret</strong></a>. Réseau et deux suivis de lots ; bouton « Comparaisons 2025 » avec prévisions connues semaine par semaine, historique client source et départs simulés. L'historique client ne prouve pas encore les expéditions industrielles. L'ancien MRP est conservé comme témoin, désélectionné par défaut. <a href="resultats/forecast_dispatch_20261008/comparaison.html">Ouvrir directement les courbes</a> · <a href="docs/reference/mrp_current.json">Registre de référence</a>.</p>
-<p><a href="resultats/full_map_current_mrp_20261008/carte.html"><strong>Version précédente de la carte 2025, avant l'ajout de la comparaison prévisions/départs</strong></a>. Même calcul annuel corrigé, réseau et deux suivis de lots. Les scénarios historiques de risques restent dans l'ancienne carte ; ils ne sont pas recalculés ici. La calibration industrielle reste partielle. <a href="artifacts/testing/full_map_current_mrp_20261008/assembly.json">Provenance du document</a>.</p>
-<p><a href="resultats/mrp_packaging_solutions_20261006/comparaison_corrigee.html"><strong>Dernière comparaison des étuis : neuf variantes testées et le meilleur essai reproduit avec le moteur final</strong></a>. B3 / C8R : écart moyen réduit de 33 % à Avène et 59 % à Gien. Le carnet initial est complété et les promesses encore modifiables replanifiées ; des surstocks et des différences de programme de fabrication subsistent. <a href="resultats/mrp_packaging_solutions_20261006/comparaison_enveloppe.html">Consulter les essais écartés</a>. Aucun nouveau nominal global validé. <a href="artifacts/testing/mrp_packaging_solutions_20261006/bilan.md">Décision, chiffres et contrôles</a>.</p>
-<p><a href="resultats/mrp_packaging_audit_20261006/comparaison.html"><strong>Étuis : besoins corrigés et emballages des encours représentés</strong></a>. Comparaison G2 / B1 / B2 / B3 sur 2025. B3 réduit l'écart moyen des étuis de 24,8 % à Avène et de 35,6 % à Gien ; Avène finit à 832 799 unités contre 836 400 réelles. Le surstock de Gien et plusieurs autres écarts restent importants : cet essai n'est pas un MRP industriel validé globalement. B2 est écarté pour ses manques matière. <a href="artifacts/testing/mrp_packaging_audit_20261006/bilan.md">Causes, résultats et vérifications</a>.</p>
-<p><a href="resultats/mrp_gien_supply_20261006/comparaison.html"><strong>001848 à Gien : achats rétablis, comparaison 2025</strong></a>. C / N / G1 / G2 : l'écart moyen de stock passe de 26 085 à 10 904 kg face à N. Le stock final reste trop haut : 46 149 kg contre 30 629 kg réels. G2 complète conditionnellement le carnet initial ; la protection locale reste candidate. <a href="artifacts/testing/mrp_gien_supply_20261006/bilan.md">Règles, résultats et limites</a>.</p>
-<p><a href="resultats/mrp_node_scope_20261006/comparaison.html"><strong>Stocks ajoutés par article et site : 001848 à Gien, 001893 et 002612 à Gaillac</strong></a>. Comparaison C / N sur 2025 : stocks initiaux et usages raccordés, engagements connus conservés. Leur approvisionnement automatique reste non paramétré ; ces trois comparaisons sont partielles. Les autres stocks et productions restent inchangés. <a href="artifacts/testing/mrp_node_scope_20261006/bilan.md">Périmètre, résultats et vérifications</a>.</p>
-<p><a href="resultats/mrp_rule_revision_20261006/comparaison.html"><strong>Dernière comparaison 2025 : révision des anciennes règles MRP</strong></a>. C / D / DE / DEP : séparation des besoins propres et des autres usages, sorties physiques et conditionnement initial. Des stocks se rapprochent, mais les manques matière augmentent : aucun essai n'est adopté globalement. Valeurs contrôlées ; interactions non requalifiées dans le navigateur. <a href="artifacts/testing/mrp_rule_revision_20261006/bilan.md">Résultats, causes et vérifications</a>.</p>
-<p><a href="resultats/mrp_overstock_root_20261006/comparaison.html"><strong>Comparaison précédente : comprendre les surstocks des emballages</strong></a>. Correction des besoins repris d'anciens plans MRP et essais de rapprochement des besoins. Les deux emballages se rapprochent, mais les variantes combinées ajoutent des manques matière et ne remplacent pas C. <a href="artifacts/testing/mrp_overstock_root_20261006/bilan.md">Causes chiffrées, limites et vérifications</a>.</p>
-<p><a href="resultats/mrp_scope_reconciliation_20261005/comparaison.html"><strong>Comparaison précédente : rapprochement des besoins MRP, C / Q</strong></a>. 15 stocks annuels se rapprochent des sources, 12 s'en éloignent. Q ajoute des journées avec manque matière et ne remplace pas la référence C. Les 33 couples restent accessibles, avec classement et couverture. <a href="artifacts/testing/mrp_scope_reconciliation_20261005/bilan.md">Résultats, règles et vérifications</a>.</p>
-<p><a href="resultats/mrp_reference_coverage_20261005/comparaison.html"><strong>Toutes les références : classement des écarts et couverture 2025</strong></a>. 26 articles, 33 couples article/site : 27 comparaisons sur douze mois, 2 partielles et 4 non représentées ou non rapprochables. Cliquer sur une référence pour ses courbes ; couverture exportable. Comparaison C / A avec résultats conservés. <a href="artifacts/testing/mrp_reference_coverage_20261005/bilan.md">Bilan, causes et références à intégrer</a>.</p>
-<p><a href="resultats/mrp_transfer_advance_20261005/comparaison.html"><strong>Dernière correction 2025 : avancer les transferts engagés</strong></a>. Les 3 200 kg de janvier partent désormais sans attendre la promesse d'avril et sans double commande. Comparaison C / K / A ; la référence C reste conservée car A n'améliore pas tous les stocks. <a href="artifacts/testing/mrp_transfer_advance_20261005/bilan.md">Résultats et vérifications</a> · <a href="docs/REGLES_MRP.md">Toutes les règles MRP, simplement</a>.</p>
-<p><a href="resultats/mrp_corrections_20261005/comparaison.html"><strong>Essais précédents 2025 : consommations, lots et engagements de transfert</strong></a>. Trois simulations annuelles comparées à C ; gains et dégradations visibles sur les stocks, flux, plans MRP et demande. <strong>Aucun essai ne remplace la référence C.</strong> <a href="artifacts/testing/mrp_corrections_20261005/bilan.md">Lire le bilan des essais et les règles testées</a>.</p>
-<p><a href="resultats/customer_comparison_20261005/comparaison.html"><strong>Comparaison de référence 2025 avec la nouvelle demande client</strong></a>. La simulation C utilise le nouvel historique client et les prévisions mensuelles connues à chaque date ; M conserve l'ancienne demande estimée. Le calcul physique couvre uniquement 2025, avec des prévisions pouvant aller en 2026. Les gains et les dégradations restent visibles. <a href="data/reports/mrp_source_rules.md">Règles et limites documentées</a>.</p>
-<details><summary>Comparaisons MRP précédentes conservées</summary>
-<p><a href="resultats/mrp_decisions_20261005/comparaison.html">Référence du 5 octobre : sécurité projetée et planification multi-fournisseurs</a>.</p>
-<p><a href="resultats/mrp_execution_20260928/carte_mrp.html">Comparaison du 28 septembre : livraison, disponibilité et achats par échéance</a>. Quatre anciens calculs de cinq ans comparés sur 2025 ; autres onglets et suivis de lots historiques.</p>
-<p><a href="resultats/mrp_alignment_20260928/carte.html">Correction du carnet initial</a> · <a href="resultats/mrp_source_driven_20260928/carte_corrigee.html">Introduction des prévisions sources</a>.</p>
-<p><a href="resultats/comparaison_mrp_date_20260928/comparaison.html">Essais antérieurs : dates de réception et sécurité de fabrication</a> : conservés pour comparaison ; leur adoption globale a été écartée à cause des dégradations constatées.</p>
-<p><a href="resultats/comparaison_mrp_fiabilisee_20260928/comparaison.html">Première comparaison MRP fiabilisée</a> : bouton « Essais MRP 2025 », choix des semaines comparées, distinction des états de stock et dates des commandes initiales. Deux simulations sur cinq ans recalculées ; comparaisons sur 2025. Les autres onglets restent ceux du nominal historique.</p>
-</details>
-<p><a href="resultats/02_carte_lots_recente.html">Ouvrir la carte historique et ses suivis de lots</a>. Son ancien panneau de comparaison contient encore une valeur erronée pour 002612/Gaillac au 6 janvier : utiliser la dernière comparaison ci-dessus, qui lit bien 1 250 kg dans le classeur corrigé.</p>
-<p>Simulation sur 1 825 jours, courbes, suivi détaillé et parcours interactif des lots. Le diagnostic et ses quatre pièces jointes sont embarqués pour conserver leur accès dans un fichier unique.</p>
-<p>Dans la carte historique seule, le bouton <strong>Comparaisons 2025</strong> contient l'ancien rapprochement des stocks sources, plans MRP et trois simulations sur le composant 338929. Pour les données actualisées, utiliser la dernière comparaison ci-dessus.</p>
-<p>Cette version ne contient pas de résultats Monte Carlo ni SCAN. Les données historiques de la carte et ses deux suivis de lots sont conservés. Les diagnostics MRP sont exploratoires ; ils ne remplacent pas le nominal.</p></section>
-<section><h2>3. Comparaison de plusieurs supply chains</h2>
-<p><a href="resultats/03_comparaison_supply_chains.html">Ouvrir « Configurations de service produit et leviers fournisseurs »</a></p>
-<p>Ébauche du 1er septembre : trois chaînes, configurations critiques à excellentes, jusqu'à 100 % de disponibilité fournisseur. Onglets fournisseur → client, configurations fragiles et décisions à tester.</p>
-<p>Les niveaux de service et certains indicateurs relèvent d'hypothèses simulées ou de proxies ; ce sont des explorations à interpréter avec leurs limites.</p></section>
-<section><h2>4. Fournisseurs critiques selon la configuration</h2>
-<p><a href="resultats/04_criticite_fournisseurs_configurations.html">Comparer les fournisseurs quand la supply chain se tend</a></p>
-<p>Résultats préliminaires du 4 septembre, remis en forme le 22 septembre : 18 liaisons fournisseur–article–usine, deux types d'incidents et trois configurations. Choisissez la configuration, la cause et l'indicateur ; cliquez sur une cellule pour voir le détail dans les trois états.</p>
-<p>Les services clients simulés avant incident sont de 100 %, 92,33 % et 79,47 %. Une seule graine commune a été utilisée ; les six incidents non exercés sont exclus des priorités. Ce résultat exploratoire n'est pas un classement statistiquement confirmé. Les données et leur provenance sont exportables depuis le HTML.</p>
-<p>Ces niveaux décrivent l'étude historique. Les essais du 22 septembre montrent qu'il faut requalifier les configurations avec le moteur corrigé avant de lancer une nouvelle comparaison.</p></section>
-<p><a href="docs/REGENERER_RESULTATS.md">Reconstruire les résultats</a> · <a href="README.md">Comprendre le code</a> · <a href="docs/PLAN_SIMPLIFICATION.md">Plan de simplification</a> · <a href="archive/README.md">Archives et anciennes preuves</a></p>
-</body></html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Etudecas — résultats conservés</title>
+  <style>
+    body{font:17px system-ui;color:#183247;background:#f4f7fa;max-width:940px;margin:40px auto;padding:0 24px}
+    p{line-height:1.55}section{background:#fff;border:1px solid #cfdae3;border-radius:12px;padding:20px;margin:18px 0}
+    a{color:#075985}small{color:#526675}h2{font-size:22px;margin-top:0}.current{border-color:#0f766e;box-shadow:0 2px 12px #0f766e1c}
+  </style>
+</head>
+<body>
+  <small>Référence MRP autonome du 14 octobre 2026</small>
+  <h1>Cartes Etudecas conservées</h1>
+  <p>Les campagnes intermédiaires sont régénérables et ne sont plus présentées
+  ici. Ces cartes couvrent le parcours courant, sa référence antérieure et les
+  quatre livrables historiques qui gardent une fonction distincte.</p>
+
+  <section class="current">
+    <h2>Référence courante sur cinq ans</h2>
+    <p><a href="resultats/corrections_5ans_20261014/carte_simulation_5ans_corrigee.html"><strong>Ouvrir la simulation MRP courante</strong></a></p>
+    <p>Réseau, courbes, comparaisons industrielles 2025, bilan annuel et deux
+    suivis de lots. Les années 2026–2029 sont le scénario prospectif cohérent
+    déclaré.</p>
+    <p><a href="docs/REGLES_MRP.md">Règles actives</a> ·
+    <a href="docs/REGENERER_RESULTATS.md">Reproduire le calcul</a> ·
+    <a href="docs/MRP_REFERENCE_20261014.md">Preuves et périmètre</a></p>
+  </section>
+
+  <section>
+    <h2>Référence MRP antérieure</h2>
+    <p><a href="resultats/corrections_5ans_20261014/reference_corrigee.html"><strong>Ouvrir la comparaison antérieure</strong></a></p>
+    <p>Conservée pour mesurer l'effet des derniers ajustements. Elle ne constitue
+    plus le nominal à exécuter.</p>
+  </section>
+
+  <section>
+    <h2>Démonstration fonctionnelle historique</h2>
+    <p><a href="resultats/01_demonstration_complete.html"><strong>Ouvrir la démonstration complète</strong></a></p>
+    <p>Vue consolidée des fonctionnalités historiques : réseau, résultats,
+    risques, fournisseurs et audits. Ses calculs sont datés et ne remplacent pas
+    la référence MRP courante.</p>
+  </section>
+
+  <section>
+    <h2>Lotification et traçabilité</h2>
+    <p><a href="resultats/02_carte_lots_recente.html"><strong>Ouvrir la carte de lotification améliorée</strong></a></p>
+    <p>Livrable historique dédié au détail des lots, transports et parcours
+    amont–aval.</p>
+  </section>
+
+  <section>
+    <h2>Comparaison de supply chains</h2>
+    <p><a href="resultats/03_comparaison_supply_chains.html"><strong>Ouvrir l'ébauche multi-chaînes</strong></a></p>
+    <p>Comparaison exploratoire de configurations allant d'une chaîne tendue à
+    une disponibilité fournisseur élevée. Les indicateurs restent des hypothèses
+    de scénario.</p>
+  </section>
+
+  <section>
+    <h2>Criticité fournisseurs par configuration</h2>
+    <p><a href="resultats/04_criticite_fournisseurs_configurations.html"><strong>Ouvrir la comparaison de criticité</strong></a></p>
+    <p>Vue dédiée à l'évolution de la criticité fournisseur selon la
+    configuration de la chaîne. Ce livrable historique reste séparé de la
+    simulation MRP nominale.</p>
+  </section>
+</body>
+</html>

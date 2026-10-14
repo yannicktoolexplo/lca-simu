@@ -326,6 +326,88 @@ class LotTraceConfigTest(unittest.TestCase):
 # Test lot trace rules
 
 class LotTraceRulesTest(unittest.TestCase):
+    @staticmethod
+    def mixed_gaillac_graph() -> dict:
+        """Small in-memory graph: storage is distinct from transformation."""
+        return {
+            "nodes": [
+                {"id": "S-RAW", "type": "supplier_dc"},
+                {
+                    "id": "SDC-1450", "type": "factory",
+                    "processes": [
+                        {"inputs": [{"item_id": "item:021081"}],
+                         "outputs": [{"item_id": "item:773474"}]},
+                        {"inputs": [{"item_id": "item:VIRTUAL"}],
+                         "outputs": [{"item_id": "item:693055"}]},
+                    ],
+                },
+                {
+                    "id": "M-1810", "type": "factory",
+                    "processes": [{
+                        "inputs": [{"item_id": "item:" + code}
+                                   for code in ("001893", "002612", "693055", "338929")],
+                        "outputs": [{"item_id": "item:268091"}],
+                    }],
+                },
+                {
+                    "id": "M-1430", "type": "factory",
+                    "processes": [{
+                        "inputs": [{"item_id": "item:773474"}, {"item_id": "item:333362"}],
+                        "outputs": [{"item_id": "item:268967"}],
+                    }],
+                },
+                {"id": "DC-1920", "type": "distribution_center"},
+                {"id": "C-1", "type": "customer"},
+            ],
+            "edges": [
+                {"from": "S-RAW", "to": "SDC-1450",
+                 "items": ["item:001893", "item:002612", "item:021081", "item:NO-BOM"]},
+                {"from": "SDC-1450", "to": "M-1810",
+                 "items": ["item:001893", "item:002612", "item:693055"]},
+                {"from": "SDC-1450", "to": "M-1430", "items": ["item:773474"]},
+                {"from": "DC-1920", "to": "C-1", "items": ["item:268091", "item:268967"]},
+            ],
+        }
+
+    def test_gaillac_redistributed_materials_remain_raw_at_each_site(self) -> None:
+        classifier = LotTraceItemClassifier.from_raw(self.mixed_gaillac_graph())
+        for code in ("001893", "002612", "021081"):
+            for site in ("S-RAW", "SDC-1450", "M-1810", "DC-1920"):
+                with self.subTest(code=code, site=site):
+                    self.assertEqual(classifier.item_family("item:" + code, site), "raw_material")
+        self.assertEqual(classifier.scope_for_creation({
+            "event_type": "lane_receipt", "item_id": "item:001893", "node_id": "SDC-1450",
+        }), ("raw_material_receipt", "MP recue"))
+        self.assertEqual(classifier.scope_for_creation({
+            "event_type": "opening_stock", "item_id": "item:002612", "node_id": "SDC-1450",
+        }), ("raw_material_opening", "MP stock initial"))
+
+    def test_gaillac_manufactured_intermediates_and_finished_goods_keep_their_family(self) -> None:
+        classifier = LotTraceItemClassifier.from_raw(self.mixed_gaillac_graph())
+        for code in ("693055", "773474"):
+            for site in ("SDC-1450", "M-1810", "M-1430", "DC-1920"):
+                with self.subTest(code=code, site=site):
+                    self.assertEqual(classifier.item_family("item:" + code, site), "semi_finished")
+        for code in ("268091", "268967"):
+            for site in ("SDC-1450", "M-1810", "M-1430", "DC-1920", "C-1"):
+                with self.subTest(code=code, site=site):
+                    self.assertEqual(classifier.item_family("item:" + code, site), "finished_product")
+
+    def test_supplier_material_without_bom_and_packaging_keep_their_family_in_storage(self) -> None:
+        classifier = LotTraceItemClassifier.from_raw(self.mixed_gaillac_graph())
+        for code in ("NO-BOM", "338929", "333362"):
+            for site in ("S-RAW", "SDC-1450", "DC-1920"):
+                with self.subTest(code=code, site=site):
+                    self.assertEqual(classifier.item_family("item:" + code, site), "raw_material")
+
+    def test_unknown_inventory_is_not_reclassified_from_the_site_or_transfer(self) -> None:
+        raw = self.mixed_gaillac_graph()
+        raw["edges"].append({"from": "SDC-1450", "to": "M-1430", "items": ["item:UNKNOWN"]})
+        classifier = LotTraceItemClassifier.from_raw(raw)
+        for site in ("SDC-1450", "M-1430", "DC-1920", "C-1"):
+            with self.subTest(site=site):
+                self.assertEqual(classifier.item_family("item:UNKNOWN", site), "inventory_item")
+
     def test_item_classifier_extracts_families_and_scopes_from_raw_graph(self) -> None:
         raw = {
             "nodes": [

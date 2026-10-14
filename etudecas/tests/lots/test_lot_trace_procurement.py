@@ -5,6 +5,7 @@ import unittest
 from etudecas.simulation.lot_trace.procurement import (
     enrich_lot_trace_with_procurement,
     normalize_procurement_orders,
+    resolve_order_milestones,
 )
 from etudecas.simulation.lot_trace.view_model import build_lot_trace_view_model
 from copy import deepcopy
@@ -124,8 +125,8 @@ class LotTraceProcurementTest(unittest.TestCase):
         enrich_lot_trace_with_procurement(events, [], orders)
 
         self.assertEqual(events[0]["supplier_node_id"], "SDC-VD0520132A")
-        self.assertEqual(events[0]["order_day"], 0)
-        self.assertEqual(events[0]["mrp_decision_day"], 0)
+        self.assertIsNone(events[0]["order_day"])
+        self.assertIsNone(events[0]["mrp_decision_day"])
         self.assertEqual(events[0]["requested_release_day"], -8)
         self.assertEqual(events[0]["actual_release_day"], -8)
         self.assertEqual(events[0]["actual_receipt_day"], 12)
@@ -157,6 +158,36 @@ class LotTraceProcurementTest(unittest.TestCase):
             first[0]["mrp_order_id"],
             first[1]["mrp_order_id"],
         )
+
+    def test_explicit_milestones_match_physical_receipt_before_availability(self) -> None:
+        row = dict(day=0, order_decision_day=0, release_day=7, order_date_imt=7,
+                   arrival_day=23, actual_receipt_day=23, physical_delivery_day=14,
+                   actual_physical_receipt_day=14, available_day=23, actual_available_day=23,
+                   src_node_id="SUP", dst_node_id="FAC", item_id="RAW", edge_id="EDGE",
+                   release_qty=100, planned_receipt_qty=100)
+        event = dict(day=14, event_type="lane_receipt", lot_id="L1", node_id="FAC",
+                     item_id="RAW", source_id="EDGE", qty=100)
+        result = enrich_lot_trace_with_procurement([event], [], [row])
+        self.assertEqual(result["summary"]["matched_lot_event_count"], 1)
+        self.assertEqual(event["mrp_decision_day"], 0)
+        self.assertEqual(event["actual_release_day"], 7)
+        self.assertEqual(event["planned_arrival_day"], 14)
+        self.assertEqual(event["actual_receipt_day"], 14)
+        self.assertEqual(event["planned_available_day"], 23)
+        self.assertEqual(event["actual_available_day"], 23)
+
+    def test_explicit_unknown_dates_never_fall_back_to_day_zero_or_availability(self) -> None:
+        row = dict(day=0, order_decision_day="", order_type="opening_purchase_order",
+                   release_day=-20, arrival_day=12, actual_receipt_day=12,
+                   physical_delivery_day="", actual_physical_receipt_day="",
+                   available_day=12, actual_available_day="")
+        result = resolve_order_milestones(row)
+        self.assertTrue(result["explicit_contract"])
+        self.assertIsNone(result["decision_day"])
+        self.assertIsNone(result["planned_physical_day"])
+        self.assertIsNone(result["actual_physical_day"])
+        self.assertEqual(result["planned_available_day"], 12)
+        self.assertIsNone(result["actual_available_day"])
 
     def test_infers_aggregate_supplier_timeline_from_lane_without_order(self) -> None:
         events = [

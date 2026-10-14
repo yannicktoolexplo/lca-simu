@@ -447,8 +447,24 @@ def build_customer_demand_payloads(
             raise ValueError(f"Customer outflow must be a non-positive integer: {value!r}")
         return -int(number)
 
+    def quantity_column(rows: list[dict[str, Any]], name: str) -> str:
+        # read_xlsx_tables preserves workbook header order. Both exports, with
+        # and without SKU Label, are accepted without changing any quantities.
+        headers = tuple(rows[0])
+        if name not in headers or any(tuple(row) != headers for row in rows):
+            raise ValueError(f"Inconsistent customer headers for {name}")
+        number, letters = headers.index(name) + 1, ""
+        while number:
+            number, remainder = divmod(number - 1, 26)
+            letters = chr(65 + remainder) + letters
+        return letters
+
+    history_column = quantity_column(history_rows, "Actual Demand")
+    forecast_column = quantity_column(projection_rows, "Forecasted Demand")
+
     def convert(rows: list[dict[str, Any]], forecast: bool) -> list[dict[str, Any]]:
         sheet = "Projection" if forecast else "Historique"
+        column = forecast_column if forecast else history_column
         converted, seen = [], set()
         periods: dict[tuple[str, int | None], list[int]] = defaultdict(list)
         for number, row in enumerate(rows, start=2):
@@ -471,7 +487,7 @@ def build_customer_demand_payloads(
                 "period_start_day": start, "period_days": 7,
                 "qty": quantity(row.get("Forecasted Demand" if forecast else "Actual Demand")),
                 "source_file": source_file,
-                "source_row": f"{sheet}!A{number}:{'E' if forecast else 'D'}{number}",
+                "source_row": f"{sheet}!A{number}:{column}{number}",
             }
             if forecast:
                 entry["vintage_day"] = vintage
@@ -494,14 +510,14 @@ def build_customer_demand_payloads(
         "mrp_forecast_missing_period_policy": "last_known_period_v1",
         "forecast_consumption_policy": "weekly_actual_orders_v1",
         "customer_demand_history": {
-            **common, "rows": history, "source": {**provenance, "sheet": "Historique", "column": "D"},
+            **common, "rows": history, "source": {**provenance, "sheet": "Historique", "column": history_column},
             "scope": "Demand requests; not proof of fulfilled industrial shipments",
             "allocation": "Whole UN spread uniformly over seven days; year boundaries clipped without redistribution",
         },
         "mrp_forecasts": {
             **common, "repeat_period_days": 365, "rows": forecasts,
             "current_bucket_policy": "excluded_unresolved_carry_over",
-            "source": {**provenance, "sheet": "Projection", "column": "E"},
+            "source": {**provenance, "sheet": "Projection", "column": forecast_column},
             "snapshot_date_assumption": "Snapshot week Monday used as knowledge date; exact publication timestamp unknown",
             "scope": "Dated commercial forecast at customer; not component demand or physical shipments",
             "repeat_policy": "Disabled in source_customer_history_v1; retain source 2026 forecasts without growth multiplier",

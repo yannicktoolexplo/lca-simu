@@ -297,12 +297,13 @@ def qty_mismatch(expected: float, actual: float) -> bool:
 
 
 def audit_opening_pack_fragments(events, genealogy):
-    """Exact fragment reconciliation, separate from multi-day campaign WIP.
+    """Exact initial-OF fragment reconciliation, separate from campaign WIP.
 
     Pack fragments are complete conditioning operations. Their empty campaign
     ID is not an identity: several fragments can consume one parent on one day.
     Check the union of debits and links so an entirely absent link also fails.
-    The untraced non-Pack initial WIP is never fabricated into extra parents.
+    Full-material initial OF use the same exact reconciliation with their own
+    explicit material-state hypothesis. Untraced initial WIP gains no parents.
     """
     def metadata(row):
         try:
@@ -314,8 +315,11 @@ def audit_opening_pack_fragments(events, genealogy):
     def is_fragment(row):
         source = str(row.get("source_id") or "")
         prefix, sep, number = source.rpartition(";pack_fragment=")
+        material_prefix, material_sep, material_number = source.rpartition(";material_fragment=")
         return (metadata(row).get("opening_pack_policy") == "pack_at_source_G_v1"
-                or bool(prefix and sep and number.isdigit() and int(number) > 0))
+                or metadata(row).get("opening_production_material_policy") == "materials_at_source_G_v1"
+                or bool(prefix and sep and number.isdigit() and int(number) > 0)
+                or bool(material_prefix and material_sep and material_number.isdigit() and int(material_number) > 0))
 
     fragment_ids = {str(row.get("source_id") or "") for row in [*events, *genealogy] if is_fragment(row)}
     output_lots = {str(row.get("lot_id") or "") for row in events
@@ -357,8 +361,20 @@ def audit_opening_pack_fragments(events, genealogy):
         elif row.get("event_type") == "opening_production_order":
             outputs[fragment].append(row)
             amount(row, "qty", units.get(str(row.get("lot_id") or ""), ""))
-            if (not fragment or metadata(row).get("opening_pack_policy") != "pack_at_source_G_v1"
-                    or metadata(row).get("non_pack_materials") != "initial_WIP_untraced"):
+            note = metadata(row)
+            valid_pack = (note.get("opening_pack_policy") == "pack_at_source_G_v1"
+                          and note.get("non_pack_materials") == "initial_WIP_untraced"
+                          and not note.get("opening_production_material_policy")
+                          and ";material_fragment=" not in fragment)
+            prefix, sep, number = fragment.rpartition(";material_fragment=")
+            valid_material = (bool(prefix and sep and number.isdigit() and int(number) > 0)
+                and ";pack_fragment=" not in fragment
+                and note.get("opening_production_material_policy") == "materials_at_source_G_v1"
+                and note.get("source_material_state") == "unknown"
+                and note.get("scenario_material_state") == "to_issue"
+                and note.get("materials") == "complete_active_BOM_including_declared_virtual_inputs"
+                and not note.get("opening_pack_policy") and not note.get("non_pack_materials"))
+            if not fragment or not (valid_pack or valid_material):
                 issue("opening_pack_missing_provenance", row, f"fragment={fragment}")
     for fragment, rows in outputs.items():
         if len(rows) != 1:

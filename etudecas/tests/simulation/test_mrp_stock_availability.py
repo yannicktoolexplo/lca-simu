@@ -81,6 +81,76 @@ def test_planner_counts_only_known_releases_within_dated_cover():
     assert stock[PAIR] == 10
 
 
+def test_undated_mrp_exclusion_preserves_physical_stock_without_future_supply():
+    pair = ("SDC-1450", "item:001893")
+    stock = {pair: 1094.0}
+    ledger = engine.LotLedger(enabled=True)
+    ledger.seed_opening_stock(day=0, stock=stock, item_unit_map={pair[1]: "KG"})
+    availability = engine.InitialStockAvailability({"schema_version": 1,
+        "knowledge_date": "2025-01-05", "assumption": engine.InitialStockAvailability.BACKCAST_ASSUMPTION,
+        "rows": [{"node_id": pair[0], "item_id": pair[1], "quantity": 375, "uom": "KG",
+                  "release_day": None, "availability_status": "unknown_mrp_excluded",
+                  "explanation": "Physical opening 1094 minus first MRP J719; status unknown.",
+                  "source_row": "Physical opening; MRP!J113"}]},
+        stock=stock, item_unit_map={pair[1]: "KG"}, origin_date="2025-01-01")
+    availability.initialize(stock=stock, ledger=ledger)
+    assert stock[pair] == 719
+    assert ledger.pair_balance(node_id=pair[0], item_id=pair[1]) == 1094
+    assert list(availability.dated_commitments()) == []
+    for day in (0, 4, 90, 361, 728):
+        assert availability.planning_quantity(pair, decision_day=day, through_day=day + 364) == 0
+        assert availability.release(day, stock=stock, ledger=ledger) == {}
+    with pytest.raises(ValueError, match="available"):
+        ledger.consume(day=5, node_id=pair[0], item_id=pair[1], qty=800,
+                       event_type="production_consume", uom="KG")
+    ledger.consume(day=5, node_id=pair[0], item_id=pair[1], qty=719,
+                   event_type="production_consume", uom="KG")
+    stock[pair] -= 719
+    assert stock[pair] == 0
+    assert availability.held_by_pair[pair] == 375
+    assert ledger.pair_balance(node_id=pair[0], item_id=pair[1]) == 375
+    assert [r["event_type"] for r in ledger.event_rows] == [
+        "opening_stock", "stock_availability_hold", "production_consume"]
+    audit = availability.audit()
+    assert audit["undated_row_count"] == 1
+    assert audit["rows"][0]["availability_status"] == "unknown_mrp_excluded"
+    assert audit["rows"][0]["release_day"] is None
+
+
+def test_dated_and_undated_opening_stock_keep_separate_planning_states():
+    rows = [{"node_id": PAIR[0], "item_id": PAIR[1], "quantity": 4,
+             "uom": "UN", "release_day": 3, "source_row": "MRP!J2"},
+            {"node_id": PAIR[0], "item_id": PAIR[1], "quantity": 2,
+             "uom": "UN", "release_day": None, "source_row": "Stock-MRP difference",
+             "availability_status": "unknown_mrp_excluded", "explanation": "Source scope unresolved."}]
+    stock, ledger, availability = make_state(rows=rows)
+    assert stock[PAIR] == 4
+    assert list(availability.dated_commitments()) == [(PAIR, "held:MRP!J2", (3, 4, "held"))]
+    assert availability.planning_quantity(PAIR, decision_day=0, through_day=365) == 4
+    assert availability.release(3, stock=stock, ledger=ledger) == {PAIR: 4}
+    assert stock[PAIR] == 8
+    assert availability.held_by_pair[PAIR] == 2
+    assert list(availability.dated_commitments()) == []
+    assert ledger.pair_balance(node_id=PAIR[0], item_id=PAIR[1]) == 10
+
+
+@pytest.mark.parametrize("defect", ["missing_date", "missing_status", "empty_explanation", "fractional_UN"])
+def test_undated_stock_requires_explicit_source_contract_and_integer_units(defect):
+    row = {"node_id": PAIR[0], "item_id": PAIR[1], "quantity": 2, "uom": "UN",
+           "release_day": None, "source_row": "Stock-MRP difference",
+           "availability_status": "unknown_mrp_excluded", "explanation": "Source scope unresolved."}
+    if defect == "missing_date":
+        row.pop("release_day")
+    elif defect == "missing_status":
+        row.pop("availability_status")
+    elif defect == "empty_explanation":
+        row["explanation"] = " "
+    else:
+        row["quantity"] = 1.5
+    with pytest.raises(ValueError):
+        make_state(rows=[row])
+
+
 def test_partial_consumption_and_two_releases_keep_one_physical_lot():
     rows = [{"node_id": PAIR[0], "item_id": PAIR[1], "quantity": qty,
              "uom": "UN", "release_day": day, "source_row": source}

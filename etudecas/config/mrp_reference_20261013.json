@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "reference_id": "coherent-MRP-20261014",
+  "scenario_id": "scn:BASE",
+  "default_forecast_mode": "coherent_scenario",
+  "comparison_forecast_modes": [
+    "source_priority"
+  ],
+  "adapter_module": "etudecas.simulation.reference_mrp.historical_adapter",
+  "weekly_plugin_module": "etudecas.simulation.reference_mrp.weekly_protection",
+  "assets": {
+    "graph": {
+      "path": "etudecas/config/mrp_reference_20261013/graph.json.gz",
+      "sha256": "55faf50bfad6e18c515d017362e42dcdc40f963dfd40ca94733286a6038dad56",
+      "content_sha256": "3d92521a8e5629fa2cdffefa02f7de95622183cbc7cb01ed30413c57a87b17e0"
+    },
+    "other_use_profile": {
+      "path": "etudecas/config/mrp_reference_20261013/external_component_demand_daily.csv.gz",
+      "sha256": "8b41cd86b0b56bf2dbda8d95f8100157ba7e364c7e132090580389ac50e26d41",
+      "content_sha256": "7f029d2f1cd9cdbbd9b63cecf93c7d4d59c03cc03de857a864fe1401a95b5eef"
+    },
+    "protocol": {
+      "path": "etudecas/config/mrp_reference_20261013/protocol.json",
+      "sha256": "3879c8338fbe0bda3fb133897221eb47dae96b3f607109cca1724e50e5e56f40"
+    },
+    "engine_arguments": {
+      "path": "etudecas/config/mrp_reference_20261013/engine_arguments.json",
+      "sha256": "b04131d8e98569d0b1d3084ba37354c0bfb32eb98f31396a3a5fe66b140d97dc"
+    },
+    "supplier_neutral_floors": {
+      "path": "etudecas/config/mrp_reference_20261013/supplier_neutral_floors.csv",
+      "sha256": "5b80b923ff1a68d84a8a547c125feccbbbd92d9f9697761b6735ceb2cc0d7beb"
+    },
+    "adapter": {
+      "path": "etudecas/simulation/reference_mrp/historical_adapter.py",
+      "sha256": "70637c143c5dcba0345667ff71628ad97d1a9e6f3d9e7db184fb20260c4883d6"
+    },
+    "reconciliation": {
+      "path": "etudecas/simulation/reference_mrp/reconciliation.py",
+      "sha256": "40949b5f6b4c8fb8c893ae798975c090554d6d46ddb6b920458786f3bf2d93a3"
+    },
+    "weekly_plugin": {
+      "path": "etudecas/simulation/reference_mrp/weekly_protection.py",
+      "sha256": "5bec4993fb9eb227a42fae58ac745a041a8fcb9b3b14b71866e2b094b4c85c44"
+    }
+  },
+  "forecast_candidates": {
+    "coherent_scenario": {
+      "known_day": 365,
+      "first_target_day": 369,
+      "customer_forecast": "same_synthetic_customer_week_as_executed_orders",
+      "other_use_forecast": "same_fixed_W_requested_profile_as_executed_other_uses",
+      "industrial_total": "source_I_not_substituted_for_BOM_plus_other_uses_after_cutover",
+      "status": "explicit_candidate_not_industrial_observation"
+    }
+  },
+  "future": {
+    "mode": "retained_W_historical_then_synthetic_v1",
+    "first_synthetic_day": 362,
+    "historical_days": 362,
+    "season_days": 364,
+    "annual_growth": 0.05,
+    "planning_horizon_days": 364,
+    "physical_other_uses": "fixed_W_requested_weekly_profile_not_future_BOM_residual",
+    "first_partial_week": "five_observed_days_scaled_to_seven_for_future_only",
+    "customer_orders": "historical_weekly_orders_times_1.05_per_52_week_cycle",
+    "forecast": "known_source_first_then_same_week_known_forecast_times_growth",
+    "closures": "Avene_first_two_full_August_workweeks_assumed_after_2025",
+    "initial_orders": "opening_once_never_repeated",
+    "industrial_status": "scenario_assumptions_not_observations"
+  }
+}

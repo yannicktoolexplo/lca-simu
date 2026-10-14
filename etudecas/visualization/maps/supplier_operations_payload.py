@@ -1,6 +1,7 @@
 """Supplier orders, unit-scoped MRP charts and operational panels."""
 from __future__ import annotations
 from typing import Any, Iterable
+from etudecas.simulation.lot_trace.procurement import resolve_order_milestones
 from etudecas.visualization.maps.chart_payloads import build_line_chart_figure
 from collections import defaultdict
 import html, json, math, statistics
@@ -96,6 +97,9 @@ def order_week_start(day: int) -> int:
 
 
 def order_placed_day(row: dict[str, str]) -> float | None:
+    milestones = resolve_order_milestones(row)
+    if milestones["explicit_contract"] or is_opening_order_row(row):
+        return milestones["decision_day"]
     value = to_float(row.get("order_date_imt"))
     if value is None or math.isnan(value):
         value = to_float(row.get("day"))
@@ -129,6 +133,9 @@ def source_planned_material_lead_days(row: dict[str, str]) -> float | None:
 
 
 def planned_order_receipt_day(row: dict[str, str]) -> float | None:
+    milestones = resolve_order_milestones(row)
+    if milestones["explicit_contract"]:
+        return milestones["planned_physical_day"]
     order_day = order_placed_day(row)
     planned_lead_days = planned_procurement_lead_days(row)
     if (
@@ -162,6 +169,9 @@ def planned_order_receipt_day(row: dict[str, str]) -> float | None:
 
 
 def effective_order_receipt_day(row: dict[str, str]) -> float | None:
+    milestones = resolve_order_milestones(row)
+    if milestones["explicit_contract"]:
+        return milestones["actual_physical_day"]
     value = to_float(row.get("actual_receipt_day"))
     if value is None or math.isnan(value):
         value = to_float(row.get("arrival_day"))
@@ -193,6 +203,11 @@ def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
     ):
         return max(0.0, float(receipt_day - order_day))
 
+    if resolve_order_milestones(row)["explicit_contract"] or is_opening_order_row(row):
+        # An unknown original decision cannot become a known procurement lead
+        # by substituting the departure date or the availability date.
+        return None
+
     release_day = to_float(row.get("release_day"))
     if (
         release_day is not None
@@ -208,29 +223,34 @@ def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
     return None
 
 
-def resolved_order_day(row: dict[str, str], day_field: str = "day") -> int:
+def resolved_order_day(row: dict[str, str], day_field: str = "day") -> int | None:
+    if day_field == "order_decision_day":
+        value = order_placed_day(row)
+        return int(round(value)) if value is not None else None
     if day_field == "planned_arrival_day":
         planned_day = planned_order_receipt_day(row)
-        return int(round(planned_day)) if planned_day is not None else 0
+        return int(round(planned_day)) if planned_day is not None else None
     if day_field == "actual_receipt_day":
         effective_day = effective_order_receipt_day(row)
-        return int(round(effective_day)) if effective_day is not None else 0
-    return int(to_float(row.get(day_field)) or 0)
+        return int(round(effective_day)) if effective_day is not None else None
+    value = to_float(row.get(day_field))
+    return int(round(value)) if value is not None and math.isfinite(value) else None
 
 
 def consolidate_order_rows_weekly(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     groups: dict[tuple[Any, ...], dict[str, Any]] = {}
     for row in rows:
-        order_day = int(round(order_placed_day(row) or 0))
-        release_day = int(to_float(row.get("release_day")) or 0)
+        placed = order_placed_day(row)
+        order_day = int(round(placed)) if placed is not None else None
+        release_day = resolved_order_day(row, "release_day")
         lead_reference_days = planned_procurement_lead_days(row)
         planned_arrival = planned_order_receipt_day(row)
-        planned_arrival_day = int(round(planned_arrival)) if planned_arrival is not None else 0
+        planned_arrival_day = int(round(planned_arrival)) if planned_arrival is not None else None
         effective_arrival = effective_order_receipt_day(row)
-        effective_arrival_day = int(round(effective_arrival)) if effective_arrival is not None else planned_arrival_day
+        effective_arrival_day = int(round(effective_arrival)) if effective_arrival is not None else None
         item_id = str(row.get("item_id") or "")
         key = (
-            order_week_start(order_day),
+            order_week_start(order_day) if order_day is not None else None,
             str(row.get("src_node_id") or ""),
             str(row.get("dst_node_id") or ""),
             item_id,
@@ -264,14 +284,15 @@ def consolidate_order_rows_weekly(rows: list[dict[str, str]]) -> list[dict[str, 
         group["line_count"] += 1
         group["release_qty"] += max(0.0, to_float(row.get("release_qty")) or 0.0)
         group["receipt_qty"] += max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
-        group["order_min"] = min(group["order_min"], order_day)
-        group["order_max"] = max(group["order_max"], order_day)
-        group["release_min"] = min(group["release_min"], release_day)
-        group["release_max"] = max(group["release_max"], release_day)
-        group["planned_arrival_min"] = min(group["planned_arrival_min"], planned_arrival_day)
-        group["planned_arrival_max"] = max(group["planned_arrival_max"], planned_arrival_day)
-        group["effective_arrival_min"] = min(group["effective_arrival_min"], effective_arrival_day)
-        group["effective_arrival_max"] = max(group["effective_arrival_max"], effective_arrival_day)
+        if order_day is not None:
+            group["order_min"] = min(group["order_min"], order_day)
+            group["order_max"] = max(group["order_max"], order_day)
+        for prefix, value in (("release", release_day), ("planned_arrival", planned_arrival_day),
+                              ("effective_arrival", effective_arrival_day)):
+            if value is not None:
+                lo, hi = group[prefix + "_min"], group[prefix + "_max"]
+                group[prefix + "_min"] = value if lo is None else min(lo, value)
+                group[prefix + "_max"] = value if hi is None else max(hi, value)
         if lead_reference_days is not None and not math.isnan(lead_reference_days):
             group["lead_reference_sum"] += float(lead_reference_days)
             group["lead_reference_count"] += 1
@@ -288,7 +309,7 @@ def consolidate_order_rows_weekly(rows: list[dict[str, str]]) -> list[dict[str, 
     return sorted(
         groups.values(),
         key=lambda group: (
-            int(group["week_start"]),
+            group["week_start"] if group["week_start"] is not None else -math.inf,
             str(group["item_id"]),
             str(group["src_node_id"]),
             str(group["dst_node_id"]),
@@ -319,7 +340,7 @@ def render_order_ledger_html(
     sorted_orders = sorted(
         node_orders,
         key=lambda r: (
-            int(to_float(r.get("order_date_imt")) or to_float(r.get("day")) or 0),
+            order_placed_day(r) if order_placed_day(r) is not None else -math.inf,
             int(to_float(r.get("release_day")) or 0),
             int(to_float(r.get("arrival_day")) or 0),
             str(r.get("item_id") or ""),
@@ -352,7 +373,7 @@ def render_order_ledger_html(
         if separator_after is not None and row_idx == separator_after:
             recent_rows.append(
                 '<tr class="orderLedgerSliceSeparator">'
-                '<td colspan="13">500 premiers ordres chronologiques affiches ci-dessous</td>'
+                '<td colspan="15">500 premiers ordres chronologiques affiches ci-dessous</td>'
                 '</tr>'
             )
         item_id = str(row.get("item_id") or "")
@@ -363,6 +384,7 @@ def render_order_ledger_html(
         actual_arrival_day_value = effective_order_receipt_day(row)
         planned_lead_days_value = planned_procurement_lead_days(row)
         effective_lead_days_value = effective_procurement_lead_days(row)
+        milestones = resolve_order_milestones(row)
         exceptions = [
             str(row.get(field) or "").strip()
             for field in ["exception_reason", "exception_type", "exception_code"]
@@ -404,13 +426,15 @@ def render_order_ledger_html(
             (f"{fmt_qty(planned_lead_days_value, 1)} j", "Delai previsionnel matiere source: champ FIA 'Delai previsionnel de livraison en jours' quand disponible; sinon delai derive du carnet d'ouverture."),
             (fmt_order_day(planned_arrival_day), ""),
             (fmt_order_day(actual_arrival_day_value), ""),
+            (fmt_order_day(milestones["planned_available_day"]), ""),
+            (fmt_order_day(milestones["actual_available_day"]), ""),
             (f"{fmt_qty(effective_lead_days_value, 1)} j", "Delai effectif matiere metier: arrivee effective - ordre passe fournisseur."),
             (fmt_qty(release_qty, 1), ""),
             (fmt_qty(receipt_qty, 1), ""),
             (status_short, status_text or "n/a"),
             (exceptions_text, exceptions_text),
         ]
-        numeric_columns = {5, 8, 9, 10}
+        numeric_columns = {5, 10, 11, 12}
         row_tds: list[str] = []
         for idx, (value, title) in enumerate(row_cells):
             cell_class = "num" if idx in numeric_columns else ""
@@ -425,14 +449,16 @@ def render_order_ledger_html(
     table_header = "".join(
         f"<th>{html.escape(label)}</th>"
         for label in [
-            "Ordre passe",
+            "Décision MRP",
             "Item",
             "Type",
             "Flux",
             "Envoi",
             "Delai prev. mat.",
-            "Arrivee prev.",
-            "Arrivee effective",
+            "Réception physique prévue",
+            "Réception physique simulée",
+            "Disponibilité prévue",
+            "Disponibilité simulée",
             "Delai eff. mat.",
             "Qte envoyee",
             "Qte recue",
@@ -442,9 +468,9 @@ def render_order_ledger_html(
     )
     table_cols = "".join(
         f"<col style=\"width:{width}px\">"
-        for width in [90, 90, 130, 270, 80, 95, 115, 125, 105, 115, 115, 330, 145]
+        for width in [90, 90, 130, 270, 80, 95, 115, 125, 115, 125, 105, 115, 115, 330, 145]
     )
-    recent_rows_body = "".join(recent_rows) if recent_rows else "<tr><td colspan=\"13\">Aucun ordre journalise</td></tr>"
+    recent_rows_body = "".join(recent_rows) if recent_rows else "<tr><td colspan=\"15\">Aucun ordre journalise</td></tr>"
     recent_orders_html = (
         "<div class=\"orderLedgerFrame\">"
         "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau du carnet MRP avec barre de defilement horizontale native en bas.\">"
@@ -463,7 +489,7 @@ def render_order_ledger_html(
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
             f"<div class=\"orderLedgerStatus\">Ordres MRP journalises: {len(sorted_orders)} ; lignes affichees: {len(display_orders)} ({html.escape(display_note)})</div>",
             f"<div class=\"orderLedgerStatus\">Statuses lignes brutes: {html.escape(statuses_text)}</div>",
-            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_imt | envoi=release_day | arrivee_previsionnelle=ordre_passe+delai_previsionnel_source | arrivee_effective=actual_receipt_day/arrival_day | delai_previsionnel_matiere=delai source donnees FIA/Extract | delai_effectif_matiere=arrivee_effective-ordre_passe</div>",
+            "<div class=\"orderLedgerStatus\">Ces jalons décrivent la simulation : décision MRP, départ, réception physique et disponibilité sont distincts. La décision d’origine des en-cours reste inconnue. Le délai effectif va de la décision connue à la réception physique exécutée ; il reste absent si l’un de ces jalons manque. Les anciens exports sans jalons explicites conservent leur convention historique.</div>",
             "<div class=\"orderLedgerSectionTitle\">Ordres passes affiches: 500 derniers puis 500 premiers si le carnet depasse 1000 lignes.</div>",
             recent_orders_html,
             "</div>",
@@ -1165,7 +1191,7 @@ def render_passive_uncertainty_html(
     table_rows = [
         (
             "Lead time",
-            "mrp_orders_daily: order_date_imt, actual_receipt_day, lead_reference_days",
+            "mrp_orders_daily: order_decision_day, release_day, actual_physical_receipt_day, actual_available_day, lead_reference_days ; anciens exports selon leur convention",
             fmt_optional_mean(planned_leads, kind="days"),
             f"{uncertainty_level(lead_cv)}" if lead_cv is not None else "non estimee",
             fmt_uncertainty_band(effective_leads, kind="days"),
@@ -2079,12 +2105,9 @@ def build_unit_scoped_mrp_assets(raw: dict[str, Any], node_id: str, *, trace_row
     def series(rows: list, field: str, date: str = "day", *, weekly: bool = False, realized: bool = False) -> list:
         total = defaultdict(float)
         for row in rows:
-            value = planned_order_receipt_day(row) if date == "planned_arrival_day" else row.get(date)
+            value = resolved_order_day(row, date) if date in {"planned_arrival_day", "order_decision_day", "actual_receipt_day"} else row.get(date)
             if value in (None, ""):
-                if date == "order_date_imt":
-                    value = row.get("day")
-                else:
-                    continue
+                continue
             day = int(float(value))
             if realized and not (0 <= day < horizon_days):
                 continue
@@ -2107,7 +2130,7 @@ def build_unit_scoped_mrp_assets(raw: dict[str, Any], node_id: str, *, trace_row
             ("Besoin brut", "bb_qty"), ("Besoin propagé brut", "bb_demand_signal_raw_qty"),
             ("Besoin MRP lissé", "bb_demand_signal_qty"), ("Besoin net", "bn_qty"),
             ("Stock projeté", "stock_proj_qty"), ("Réceptions prévues", "recv_prev_future_qty"))}, "Trace MRP", unit)
-        planned = figure({"Ordres MRP": series(orders, "release_qty", "order_date_imt", weekly=True),
+        planned = figure({"Décisions MRP connues": series(orders, "release_qty", "order_decision_day", weekly=True),
                           "Réceptions prévues": series(orders, "planned_receipt_qty", "planned_arrival_day", weekly=True),
                           "Réceptions physiques": series(arrivals, "arrived_qty", weekly=True, realized=True)}, "Flux entrants", unit, True)
         levels = {label: series(traces, field) for label, field in (
@@ -2120,12 +2143,12 @@ def build_unit_scoped_mrp_assets(raw: dict[str, Any], node_id: str, *, trace_row
         order_series = {}
         for item in sorted({str(row.get("item_id")) for row in orders}):
             scoped = [row for row in orders if str(row.get("item_id")) == item]
-            order_series[f"{item} — ordre"] = series(scoped, "release_qty", "order_date_imt", weekly=True)
+            order_series[f"{item} — décision MRP connue"] = series(scoped, "release_qty", "order_decision_day", weekly=True)
             order_series[f"{item} — réception prévue"] = series(scoped, "planned_receipt_qty", "planned_arrival_day", weekly=True)
         fourth = figure(order_series, "Carnet par article", unit, True)
         supplier_orders = [row for row in orders if row.get("src_node_id") == node_id]
         supplier = {"kind": "dual_panel_multi", "title": f"Pilotage et exécution fournisseur — {unit}", "quantity_unit": unit,
-                    "top": figure({"Commandes MRP reçues": series(supplier_orders, "release_qty", "order_date_imt", weekly=True),
+                    "top": figure({"Décisions MRP connues": series(supplier_orders, "release_qty", "order_decision_day", weekly=True),
                                    "Expéditions prévues": series(supplier_orders, "release_qty", "release_day", weekly=True)}, "Plan fournisseur", unit, True),
                     "bottom": figure({"Départs exécutés": series(shipments, "shipped_qty", weekly=True, realized=True),
                                       "Réceptions exécutées aval": series(shipments, "shipped_qty", "arrival_day", weekly=True, realized=True)}, "Mouvements fournisseur dans l'horizon", unit, True)}

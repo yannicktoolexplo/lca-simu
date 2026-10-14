@@ -1,0 +1,87 @@
+{
+  "forecast_reconciliation_pairs": [
+    [
+      "M-1430",
+      "item:038005"
+    ],
+    [
+      "M-1430",
+      "item:773474"
+    ],
+    [
+      "M-1810",
+      "item:001757"
+    ],
+    [
+      "M-1810",
+      "item:001848"
+    ],
+    [
+      "M-1810",
+      "item:002612"
+    ],
+    [
+      "M-1810",
+      "item:007923"
+    ],
+    [
+      "M-1810",
+      "item:049371"
+    ],
+    [
+      "M-1810",
+      "item:055703"
+    ],
+    [
+      "M-1810",
+      "item:693055"
+    ]
+  ],
+  "cumulative_residual_pairs": [
+    [
+      "M-1430",
+      "item:038005"
+    ],
+    [
+      "M-1430",
+      "item:042342"
+    ],
+    [
+      "M-1430",
+      "item:773474"
+    ],
+    [
+      "M-1810",
+      "item:001757"
+    ],
+    [
+      "M-1810",
+      "item:002612"
+    ],
+    [
+      "M-1810",
+      "item:007923"
+    ],
+    [
+      "M-1810",
+      "item:049371"
+    ],
+    [
+      "M-1810",
+      "item:055703"
+    ]
+  ],
+  "weekly_stock_protection": {
+    "schema_version": 1,
+    "mode": "source_week_close_only_v1",
+    "origin_date": "2025-01-01",
+    "review_weekday": 5,
+    "pairs": [
+      {
+        "node_id": "M-1810",
+        "item_id": "item:693055"
+      }
+    ],
+    "between_reviews": "no_stock_floor_daily_physical_needs_preserved"
+  }
+}

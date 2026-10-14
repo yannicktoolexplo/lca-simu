@@ -1,12 +1,127 @@
 """Customer/DC weekly comparisons: pure memory fixtures and manual balances."""
 from copy import deepcopy
+from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 
 from etudecas.visualization.maps.source_comparison import (
     CUSTOMER_RESPONSE_COLUMNS, _customer_response_payload, _customer_response_run,
     _factory_dispatch_observed, _factory_dispatch_run, build_factory_dispatch_comparison,
+    _factory_activity_sources, _factory_activity_bom_rows,
+    _factory_activity_indicators, _factory_activity_run,
+    _demand_pf_rows, _observed_customer_response_rows,
 )
+
+
+def _demand_pf_memory():
+    headers = ('product', 'customer_id', 'step', 'forecast_demand', 'real demand')
+    rows = [(2 + index * 52 + week - 1, (item, 'customer', week, 9999, 600))
+            for index, item in enumerate((268091, 268967)) for week in range(1, 53)]
+    return headers, rows
+
+
+def _revenue_memory():
+    headers = ('Product Code', 'First Delivery Date', 'CA_Livre', 'CA_Perdu')
+    rows = [(2 + offset, dict(zip(headers, ('268091', (date(2025, 1, 6) + timedelta(days=offset)).isoformat(),
+                                          str(delivered), '20'))))
+            for offset, delivered in enumerate((120, 120, -20, 120, 160))]
+    return headers, rows
+
+
+def test_customer_demand_pf_calendar_negative_and_integer_units_memory():
+    headers, rows = _demand_pf_memory()
+    rows[53] = (55, (268967, 'customer', 2, 9999, -30))
+    before = deepcopy(rows)
+    result = _demand_pf_rows(rows, headers)
+    assert result['products']['268091']['history'][0] == [-2, 600, 600, 2]
+    assert result['products']['268091']['history'][-1] == [355, 600, 600, 53]
+    assert result['products']['268967']['history'][1] == [5, 0, -30, 55]
+    assert result['products']['268091']['complete_2025_total_corrected_51_weeks'] == 30600
+    assert result['products']['268967']['negative_rows'] == [55]
+    assert rows == before
+
+
+@pytest.mark.parametrize('invalid', ['duplicate', 'missing', 'fractional', 'week'])
+def test_customer_demand_pf_rejects_ambiguous_rows_memory(invalid):
+    headers, rows = _demand_pf_memory()
+    if invalid == 'duplicate':
+        rows.append(rows[0])
+    elif invalid == 'missing':
+        rows.pop()
+    elif invalid == 'fractional':
+        rows[0] = (2, (268091, 'customer', 1, 9999, 10.5))
+    else:
+        rows[0] = (2, (268091, 'customer', 53, 9999, 600))
+    with pytest.raises(ValueError):
+        _demand_pf_rows(rows, headers)
+
+
+def test_customer_industrial_response_signed_ca_manual_oracle_memory():
+    demand_headers, demand_rows = _demand_pf_memory()
+    revenue_headers, revenue_rows = _revenue_memory()
+    before = deepcopy(revenue_rows)
+    demand = _demand_pf_rows(demand_rows, demand_headers)
+    result = _observed_customer_response_rows(revenue_rows, revenue_headers, demand)
+    week = result['products']['268091']['weekly'][0]
+    # Signed delivered CA = 120+120-20+120+160 = 500; lost = 5*20 = 100.
+    # 600 requested UN * 500/(500+100) = 500 estimated UN, never CA/price.
+    assert (week['start_day'], week['end_day']) == (5, 11)
+    assert week['ca_delivered'] == 500 and week['ca_lost'] == 100
+    assert week['estimated_served_qty'] == 500
+    assert week['financial_service_pct'] == pytest.approx(100 * 5 / 6)
+    assert week['status'] == 'complete'
+    assert week['source_rows'] == [2, 3, 4, 5, 6]
+    assert result['negative_adjustments'][0]['ca_delivered'] == -20
+    assert result['products']['268091']['weekly'][1]['estimated_served_qty'] is None
+    assert result['products']['268967']['weekly'][0]['estimated_served_qty'] is None
+    assert revenue_rows == before
+
+
+@pytest.mark.parametrize('unknown', ['missing_date', 'zero_demand', 'negative_weekly_ca'])
+def test_customer_industrial_response_unknown_never_zero_memory(unknown):
+    headers, rows = _demand_pf_memory()
+    demand = _demand_pf_rows(rows, headers)
+    revenue_headers, revenues = _revenue_memory()
+    if unknown == 'missing_date':
+        revenues.pop()
+    elif unknown == 'zero_demand':
+        demand['products']['268091']['history'][1][1] = 0
+    else:
+        revenues[0][1]['CA_Livre'] = '-1000'
+    week = _observed_customer_response_rows(revenues, revenue_headers, demand)['products']['268091']['weekly'][0]
+    assert week['estimated_served_qty'] is None
+    assert week['status'] != 'complete'
+
+
+def test_customer_industrial_response_rejects_duplicate_date_memory():
+    headers, rows = _demand_pf_memory()
+    demand = _demand_pf_rows(rows, headers)
+    revenue_headers, revenues = _revenue_memory()
+    with pytest.raises(ValueError):
+        _observed_customer_response_rows(revenues + [revenues[0]], revenue_headers, demand)
+
+
+def test_customer_sources_wired_into_generic_comparison_memory(monkeypatch):
+    """Regression: the ordinary builder must retain both native source blocks."""
+    from etudecas.visualization.maps import source_comparison as sc
+    headers, rows = _demand_pf_memory()
+    demand = _demand_pf_rows(rows, headers)
+    revenue_headers, revenues = _revenue_memory()
+    actual = _observed_customer_response_rows(revenues, revenue_headers, demand)
+    monkeypatch.setattr(sc, '_hash', lambda path: 'memory_hash')
+    monkeypatch.setattr(sc, '_read_sources', lambda *args: ({}, {}, {}))
+    monkeypatch.setattr(sc, '_customer_delivery_sources', lambda *args, **kwargs:
+                        (demand, actual, {'memory/demand_PF.xlsx': 'memory_hash', 'memory/CA.csv': 'memory_hash'}))
+    monkeypatch.setattr(sc, '_run_payload', lambda *args: ({'production_catalog': []}, {}))
+    monkeypatch.setattr(sc, 'chain_stock_equivalence', lambda *args: None)
+    monkeypatch.setattr(sc, 'build_factory_dispatch_comparison', lambda *args: None)
+    monkeypatch.setattr(sc, 'build_factory_activity_comparison', lambda *args, **kwargs: None)
+    result = sc.build_comparison_payload(Path('memory/inventory.xlsx'), Path('memory/mrp.xlsx'),
+                                        {'nominal': Path('memory/run')})
+    assert result['demand_pf'] is demand
+    assert result['observed_customer_response'] is actual
+    assert result['provenance']['source_workbooks']['memory/CA.csv'] == 'memory_hash'
 
 
 def _registers():
@@ -282,3 +397,161 @@ def test_factory_dispatch_rejects_invalid_physical_registers(kind):
         events[1]['node_id'] = 'DC-1920'
     with pytest.raises(ValueError):
         _factory_dispatch_run(stocks, events, routes)
+
+
+def _activity_pairs():
+    # Manual week: stock 100 -> 125; G=2, H=40, I=3, J=-20. Net=25.
+    return {'338929/1810': dict(unit='UN', observed=[[5, 100, 11], [12, 125, 12]],
+                source_movements={'rows': [[4, 5, 11, 2, 40, 3, -20, 80]]}),
+            '773474/1450': dict(unit='KG', observed=[[5, 100., 21], [12, 130., 22]],
+                source_movements={'rows': [[4, 5, 11, 0., 100., 0., -20., 90]]})}
+
+
+def test_factory_activity_source_signed_balance_keeps_positive_i_and_scan3():
+    pairs = _activity_pairs()
+    before = deepcopy(pairs)
+    source = _factory_activity_sources(pairs)
+    week = source['338929/1810']['weeks'][0]
+    assert week['other_signed_I_qty'] == 3 and week['scan3_signed_J_qty'] == -20
+    assert week['net_outbound_assumption_qty'] == 17  # Both 3 and -20 count.
+    assert week['stock_delta_qty'] == 25
+    assert week['implied_receipt_qty'] == 40  # 25-2-3-(-20)
+    assert week['balance_residual_qty'] == 0
+    assert week['incoming_H_qty'] == 40
+    assert week['movement_excel_row'] == 80
+    assert week['opening_photo_date'] == '2025-01-06'
+    assert week['closing_photo_date'] == '2025-01-13'
+    assert len(source['338929/1810']['weeks']) == 51
+    assert source['338929/1810']['weeks'][-1]['end_day'] == 361
+    assert pairs == before
+
+
+def test_factory_activity_sparse_source_keeps_null_and_gaillac_h_double_visible():
+    source = _factory_activity_sources(_activity_pairs())
+    gaillac = source['773474/1450']['weeks'][0]
+    assert gaillac['implied_receipt_qty'] == 50  # Delta30 minus I0 minus J-20.
+    assert gaillac['incoming_H_qty'] == 100  # Raw H is NOT divided by two.
+    assert gaillac['incoming_double_candidate'] is True
+    assert gaillac['balance_residual_qty'] == -50
+    missing = source['338929/1810']['weeks'][1]
+    assert missing['stock_open_qty'] == 125
+    assert missing['incoming_H_qty'] is None and missing['other_signed_I_qty'] is None
+    assert missing['net_outbound_assumption_qty'] is None
+    assert missing['implied_receipt_qty'] is None
+    products = _factory_activity_indicators(source, {})
+    indicator, = products['773474/1450']['indicators']
+    assert indicator['id'] == 'stock_balance'
+    assert indicator['weeks'][0]['estimate_qty'] == 50
+    assert indicator['weeks'][1]['estimate_qty'] is None
+
+
+def test_factory_activity_bom_fractional_equivalent_does_not_round_physical_un():
+    rows = [(15, [268091, 1000, '338929', 'Pack', 3000, 'UN.'])]
+    bom = _factory_activity_bom_rows(rows, '268091', source_file='268091.xlsx')
+    assert bom[0]['coefficient'] == 3
+    source = _factory_activity_sources(_activity_pairs())
+    result = _factory_activity_indicators(source, {'268091': bom})
+    indicator, = result['268091/1810']['indicators']
+    assert indicator['primary'] is True
+    assert indicator['coefficient'] == 3
+    # I=+3 remains in the component balance; only J=-20 informs the BOM estimate.
+    assert indicator['weeks'][0]['raw_qty'] == pytest.approx(20 / 3)
+    assert indicator['weeks'][0]['estimate_qty'] == pytest.approx(20 / 3)
+    assert indicator['weeks'][0]['component_signed_outbound_qty'] == 20
+    assert indicator['weeks'][0]['component_scan3_outbound_qty'] == 20
+    assert indicator['source']['excel_row'] == 15
+    assert indicator['source']['component_qty_cell'] == 'E15'
+    intermediate = _factory_activity_bom_rows(
+        [(2, ['773474', 'ELSSR', 1000, '021081', 'MP', 8.94, 'KG'])],
+        '773474', source_file='773474.xlsx', output_source_unit='G')
+    assert intermediate[0]['coefficient'] == 8.94  # 8.94 KG / 1000 G = 8.94 KG/KG.
+    assert intermediate[0]['output_unit'] == 'KG'
+
+
+def test_factory_activity_negative_bom_estimate_is_not_clipped_to_zero():
+    pairs = _activity_pairs()
+    pairs['338929/1810']['source_movements']['rows'][0][5:7] = [-30, 20]
+    bom = _factory_activity_bom_rows([(15, [268091, 1000, '338929', 'Pack', 1000, 'UN.'])],
+                                    '268091', source_file='268091.xlsx')
+    week = _factory_activity_indicators(_factory_activity_sources(pairs), {'268091': bom})[
+        '268091/1810']['indicators'][0]['weeks'][0]
+    assert week['raw_qty'] == -20
+    assert week['estimate_qty'] is None and week['status'] == 'negative_estimate'
+    assert week['other_signed_I_qty'] == -30 and week['scan3_signed_J_qty'] == 20
+
+
+def _activity_registers():
+    scopes = {'693055/1450': dict(item='693055', site='SDC-1450', unit='KG')}
+    events = []
+
+    def event(identity, day, kind, qty, lot='made', source='', notes=''):
+        events.append(dict(event_id=identity, day=day, event_type=kind, qty=qty, uom='G',
+            lot_id=lot, node_id='SDC-1450', item_id='item:693055', source_type=source, notes=notes))
+
+    event('opening', 5, 'opening_production_order', 600,
+          notes='{"availability_state":"held","available_day":7}')
+    event('release1', 7, 'stock_availability_release', 600)
+    event('initialRelease', 7, 'stock_availability_release', 1200, lot='initial')
+    event('new', 9, 'production_output', 1800, lot='new',
+          notes='{"availability_state":"held","available_day":13}')
+    event('boundary', 8, 'external_procurement_receipt', 500, lot='boundary', source='source_boundary_receipt')
+    event('external', 8, 'external_procurement_receipt', 100, lot='external')
+    event('transport', 8, 'lane_receipt', 200, lot='transport')
+    event('consume', 10, 'production_consume', 100, lot='initial')
+    event('planned', 10, 'planned_production_order', 900000, lot='planned')
+    stocks = []
+    for day in range(12):
+        physical = 10000 + (600 if day >= 5 else 0) + (800 if day >= 8 else 0)
+        physical += (1800 if day >= 9 else 0) - (100 if day >= 10 else 0)
+        stocks.append(dict(day=day, node_id='SDC-1450', item_id='item:693055',
+                           uom='G', physical_qty=physical))
+    return stocks, events, scopes
+
+
+def test_factory_activity_physical_and_available_production_do_not_double_count_release():
+    registers = _activity_registers()
+    before = deepcopy(registers)
+    result = _factory_activity_run(*registers)['693055/1450']
+    week = result['weeks'][0]
+    assert week['physical_output_qty'] == pytest.approx(2.4)
+    assert week['opening_output_qty'] == pytest.approx(.6)
+    assert week['new_output_qty'] == pytest.approx(1.8)
+    assert week['available_output_qty'] == pytest.approx(.6)
+    assert week['availability_release_qty'] == pytest.approx(1.8)  # Includes 1.2 initial stock.
+    assert week['boundary_receipt_qty'] == pytest.approx(.5)
+    assert week['external_receipt_qty'] == pytest.approx(.1)
+    assert week['transport_receipt_qty'] == pytest.approx(.2)
+    assert week['total_receipt_qty'] == pytest.approx(3.2)
+    assert week['core_consumption_qty'] == pytest.approx(.1)
+    assert week['stock_delta_qty'] == pytest.approx(3.1)
+    assert week['balance_residual_qty'] == pytest.approx(0)
+    assert result['documented_days'] == list(range(12))
+    assert registers == before
+
+
+def test_factory_activity_missing_simulated_days_prevent_false_weekly_zero():
+    stocks, events, scopes = _activity_registers()
+    missing = _factory_activity_run([row for row in stocks if row['day'] != 6], events, scopes)
+    week = missing['693055/1450']['weeks'][0]
+    assert week['physical_output_qty'] is None and week['total_receipt_qty'] is None
+    assert week['balance_residual_qty'] is None
+    assert week['stock_delta_qty'] == pytest.approx(3.1)
+    future = _factory_activity_run(stocks, events, scopes)['693055/1450']['weeks'][1]
+    assert future['start_day'] == 12 and future['end_day'] == 18
+    assert future['available_output_qty'] is None and future['physical_output_qty'] is None
+    without_ledger = _factory_activity_run(stocks, [], scopes, has_event_ledger=False)
+    assert without_ledger['693055/1450']['weeks'][0]['physical_output_qty'] is None
+
+
+def test_factory_activity_physical_un_remain_integer_and_reject_fractional_register():
+    scopes = {'268091/1810': dict(item='268091', site='M-1810', unit='UN')}
+    stocks = [dict(day=day, node_id='M-1810', item_id='item:268091', uom='UN', physical_qty=10)
+              for day in range(12)]
+    events = [dict(event_id='made', day=5, event_type='production_output', qty=7, uom='UN',
+                   lot_id='lot', node_id='M-1810', item_id='item:268091')]
+    week = _factory_activity_run(stocks, events, scopes)['268091/1810']['weeks'][0]
+    assert type(week['physical_output_qty']) is int
+    assert week['physical_output_qty'] == week['available_output_qty'] == 7
+    events[0]['qty'] = 7.5
+    with pytest.raises(ValueError, match='Fractional physical units'):
+        _factory_activity_run(stocks, events, scopes)

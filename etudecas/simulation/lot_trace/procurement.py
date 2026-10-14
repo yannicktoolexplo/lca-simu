@@ -16,6 +16,8 @@ PROCUREMENT_TRACE_FIELDS = (
     "estimated_release_day",
     "planned_arrival_day",
     "actual_receipt_day",
+    "planned_available_day",
+    "actual_available_day",
     "procurement_lead_days",
     "procurement_lead_basis",
     "procurement_status",
@@ -25,6 +27,34 @@ PROCUREMENT_TRACE_FIELDS = (
     "procurement_trace_status",
     "procurement_trace_reason",
 )
+
+
+def resolve_order_milestones(row: dict[str, Any]) -> dict[str, Any]:
+    """Read recorded milestones without turning availability into delivery.
+
+    Empty explicit fields stay unknown. Legacy rows without the physical/
+    availability contract keep their old arrival semantics. Opening orders
+    do not establish their original decision date merely by being loaded at J0.
+    """
+    explicit = any(key in row for key in (
+        "order_decision_day", "physical_delivery_day", "actual_physical_receipt_day",
+        "available_day", "actual_available_day"))
+    opening = str(row.get("order_type") or "").startswith("opening_")
+    decision = (_optional_int(row.get("order_decision_day"))
+                if "order_decision_day" in row else
+                None if opening else _optional_int(row.get("day")))
+    return {
+        "explicit_contract": explicit,
+        "decision_day": decision,
+        "release_day": _optional_int(row.get("release_day")),
+        "planned_physical_day": _optional_int(row.get(
+            "physical_delivery_day" if explicit else "arrival_day")),
+        "actual_physical_day": _optional_int(row.get(
+            "actual_physical_receipt_day" if explicit else "actual_receipt_day")),
+        "planned_available_day": (_optional_int(row.get(
+            "available_day" if "available_day" in row else "arrival_day")) if explicit else None),
+        "actual_available_day": _optional_int(row.get("actual_available_day")) if explicit else None,
+    }
 
 
 def enrich_lot_trace_with_procurement(
@@ -265,11 +295,12 @@ def normalize_procurement_orders(
             continue
         source = str(row.get("src_node_id") or "").strip()
         edge_id = str(row.get("edge_id") or "").strip()
-        decision_day = _optional_int(row.get("day"))
+        milestones = resolve_order_milestones(row)
+        decision_day = milestones["decision_day"]
         requested_release_day = _optional_int(row.get("order_date_imt"))
-        release_day = _optional_int(row.get("release_day"))
-        planned_arrival_day = _optional_int(row.get("arrival_day"))
-        actual_receipt_day = _optional_int(row.get("actual_receipt_day"))
+        release_day = milestones["release_day"]
+        planned_arrival_day = milestones["planned_physical_day"]
+        actual_receipt_day = milestones["actual_physical_day"]
         lead_days = _optional_int(row.get("lead_days"))
         release_qty = _to_float(row.get("release_qty"))
         receipt_qty = _to_float(row.get("planned_receipt_qty"))
@@ -319,6 +350,8 @@ def normalize_procurement_orders(
                 "estimated_release_day": None,
                 "planned_arrival_day": planned_arrival_day,
                 "actual_receipt_day": actual_receipt_day,
+                "planned_available_day": milestones["planned_available_day"],
+                "actual_available_day": milestones["actual_available_day"],
                 "procurement_lead_days": lead_days,
                 "procurement_lead_basis": "mrp_orders_daily",
                 "procurement_status": status,
@@ -481,7 +514,7 @@ def _optional_int(value: Any) -> int | None:
         numeric = float(value)
     except (TypeError, ValueError):
         return None
-    if math.isnan(numeric):
+    if not math.isfinite(numeric):
         return None
     return int(round(numeric))
 

@@ -30,12 +30,28 @@ def test_customer_import_preserves_calendar_sign_zero_cells_and_graph():
     payload = build_customer_demand_payloads(graph, history, projection, source_file="customer.xlsx", source_sha256="abc")
     assert (graph, history, projection) == before
     first, second = payload["customer_demand_history"]["rows"]
-    assert (first["period_start_day"], first["qty"], first["source_row"]) == (-2, 13300, "Historique!A2:D2")
+    assert (first["period_start_day"], first["qty"], first["source_row"]) == (-2, 13300, "Historique!A2:C2")
     assert second["qty"] == 0
     forecast = payload["mrp_forecasts"]["rows"][0]
     assert (forecast["vintage_day"], forecast["period_start_day"], forecast["qty"]) == (-2, 5, 329532)
-    assert forecast["source_row"] == "Projection!A2:E2"
+    assert forecast["source_row"] == "Projection!A2:D2"
+    assert payload["customer_demand_history"]["source"]["column"] == "C"
+    assert payload["mrp_forecasts"]["source"]["column"] == "D"
     assert payload["mrp_forecasts"]["calendar"] == "monday_start"
+
+
+def test_customer_import_old_label_column_changes_provenance_not_quantities():
+    graph, history, projection = customer_import_rows()
+    current = build_customer_demand_payloads(graph, history, projection, source_file="customer.xlsx", source_sha256="abc")
+    def labeled(rows):
+        return [{"SKU Code": r["SKU Code"], "SKU Label": "Cicalfate",
+                 **{k: v for k, v in r.items() if k != "SKU Code"}} for r in rows]
+    prior = build_customer_demand_payloads(graph, labeled(history), labeled(projection), source_file="customer.xlsx", source_sha256="abc")
+    for key, column in [("customer_demand_history", "D"), ("mrp_forecasts", "E")]:
+        assert prior[key]["source"]["column"] == column
+        for old, new in zip(prior[key]["rows"], current[key]["rows"], strict=True):
+            assert {k: v for k, v in old.items() if k != "source_row"} == {k: v for k, v in new.items() if k != "source_row"}
+        assert prior[key]["rows"][0]["source_row"].endswith(f":{column}2")
 
 
 @pytest.mark.parametrize("fault", ["positive", "fraction", "missing", "nan", "duplicate", "sunday", "gap", "short", "unknown", "unit", "future_vintage"])
