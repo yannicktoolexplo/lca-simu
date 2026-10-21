@@ -10,7 +10,13 @@ from etudecas.visualization.maps.simulation_payload import economic_cost_view
 from etudecas.visualization.maps.supplier_operations_payload import build_unit_scoped_mrp_assets
 from etudecas.visualization.maps.scenario_comparison_payload import compute_observed_impact
 from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
-from etudecas.visualization.maps.build_supplychain_worldmap import build_simulation_diagnostics_payload, aggregate_daily_series, build_edge_metrics, summarize_inventory_rows
+from etudecas.visualization.maps.build_supplychain_worldmap import (
+    aggregate_daily_series,
+    build_edge_metrics,
+    build_simulation_diagnostics_payload,
+    mrp_physical_target_series_by_item,
+    summarize_inventory_rows,
+)
 from etudecas.visualization.maps.simulation_payload import executed_shipment_day, observed_transport_lead
 from etudecas.visualization.maps.supplier_risk_panels import build_simulated_risk_global_diagnostic_payload
 
@@ -134,6 +140,43 @@ class PhysicalBalanceContractTests(unittest.TestCase):
 
 
 class SemanticGuardTests(unittest.TestCase):
+    def test_physical_target_uses_full_shared_material_safety_without_pipeline_netting(self):
+        rows = [
+            dict(
+                day=day,
+                node_id="M",
+                item_id="RM",
+                prospective_safety_legacy_qty="1100",
+                safety_floor_qty="150",
+                target_stock_display_qty="200",
+                recv_prev_future_qty="700",
+            )
+            for day in range(30)
+        ]
+        result = mrp_physical_target_series_by_item(
+            rows,
+            node_id="M",
+            item_ids={"RM"},
+            item_labels={"RM": "Matiere partagee"},
+        )
+        label, points = result["RM"]
+        self.assertIn("consigne physique de securite", label)
+        self.assertEqual(points[0], (0, 1100))
+        self.assertEqual(points[-1], (29, 1100))
+
+    def test_physical_target_falls_back_to_mrp_safety_floor(self):
+        rows = [
+            dict(day=day, node_id="M", item_id="RM", safety_floor_qty="350", recv_prev_future_qty="900")
+            for day in range(30)
+        ]
+        _, points = mrp_physical_target_series_by_item(
+            rows,
+            node_id="M",
+            item_ids={"RM"},
+            item_labels={"RM": "Matiere propre"},
+        )["RM"]
+        self.assertEqual({value for _, value in points}, {350})
+
     def test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score(self):
         for valuation in ({}, {"economic_valuation": {"complete": False, "status": "incomplete"}}):
             view = economic_cost_view({**valuation, "kpis": {"total_cost": 100, "total_external_procurement_cost": 50}})

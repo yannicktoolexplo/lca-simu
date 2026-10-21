@@ -26,6 +26,7 @@ from etudecas.simulation.analysis_batch_common import (
     detect_demand_items,
     detect_production_nodes,
     load_json,
+    sensitivity_run_context,
     numeric_kpis,
     prune_simulation_output,
     run_simulation,
@@ -48,6 +49,16 @@ def parse_args() -> argparse.Namespace:
         help="Simulation runner script.",
     )
     parser.add_argument("--scenario-id", default="scn:BASE", help="Scenario id.")
+    parser.add_argument(
+        "--run-manifest",
+        default=None,
+        help="Nominal run_manifest.json; reuse its engine policy arguments for every sensitivity case.",
+    )
+    parser.add_argument(
+        "--baseline-only",
+        action="store_true",
+        help="Run only the nominal case to validate the sensitivity execution path; no parameter effects are calculated.",
+    )
     parser.add_argument(
         "--output-dir",
         default="etudecas/simulation/sensibility/result",
@@ -327,10 +338,18 @@ def main() -> None:
     run_script = Path(args.run_script)
     output_dir = Path(args.output_dir)
     cases_dir = output_dir / "cases"
+    base_data = load_json(input_path)
+    if args.run_manifest:
+        run_script, engine_args = sensitivity_run_context(Path(args.run_manifest), run_script)
+    else:
+        engine_args = None
+    if (base_data.get("meta") or {}).get("mrp_net_requirement_rounding_policy") and engine_args is None:
+        raise ValueError(
+            "This graph enables dated MRP rounding; pass --run-manifest from its nominal run "
+            "so sensitivity cases reuse the same engine policies."
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
     cases_dir.mkdir(parents=True, exist_ok=True)
-
-    base_data = load_json(input_path)
     batch_external_procurement_enabled = parse_bool(args.external_procurement_enabled)
     apply_batch_overrides(
         base_data,
@@ -339,6 +358,8 @@ def main() -> None:
         external_procurement_enabled=batch_external_procurement_enabled,
     )
     design = build_design(base_data, args.scenario_id, args.delta, args.severity_profile)
+    if args.baseline_only:
+        design = [case for case in design if case.get("case_id") == "baseline"]
     print(f"[INFO] Sensitivity design cases: {len(design)}")
     keep_detailed_cases = {str(case_id) for case_id in (args.keep_detailed_case or [])}
 
@@ -392,6 +413,7 @@ def main() -> None:
                 days=args.days,
                 skip_map=True,
                 skip_plots=True,
+                extra_args=engine_args,
             )
             for k, v in numeric_kpis(summary).items():
                 row[f"kpi::{k}"] = v
@@ -401,6 +423,9 @@ def main() -> None:
             row["status"] = "failed"
             row["error"] = str(exc)
         rows.append(row)
+        if case_id == "baseline" and row["status"] != "ok":
+            print("[STOP] Baseline failed; remaining cases are not comparable and were not run.")
+            break
 
     cases_csv = output_dir / "sensitivity_cases.csv"
     all_columns = sorted({k for r in rows for k in r.keys()})

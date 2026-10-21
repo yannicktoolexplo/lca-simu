@@ -25,7 +25,7 @@ def _customer_payload():
         rows=[dict(node_id=CLIENT[0], item_id=CLIENT[1], uom="UN", period_start_day=start,
                    period_days=7, qty=0 if start == 12 else 100,
                    source_row=f"E{start+3}", source_file="memory_customer.xlsx")
-              for start in range(-2, 362, 7)])
+              for start in range(-2, 369, 7)])
 
 
 def _fixed_profile():
@@ -140,6 +140,35 @@ def test_candidate_customer_forecast_matches_unchanged_integer_orders_and_consum
             assert audit["source_vintage_day"] == 365
     rows = forecast.projection_audit_rows(CLIENT, decision_day=730, horizon_days=364)
     assert all(r["status"] == "synthetic_scenario_not_industrial_forecast" for r in rows)
+
+
+def test_customer_history_uses_all_2025_source_days_before_synthetic_extension():
+    with _adapters("coherent_scenario") as (_, e, _):
+        history = e.SourceCustomerHistory(_customer_payload(), demand_pairs={CLIENT},
+            origin_date="2025-01-01", sim_days=1825)
+        day364, audit364 = history.quantity(CLIENT, decision_day=364, target_day=364)
+        day365, audit365 = history.quantity(CLIENT, decision_day=365, target_day=365)
+    assert day364 == 14
+    assert audit364["policy"] == "source_customer_history_v1"
+    assert audit364["source_file"] == "memory_customer.xlsx"
+    assert day365 == 15
+    assert audit365["policy"] == reference.CUSTOMER_DEMAND_MODE
+    assert audit365["status"] == "synthetic_52_week_orders_5pct_growth"
+    assert type(day364) is type(day365) is int
+
+
+def test_csv_fields_accepts_heterogeneous_optional_audit_columns():
+    records = [
+        {"budget_id": "B1", "qty": 1},
+        {"budget_id": "B2", "qty": 2, "scan3_target_qty": 3,
+         "scan3_reconciliation_mode": "legacy_residual"},
+        {"budget_id": "B3", "qty": 4, "scan3_minus_own_qty": 5},
+    ]
+    assert reference.csv_fields(records, ["budget_id"]) == [
+        "budget_id", "qty", "scan3_minus_own_qty", "scan3_reconciliation_mode",
+        "scan3_target_qty",
+    ]
+    assert reference.csv_fields([], ["budget_id"]) == ["budget_id"]
 
 
 def test_candidate_other_use_forecast_is_requested_profile_with_integer_UN_and_explicit_zero():

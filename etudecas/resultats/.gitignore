@@ -1,0 +1,3 @@
+# Generated simulation results stay local; regenerate them from versioned inputs.
+*
+!.gitignore

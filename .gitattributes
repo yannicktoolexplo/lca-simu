@@ -96,3 +96,14 @@ etudecas/atomic_io.py text eol=lf
 /etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py text eol=lf
 /etudecas/prototypes/scan_2027_risk_control/supplier_campaign_source_revision.json text eol=lf
 /etudecas/prototypes/scan_2027_risk_control/supplier_campaign_adapters.py text eol=lf
+
+# Current MRP reference hashes the checked-out bytes, not normalized Git blobs.
+# Preserve each asset's existing representation on every checkout platform.
+/etudecas/config/mrp_reference_20261013/graph.json.gz -text
+/etudecas/config/mrp_reference_20261013/external_component_demand_daily.csv.gz -text
+/etudecas/config/mrp_reference_20261013/protocol.json text eol=crlf
+/etudecas/config/mrp_reference_20261013/engine_arguments.json text eol=crlf
+/etudecas/config/mrp_reference_20261013/supplier_neutral_floors.csv text eol=crlf
+/etudecas/simulation/reference_mrp/historical_adapter.py text eol=lf
+/etudecas/simulation/reference_mrp/reconciliation.py text eol=lf
+/etudecas/simulation/reference_mrp/weekly_protection.py text eol=lf

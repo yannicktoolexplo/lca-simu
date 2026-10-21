@@ -1595,12 +1595,12 @@ def build_factory_hover_images(
                     series_styles=physical_top_styles,
                     lot_trace_category="factory_input",
                     note=(
-                        "Vue physique valorisable: stock reel et consigne physique "
-                        "= max(cible de position MRP - receptions futures MRP, 0). "
+                        "Vue physique valorisable: stock reel et consigne physique de securite. "
+                        "Lorsqu'elle est disponible, la consigne reprend les besoins connus de toute la matiere "
+                        "pendant les jours de securite source, y compris les usages partages modelises; sinon elle "
+                        "reprend le plancher de securite MRP. Elle ne retranche pas les receptions futures. "
                         "La consigne est lissee sur 30 jours pour eviter les crenaux journaliers de pilotage. "
-                        "Un stock durablement au-dessus de cette consigne correspond a du stock immobilise; "
-                        "la valeur industrielle de stock immobilise se compare a cette vue physique. "
-                        "La vraie cible MRP de position et le pipeline restent dans Pilotage MRP."
+                        "La cible de position et les receptions futures restent dans Pilotage MRP."
                     ),
                 )
                 gross_daily_requirement_series = mrp_metric_series_by_item(
@@ -2318,19 +2318,23 @@ def mrp_physical_target_series_by_item(
         pts: list[tuple[int, float]] = []
         for row in rows_by_item.get(item_id, []):
             day = int(to_float(row.get("day")) or 0)
-            target = to_float(row.get("target_stock_display_qty"))
-            if target is None or math.isnan(target) or abs(target) <= 1e-9:
-                target = to_float(row.get("target_stock_qty"))
-            if target is None or math.isnan(target) or abs(target) <= 1e-9:
+            # Compare physical on-hand quantities with the protection already
+            # calculated by the dated planner.  This prospective floor covers
+            # the complete material need over the source safety window,
+            # including modeled uses by other SKUs.  Future receipts belong to
+            # the inventory-position view and must not be netted a second time.
+            target = to_float(row.get("prospective_safety_legacy_qty"))
+            if target is None or math.isnan(target):
                 target = to_float(row.get("safety_floor_qty"))
-            future_receipts = to_float(row.get("recv_prev_future_qty"))
-            physical_target = max(0.0, (target or 0.0) - (future_receipts or 0.0))
+            if target is None or math.isnan(target):
+                target = to_float(row.get("soft_safety_target_qty"))
+            physical_target = max(0.0, target or 0.0)
             pts.append((day, physical_target))
         if not any(abs(value) > 1e-9 for _, value in pts):
             continue
         pts = rolling_average_points(pts, MRP_TARGET_DISPLAY_SMOOTHING_DAYS)
         item_name = item_labels.get(item_id, compact_item_label(item_id))
-        out[item_id] = (f"{item_name} - consigne physique (moy. 30j)", sorted(pts, key=lambda it: it[0]))
+        out[item_id] = (f"{item_name} - consigne physique de securite (moy. 30j)", sorted(pts, key=lambda it: it[0]))
     return out
 
 

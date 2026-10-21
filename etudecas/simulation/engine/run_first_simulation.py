@@ -3485,12 +3485,52 @@ def resolve_finished_goods_release_policy(payload, *, nodes, produced_pairs, fin
             raise ValueError("Finished-good release needs one exclusive manufactured UN factory-to-depot route")
         if (type(row.get("receipt_days")) is not int or row["receipt_days"] <= 0
                 or row.get("receipt_calendar") != "monday_friday"
-                or row.get("location_basis") != "factory_before_push_hypothesis"
+                or row.get("location_basis") not in {
+                    "factory_before_push_hypothesis", "destination_after_transport"}
                 or not isinstance(row.get("source_refs"), dict)
                 or any(not isinstance(row["source_refs"].get(k), str) or not row["source_refs"][k].strip()
                        for k in ("receipt_days", "receipt_calendar", "location"))):
             raise ValueError("Finished-good release requires source weekdays and documented location hypothesis")
         result[pair] = dict(row)
+    return result
+
+
+def resolve_finished_goods_depot_receipt_policy(payload, *, nodes, produced_pairs, finished_item_ids,
+                                                lanes_by_dest_item, item_unit_map,
+                                                receipt_netting_mode="all_future"):
+    """Move PF receipt availability from the factory to the receiving depot.
+
+    The policy row still identifies its manufactured factory output. Its
+    receipt clock starts only after the existing factory-to-depot lane has
+    physically arrived; it does not delay production or create another lane.
+    """
+    source_policies = resolve_finished_goods_release_policy(
+        payload, nodes=nodes, produced_pairs=produced_pairs,
+        finished_item_ids=finished_item_ids, lanes_by_dest_item=lanes_by_dest_item,
+        item_unit_map=item_unit_map, receipt_netting_mode=receipt_netting_mode,
+    )
+    if not source_policies:
+        return {}
+    kinds = {str(node.get("id")): node.get("type") for node in nodes}
+    result = {}
+    for factory_pair, source_row in source_policies.items():
+        depot_pair = (str(source_row["depot_node_id"]), factory_pair[1])
+        incoming = tuple(lanes_by_dest_item.get(depot_pair, ()))
+        if (kinds.get(depot_pair[0]) != "distribution_center" or len(incoming) != 1
+                or str(incoming[0].get("src")) != factory_pair[0]
+                or depot_pair in result):
+            raise ValueError("Finished-good receipt requires one factory-to-depot arrival route")
+        if source_row.get("location_basis") != "destination_after_transport":
+            raise ValueError("Finished-good receipt location must identify the receiving depot")
+        result[depot_pair] = dict(
+            source_row,
+            node_id=depot_pair[0],
+            factory_node_id=factory_pair[0],
+            depot_node_id=depot_pair[0],
+            location_basis="destination_after_transport",
+            source_location_basis=source_row.get("location_basis", ""),
+            source_type="finished_goods_depot_receipt",
+        )
     return result
 
 
@@ -5501,6 +5541,13 @@ def manufacturing_work_finish(day, work_days, closed_days):
 def manufacturing_day_capacity(capacity, *, day, closed_days):
     """Closure applies equally to a new campaign and already-started work."""
     return 0.0 if day in closed_days else capacity
+
+
+def manufacturing_controlled_capacity(nominal_capacity, *, capacity_multiplier):
+    """An explicit stop binds even when the nominal rate is not modeled."""
+    if capacity_multiplier <= 0.0:
+        return 0.0
+    return nominal_capacity * capacity_multiplier if nominal_capacity > 0.0 else float("inf")
 
 
 def calendarize_manufacturing_plan(plan, *, requirements, firm_receipts, closed_days,
@@ -13690,22 +13737,42 @@ def main() -> None:
         produced_pairs=produced_pairs, finished_item_ids=finished_good_item_ids,
         lanes_by_dest_item=lanes_by_dest_item,
     )
-    finished_goods_release_policies = resolve_finished_goods_release_policy(
+    finished_goods_depot_receipt_policies = resolve_finished_goods_depot_receipt_policy(
         graph_meta.get("finished_goods_release_policy"), nodes=nodes, produced_pairs=produced_pairs,
         finished_item_ids=finished_good_item_ids, lanes_by_dest_item=lanes_by_dest_item, item_unit_map=item_unit_map,
         receipt_netting_mode=args.mrp_receipt_netting_mode)
-    legacy_finished_goods_release_policies = dict(finished_goods_release_policies)
+    if finished_goods_depot_receipt_policies and (not dated_mrp_execution or not args.lot_trace):
+        raise ValueError("Finished-good depot receipt requires dated execution and lot genealogy")
     production_release_policies = resolve_production_release_policy(
         graph_meta.get("production_release_policy"), nodes=nodes, produced_pairs=produced_pairs,
         item_unit_map=item_unit_map, receipt_netting_mode=args.mrp_receipt_netting_mode)
-    if finished_goods_release_policies.keys() & production_release_policies.keys():
-        raise ValueError("A manufactured item cannot have two production release policies")
+    finished_goods_factory_pairs = {
+        (row["factory_node_id"], pair[1])
+        for pair, row in finished_goods_depot_receipt_policies.items()
+    }
+    if finished_goods_factory_pairs & production_release_policies.keys():
+        raise ValueError("Finished-good depot receipt cannot retain a second release delay at the factory")
+    if finished_goods_depot_receipt_policies.keys() & internal_component_policies.keys():
+        raise ValueError("Finished-good depot receipt cannot overlap another internal receipt policy")
+    for pair, row in finished_goods_depot_receipt_policies.items():
+        internal_component_policies[pair] = dict(
+            policy_id=f"finished_goods_depot_receipt:{row['factory_node_id']}:{pair[1]}",
+            node_id=pair[0], item_id=pair[1], source_node_id=row["factory_node_id"],
+            uom=normalize_unit(item_unit_map[pair[1]]), receipt_days=row["receipt_days"],
+            receipt_calendar=row["receipt_calendar"], source_refs=row["source_refs"],
+            status="source_confirmed_receiving_site_delay",
+            location_basis="destination_after_transport",
+        )
+    # Configure both source-backed internal component rules and the new PF
+    # receiving-site rule. The latter changes availability only, never the lane.
+    apply_internal_component_lane_policies(internal_component_policies, lanes_by_dest_item,
+        schema_version=(graph_meta.get("internal_component_policy") or {}).get("schema_version"))
+    finished_goods_release_policies = dict(production_release_policies)
     for pair in production_release_policies:
         # Validate the unknown-capacity fallback before any simulation work.
         production_campaign_work_days(1.0, capacity_qty=process_capacity_by_output_pair.get(pair, 0.0),
             fixed_lot_qty=production_lot_policy_by_pair.get(pair, {}).get("fixed_lot_qty", 0.0),
             intraday=production_intraday_policy is not None)
-    finished_goods_release_policies.update(production_release_policies)
     site_receipt_nonworking_dates = resolve_site_receipt_calendars(
         graph_meta.get("receipt_calendar_policy"), execution_mode=args.mrp_execution_mode, nodes=nodes)
     manufacturing_closed_days = resolve_manufacturing_closures(graph_meta.get("manufacturing_closures"),
@@ -16380,6 +16447,7 @@ def main() -> None:
             same_item_demand_today = propagate_demand_rates(mrp_demand_target_today, lanes)
             mps_output_command_today: dict[tuple[str, str], float] = {}
             mps_capacity_today = dict(process_capacity_by_output_pair)
+            stopped_daily_pairs: set[tuple[str, str]] = set()
             for out_pair in process_input_requirements_by_output_pair:
                 out_signal = max(
                     0.0,
@@ -16418,6 +16486,9 @@ def main() -> None:
                     if production_control is not None
                     else 1.0
                 )
+                if capacity_multiplier <= 0.0:
+                    stopped_daily_pairs.add(out_pair)
+                    mps_capacity_today[out_pair] = 0.0
                 out_target = base_out_target * target_multiplier
                 if record_production_planning:
                     production_safety_decisions.setdefault(out_pair, {}).update({
@@ -16523,7 +16594,7 @@ def main() -> None:
                 mps_open_campaign_qty_by_pair=mps_open_campaign_qty_by_pair,
                 mps_started_lots_by_week_pair=mps_started_lots_by_week_pair,
                 expand_internal_outputs=not forecast_production_signal,
-                closed_output_pairs={pair for pair, closed in manufacturing_closed_days.items() if day in closed},
+                closed_output_pairs=stopped_daily_pairs | {pair for pair, closed in manufacturing_closed_days.items() if day in closed},
             )
             propagated_demand_today = dict(same_item_demand_today)
             for pair, qty in propagate_demand_rates(mps_component_signal_today, lanes).items():
@@ -17306,11 +17377,10 @@ def main() -> None:
                 )
                 # Missing capacity data means "capacity not modeled", not "zero capacity".
                 # Lot rules, input availability and demand signal still constrain execution.
-                cap = (
-                    cap_raw * capacity_multiplier
-                    if has_capacity_limit
-                    else float("inf")
-                )
+                cap = manufacturing_controlled_capacity(
+                    cap_raw, capacity_multiplier=capacity_multiplier)
+                if capacity_multiplier <= 0.0:
+                    has_capacity_limit = True
                 closed_production_day = day in manufacturing_closed_days.get((nid, out_item), ())
                 cap = manufacturing_day_capacity(cap, day=day, closed_days=manufacturing_closed_days.get((nid, out_item), ()))
                 if closed_production_day:
@@ -21108,7 +21178,10 @@ def main() -> None:
                             "trace_reason": shipment_trace_reason, "risk_decision_day": output_day,
                             "risk_event_ids": risk_event_ids, "causal_event_ids": risk_mult.get("event_ids"),
                             "causal_root_ids": risk_mult.get("causal_root_ids"),
-                            "source_file": "graph.meta.internal_component_policy", "source_row": internal_receipt["policy_id"],
+                        "source_file": ("graph.meta.finished_goods_release_policy"
+                            if internal_receipt.get("location_basis") == "destination_after_transport"
+                            else "graph.meta.internal_component_policy"),
+                        "source_row": internal_receipt["policy_id"],
                         })
                     else:
                         schedule_lot_arrival(
@@ -21184,7 +21257,10 @@ def main() -> None:
                             "physical_delivery_day": arrival_day, "available_day": available_day,
                             "actual_physical_receipt_day": arrival_day if arrival_day < total_timeline_days else "",
                             "actual_available_day": available_day if available_day < total_timeline_days else "",
-                            "source_file": "graph.meta.internal_component_policy", "source_row": internal_receipt["policy_id"],
+                            "source_file": ("graph.meta.finished_goods_release_policy"
+                                if internal_receipt.get("location_basis") == "destination_after_transport"
+                                else "graph.meta.internal_component_policy"),
+                            "source_row": internal_receipt["policy_id"],
                             "delivery_reference_days": lead_reference, "delivery_sampled_days": arrival_day - physical_release_day,
                             "receipt_source_days": internal_receipt["receipt_days"], "receipt_calendar": internal_receipt["receipt_calendar"],
                         })
@@ -24057,17 +24133,17 @@ def main() -> None:
                 "capacity": "existing_shared_supplier_capacity_not_increased",
                 "status": "scenario_candidate_not_identified_industrial_policy",
             }} if managed_supply_policies else {}),
-            **({"finished_goods_release_policy": {
-                "schema_version": 1, "rows": list(legacy_finished_goods_release_policies.values()),
-                "physical": "production_output_and_opening_production_order_at_G_create_one_finished_lot_at_factory",
-                "availability": "same_lot_stock_availability_release_at_I_no_second_production_or_BOM_consumption",
-                "opening_orders": "source_G_and_I_preserved_once_components_assumed_initial_WIP_no_extra_receipt_delay",
-                "new_batches": "physical_batch_completion_plus_source_Monday_Friday_receipt_days_tau_remains_planning_only",
-                "planning": "firm_available_at_I_only_active_campaign_finish_includes_quality_new_proposals_use_current_calendar_scalar_lead",
-                "outputs": "daily_produced_qty_and_released_qty_at_I_executed_qty_tracks_new_fabrication_work_campaign_completion_remains_physical",
-                "physical_completed_qty": "conditional_plan_event_field_Q_only_physical_batch_completed_at_G_zero_on_quality_release_I_and_incomplete_WIP",
-                "location": "explicit_factory_location_hypothesis_not_observed_stock_reassignment",
-            }} if legacy_finished_goods_release_policies else {}),
+            **({"finished_goods_depot_receipt_policy": {
+                "schema_version": 1,
+                "rows": [dict(policy)
+                         for pair, policy in sorted(finished_goods_depot_receipt_policies.items())],
+                "physical": "factory_output_then_existing_factory_to_depot_transport_once",
+                "availability": "same_received_DC_lot_held_physically_until_source_Monday_Friday_receipt_days_then_released_once",
+                "opening_orders": "opening_production_G_I_at_factory_preserved_then_existing_push_and_DC_receipt_delay_applied_once",
+                "planning": "lane_transport_plus_DC_receipt_days; production_tau_and_factory_availability_unchanged",
+                "genealogy": "single_transport_parent_allocation_and_single_DC_availability_release_no_second_shipment_or_BOM_consumption",
+                "location": "receiving_distribution_center_after_physical_arrival",
+            }} if finished_goods_depot_receipt_policies else {}),
             **({"production_release_policy": {
                 "schema_version": 1, "rows": list(production_release_policies.values()),
                 "physical": "one_manufactured_lot_created_only_after_physical_batch_completion_G",

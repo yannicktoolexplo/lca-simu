@@ -645,3 +645,90 @@ def test_memory_observed_qualification_requires_original_graph_sha():
     bad = Evidence()
     assert observed_policy_from_graph_bytes(data, '0' * 64, bad) is None
     assert bad.checks['observed_original_input_sha256']['failed'] == 1
+
+
+def _scan3_reconciliation_memory_case():
+    budget = dict(
+        budget_id='M:X:R2', node_id='M', item_id='X', uom='KG', source_row=2,
+        source_week_marker='2025-01-05', first_day=0, end_day_exclusive=5,
+        closing_day=4, covered_days=5, partial_week=True,
+        include_in_main_source_balance=False, raw_signed_scan3_qty=-10,
+        full_week_scan3_qty=10, covered_scan3_qty=10,
+        coverage_status='documented_withdrawals', source_file='movements.xlsx',
+        scan3_source_cell='Feuille1!J2', I_source_cell='Feuille1!I2')
+    contract = dict(schema_version=1, mode='scan3_residual_v1', cumulative_pairs=[])
+    production = dict(event_type='production_consume', day=0, node_id='M', item_id='X',
+                      uom='KG', qty=4, source_id='bom')
+    weekly = dict(budget, scan3_reconciliation_mode='audit_only', scan3_target_qty=10,
+                  scan3_minus_own_qty=6, own_physical_qty=4, residual_requested_qty=0,
+                  own_exceeds_scan3_qty=0, requirement_id='', residual_executed_qty=0,
+                  residual_executed_on_closing_day_qty=0, residual_backlog_initial_qty=0,
+                  residual_backlog_final_qty=0, first_execution_day='', last_execution_day='',
+                  residual_backlog_at_closing_qty=0)
+    return contract, [budget], [production], [weekly]
+
+
+def test_memory_scan3_legacy_mode_keeps_the_previous_residual_oracle_exactly():
+    from etudecas.testing.independent_review import (
+        Evidence, declared_scan3_requirements, scan3_reconciliation_mode)
+    contract, budgets, events, _ = _scan3_reconciliation_memory_case()
+    evidence = Evidence()
+    # Old runs had neither manifest declaration nor the new F3 columns.
+    assert scan3_reconciliation_mode({}, [{'budget_id': 'M:X:R2'}], evidence) == 'legacy_residual'
+    requirements = declared_scan3_requirements(contract, budgets, events, 5, 'memory', evidence)
+    assert list(requirements.values())[0]['qty'] == 6
+    assert not {name: check for name, check in evidence.checks.items() if check['failed']}
+
+
+def test_memory_scan3_audit_only_checks_J_and_BOM_without_adding_J_to_demand():
+    from etudecas.testing.independent_review import Evidence, audit_external_component_service
+    contract, budgets, events, weekly = _scan3_reconciliation_memory_case()
+    policy = dict(schema_version=1, scenario_id='memory', repeat_period_days=None, rows=[dict(
+        demand_id='other-X', node_id='M', item_id='X', uom='KG', known_day=0,
+        period_start_day=0, period_days=5, qty=0, source_file='forecast.csv',
+        source_cells='I2', estimation_basis='other uses')])
+    series = [dict(day=day, node_id='M', item_id='X', uom='KG', demand_qty=0,
+        backlog_start_qty=0, required_qty=0, consumed_qty=0, backlog_end_qty=0,
+        available_before_qty=0, available_after_qty=0,
+        core_consumed_qty=4 if day == 0 else 0,
+        total_component_consumed_qty=4 if day == 0 else 0) for day in range(5)]
+    evidence = Evidence()
+    audit_external_component_service(series, events,
+        [dict(day=0, node_id='M', item_id='X', consumed_qty=4)], policy, 5, evidence,
+        reconciliation=dict(contract=contract, budgets=budgets, mode='audit_only',
+                            weekly_rows=weekly, allocation_rows=[]))
+    assert evidence.checks['external_known_daily_demand']['failed'] == 0
+    assert evidence.checks['scan3_audit_signed_gap']['checked'] == 1
+    assert not {name: check for name, check in evidence.checks.items() if check['failed']}
+
+
+def test_memory_scan3_audit_only_rejects_any_residual_allocation():
+    from etudecas.testing.independent_review import Evidence, audit_scan3_only_export
+    contract, budgets, events, weekly = _scan3_reconciliation_memory_case()
+    evidence = Evidence()
+    audit_scan3_only_export(contract, budgets, events, weekly,
+        [dict(day='4', requirement_id='forbidden', node_id='M', item_id='X', qty='6', uom='KG')],
+        5, 'memory', evidence)
+    assert evidence.checks['scan3_audit_no_residual_allocations']['failed'] == 1
+
+
+@pytest.mark.parametrize('manifest,weekly', [
+    ({}, [dict(budget_id='M:X:R2', scan3_target_qty='10')]),
+    ({'scan3_reconciliation_mode': 'audit_only',
+      'runtime': {'scan3_reconciliation_mode': 'legacy_residual'}},
+     [dict(budget_id='M:X:R2', scan3_reconciliation_mode='audit_only', scan3_target_qty='10')]),
+])
+def test_memory_scan3_new_structure_refuses_missing_or_incoherent_mode(manifest, weekly):
+    from etudecas.testing.independent_review import Evidence, scan3_reconciliation_mode
+    evidence = Evidence()
+    assert scan3_reconciliation_mode(manifest, weekly, evidence) is None
+    assert evidence.checks['scan3_execution_mode_declared_and_coherent']['failed'] == 1
+
+
+def test_memory_scan3_real_run_requires_manifest_mode_even_if_F3_declares_it():
+    from etudecas.testing.independent_review import Evidence, scan3_reconciliation_mode
+    evidence = Evidence()
+    weekly = [dict(budget_id='M:X:R2', scan3_reconciliation_mode='audit_only',
+                   scan3_target_qty='10')]
+    assert scan3_reconciliation_mode({}, weekly, evidence, require_manifest=True) is None
+    assert evidence.checks['scan3_execution_mode_declared_and_coherent']['failed'] == 1

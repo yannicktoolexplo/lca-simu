@@ -8,6 +8,7 @@ Les [résultats locaux](../index.html) ont leur propre accueil.
 
 | Sujet | Guide et références |
 |---|---|
+| Comprendre ce que couvre toute la simulation et quelles données industrielles manquent | [Rapport de complétude de la simulation](RAPPORT_COMPLETUDE_SIMULATION.md) ; demande, production, MRP, achats, lots, risques, incertitude et priorités de données |
 | Comprendre les données industrielles et leurs versions | [Bilan des données sources](DONNEES_SOURCES.md) ; couverture, unités, calendriers, redondances et contradictions vérifiées le 8 octobre 2026 |
 | Règles MRP courantes et application par liaison | [Les règles simplement](REGLES_MRP.md) ; prévisions, achats, fabrication, transferts et conventions encore à confirmer |
 | Reprendre la conception du MRP à partir des sources | [Refondation du MRP](REFONDATION_MRP.md) ; noyau commun, politiques locales, identification et validation avant remplacement |
