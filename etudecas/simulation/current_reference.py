@@ -23,13 +23,27 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "etudecas/config/mrp_reference_20261013.json"
+CUSTOMER_DEMAND_SOURCE = ROOT / "etudecas/data/source/Flow_Data_Customer_Demand.xlsx"
 ORIGIN = date(2025, 1, 1)
 FIRST = 362
+CUSTOMER_HISTORY_DAYS = 365
 SEASON = 364
 MODE = "retained_W_historical_then_synthetic_v1"
+CUSTOMER_DEMAND_MODE = "flow_actual_2025_then_weekday_aligned_5pct_growth_v1"
 FORECAST_MODES = ("source_priority", "coherent_scenario")
+SCAN3_MODES = ("legacy_residual", "audit_only")
 SCENARIO_KNOWN_DAY = 365  # 1 January 2026: never visible to a 2025 decision.
 SCENARIO_FIRST_DAY = 369  # 5 January: first complete future Monday week.
+
+
+def validate_scan3_mode(scan3_mode, days):
+    if scan3_mode not in SCAN3_MODES:
+        raise ValueError(f"Unknown Scan3 reconciliation mode: {scan3_mode}")
+    if scan3_mode == "audit_only" and days > FIRST:
+        raise ValueError(
+            "Scan3 audit_only is limited to the 2025 historical window: the "
+            "current prospective profile still contains legacy Scan3 residuals"
+        )
 
 
 def read(path):
@@ -53,6 +67,14 @@ def write(path, value):
 
 def rel(path):
     return Path(path).resolve().relative_to(ROOT).as_posix()
+
+
+def csv_fields(records, fallback):
+    """Retain first-row order and append optional audit columns deterministically."""
+    if not records:
+        return fallback
+    first = list(records[0])
+    return first + sorted({key for record in records for key in record} - set(first))
 
 
 def validate_projection_contract(meta, days):
@@ -349,17 +371,17 @@ def install_projection(planning, engine, frozen, days, *, forecast_mode="source_
             raise ValueError("Coherent forecasts require the unchanged customer history template")
         customer_template = native_history(customer_payload,
             demand_pairs={(row["node_id"], row["item_id"]) for row in customer_payload["rows"]},
-            origin_date=ORIGIN.isoformat(), sim_days=FIRST)
+            origin_date=ORIGIN.isoformat(), sim_days=min(CUSTOMER_HISTORY_DAYS, days))
 
     class ProjectedHistory(native_history):
         def __init__(self, payload, **kwargs):
-            super().__init__(payload, **dict(kwargs, sim_days=min(FIRST, kwargs["sim_days"])))
+            super().__init__(payload, **dict(kwargs, sim_days=min(CUSTOMER_HISTORY_DAYS, kwargs["sim_days"])))
             self.sim_days = kwargs["sim_days"]
 
         def quantity(self, pair, *, decision_day, target_day):
             if target_day != decision_day or not 0 <= target_day < self.sim_days:
                 raise ValueError("Synthetic customer orders are only disclosed on arrival")
-            if target_day < FIRST:
+            if target_day < CUSTOMER_HISTORY_DAYS:
                 result = super().quantity(pair, decision_day=decision_day, target_day=target_day)
             else:
                 cycle, local = season_day(target_day)
@@ -370,7 +392,7 @@ def install_projection(planning, engine, frozen, days, *, forecast_mode="source_
                 before, after = quantity*offset//7, quantity*(offset+1)//7
                 audit = dict.fromkeys(engine.CUSTOMER_DEMAND_POLICY_FIELDS, "")
                 audit.update(day=target_day, decision_day=decision_day, node_id=pair[0], item_id=pair[1], uom="UN",
-                    policy=MODE, status="synthetic_52_week_orders_5pct_growth", source_row=cell,
+                    policy=CUSTOMER_DEMAND_MODE, status="synthetic_52_week_orders_5pct_growth", source_row=cell,
                     source_file=file, period_start_day=start+cycle*SEASON, period_end_day=start+cycle*SEASON+6,
                     weekly_source_qty=quantity, day_qty=after-before, allocation_start_day=start+cycle*SEASON,
                     cumulative_before_qty=before, cumulative_through_qty=after)
@@ -383,7 +405,7 @@ def install_projection(planning, engine, frozen, days, *, forecast_mode="source_
     def resolve_customer(payload, **kwargs):
         if payload != "source_customer_history_v1" or kwargs["sim_days"] != days:
             raise ValueError("Prospective adapter requires its explicit customer history contract")
-        return original_resolve(payload, **dict(kwargs, sim_days=min(FIRST, days)))
+        return original_resolve(payload, **dict(kwargs, sim_days=min(CUSTOMER_HISTORY_DAYS, days)))
     replace(engine, "resolve_customer_demand_policy", resolve_customer)
 
     native_forecast = engine.RollingMrpForecast
@@ -453,6 +475,21 @@ def resolve_inputs():
     graph = read(graph_path)
     inputs = {contract["path"]: contract["sha256"] for contract in assets.values()}
     inputs[rel(CONFIG)] = sha(CONFIG)
+    # The versioned graph retains the previous demand source for reproducible
+    # comparison. Every new nominal run explicitly overlays the newer workbook:
+    # Historique/Actual Demand drives physical 2025 orders and
+    # Projection/Forecasted Demand remains the dated, causal MRP signal.
+    from etudecas.simulation_prep.inject_mrp_seed_data_v2 import apply_customer_demand_source
+    customer_report = apply_customer_demand_source(graph, CUSTOMER_DEMAND_SOURCE)
+    inputs[rel(CUSTOMER_DEMAND_SOURCE)] = customer_report["sha256"]
+    graph["meta"]["current_reference_customer_demand_source"] = {
+        **customer_report,
+        "policy": CUSTOMER_DEMAND_MODE,
+        "historical_execution_days": CUSTOMER_HISTORY_DAYS,
+        "future_physical_demand": "52-week weekday-aligned Actual Demand profile, 5% compounded growth per cycle",
+        "mrp_forecast": "latest Projection vintage known at each decision date",
+        "legacy_comparator": "demand_PF.xlsx remains only in the immutable versioned graph",
+    }
     frozen_path = ROOT/assets["other_use_profile"]["path"]
     engine_arguments = read(ROOT/assets["engine_arguments"]["path"])
     return config, protocol, graph, inputs, frozen_path, engine_arguments
@@ -460,6 +497,10 @@ def resolve_inputs():
 
 def prepare_graph(graph, config, days, forecast_mode="source_priority"):
     graph = deepcopy(graph)
+    demand_source = graph["meta"].get("current_reference_customer_demand_source")
+    if (not isinstance(demand_source, dict) or demand_source.get("policy") != CUSTOMER_DEMAND_MODE
+            or demand_source.get("historical_execution_days") != CUSTOMER_HISTORY_DAYS):
+        raise ValueError("Current customer-demand source contract is missing")
     if days > FIRST:
         graph["meta"]["current_reference_projection"] = dict(projection_contract(config, forecast_mode), schema_version=1,
             scenario_id="scn:BASE", days=days)
@@ -477,15 +518,20 @@ def prepare_graph(graph, config, days, forecast_mode="source_priority"):
     return graph
 
 
-def run_engine(graph, protocol, config, frozen_path, command, output, days):
+def run_engine(graph, protocol, config, frozen_path, command, output, days,
+               scan3_mode="legacy_residual"):
+    validate_scan3_mode(scan3_mode, days)
     adapter = importlib.import_module(config["adapter_module"])
     f3 = adapter.f3_module()
     tracker = adapter.tracker_for(f3, graph["meta"]["formats_reconciled_weekly_budgets"],
-                                  protocol["cumulative_residual_pairs"])
+                                  protocol["cumulative_residual_pairs"], mode=scan3_mode)
     e4 = f3.e4_module()
     e4.TARGETS = {tuple(p) for p in protocol["forecast_reconciliation_pairs"]}
     e4.EFFECTIVE_POLICY = "F2_source_weekly_max_own_I_and_preserved_reserves"
     from etudecas.simulation.engine import mrp_planning as planning
+    engine = importlib.import_module("etudecas.simulation.engine.run_first_simulation")
+    original_engine_reconcile = engine.reconcile_industrial_requirements
+    original_engine_observed = engine.ObservedExternalComponentExecution
     original_reconcile, original_observed = planning.reconcile_industrial_requirements, planning.ObservedExternalComponentExecution
     planner = e4.ScopedReconciliation(original_reconcile)
     planning.reconcile_industrial_requirements = planner.reconcile
@@ -506,7 +552,8 @@ def run_engine(graph, protocol, config, frozen_path, command, output, days):
                 *_, node, item_prefix, item, d = identity.split(":")
                 return frozen.provenance((node, item_prefix+":"+item), int(d[1:]))
             if identity in tracker.provenance:
-                return {**tracker.provenance[identity], "physical_demand_source": "reconstructed_scan3_residual_not_identified_other_format"}
+                return {**tracker.provenance[identity],
+                    "physical_demand_source": "legacy_reconstructed_scan3_residual"}
             return super().provenance(identity, forecast_calendar)
 
         def day_audit(self, pair, day):
@@ -517,7 +564,10 @@ def run_engine(graph, protocol, config, frozen_path, command, output, days):
             return super().day_audit(pair, day)
 
     planning.ObservedExternalComponentExecution = RuntimeObserved
-    engine = importlib.import_module("etudecas.simulation.engine.run_first_simulation")
+    # Engine from-import aliases must follow this run's adapters, including
+    # when the module was already imported or another run preceded this one.
+    engine.reconcile_industrial_requirements = planning.reconcile_industrial_requirements
+    engine.ObservedExternalComponentExecution = planning.ObservedExternalComponentExecution
     forecast_mode = graph["meta"].get("current_reference_projection", {}).get("forecast_mode", "source_priority")
     restorations = install_projection(planning, engine, frozen, days, forecast_mode=forecast_mode,
         customer_payload=graph["meta"].get("customer_demand_history")) if frozen else []
@@ -551,6 +601,8 @@ def run_engine(graph, protocol, config, frozen_path, command, output, days):
             setattr(module, name, old)
         planning.reconcile_industrial_requirements = original_reconcile
         planning.ObservedExternalComponentExecution = original_observed
+        engine.reconcile_industrial_requirements = original_engine_reconcile
+        engine.ObservedExternalComponentExecution = original_engine_observed
     if len(tracker.published) != sum(r["closing_day"] < days for r in tracker.budgets):
         raise ArithmeticError("A historical weekly budget was not published")
     weekly.write_evidence(output)
@@ -559,17 +611,20 @@ def run_engine(graph, protocol, config, frozen_path, command, output, days):
         row["residual_backlog_at_closing_qty"] = max(0., row["residual_requested_qty"]-row["residual_executed_on_closing_day_qty"])
     units = {(n["id"], s["item_id"]): s["uom"] for n in graph["nodes"] for s in n.get("inventory", {}).get("states", [])}
     windows = [dict(planner.windows[k], uom=units[(planner.windows[k]["node_id"],planner.windows[k]["item_id"])]) for k in sorted(planner.windows)]
+
     for filename, records, fields in (
-        ("F3_weekly_reconciliation.csv", rows, list(rows[0]) if rows else ["budget_id"]),
+        ("F3_weekly_reconciliation.csv", rows, csv_fields(rows, ["budget_id"])),
         ("F3_residual_allocations.csv", tracker.allocations, ["day","requirement_id","node_id","item_id","qty","uom"]),
         ("F3_reconciliation_windows.csv", windows, e4.WINDOW_FIELDS),
-        ("Cumulative_reconciliation.csv", tracker.cumulative_audit, list(tracker.cumulative_audit[0]) if tracker.cumulative_audit else ["node_id"]),
+        ("Cumulative_reconciliation.csv", tracker.cumulative_audit,
+         csv_fields(tracker.cumulative_audit, ["node_id"])),
     ):
         with (output/"data"/filename).open("x", encoding="utf-8", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()
             writer.writerows(records)
-    return dict(historical_F3_budgets=len(rows), E4_forecast_pairs=protocol["forecast_reconciliation_pairs"],
+    return dict(historical_F3_budgets=len(rows), scan3_reconciliation_mode=scan3_mode,
+                E4_forecast_pairs=protocol["forecast_reconciliation_pairs"],
                 F3_cumulative_pairs=protocol["cumulative_residual_pairs"],
                 future_other_pairs=[list(p) for p in sorted(frozen.units)] if frozen else [])
 
@@ -581,11 +636,14 @@ def main(argv=None):
     parser.add_argument("--scenario-id", default="scn:BASE", choices=["scn:BASE"])
     parser.add_argument("--forecast-mode", choices=FORECAST_MODES, default=None,
         help="Preserve source priority, or test coherent future forecasts without changing physical demand")
+    parser.add_argument("--scan3-mode", choices=SCAN3_MODES, default="legacy_residual",
+        help="Keep the delivered residual injection, or retain J/Scan3 as audit evidence only")
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     if not 1 <= args.days <= 1825:
         raise ValueError("Current reference supports 1 to1825 days, nominal only")
+    validate_scan3_mode(args.scan3_mode, args.days)
     output = Path(args.output_dir).resolve()
     if not output.is_relative_to(ROOT/"etudecas") or output.exists():
         raise ValueError("Use a new output directory under etudecas")
@@ -600,14 +658,16 @@ def main(argv=None):
         if token.startswith("--") and token.endswith("-csv"):
             inputs[tail[i+1]] = sha(ROOT/tail[i+1])
     manifest = dict(reference=config["reference_id"], scenario_id=args.scenario_id, days=args.days,
-        forecast_mode=forecast_mode,
+        forecast_mode=forecast_mode, scan3_reconciliation_mode=args.scan3_mode,
+        customer_demand_policy=CUSTOMER_DEMAND_MODE,
+        customer_demand_source=graph["meta"]["current_reference_customer_demand_source"],
         last_simulated_date=(ORIGIN+timedelta(days=args.days-1)).isoformat(),
         status="prepared_not_executed", output=rel(output), graph=rel(output/"input_graph.json"),
         command=[sys.executable, "-B", "-m", "etudecas.simulation.current_reference", *list(argv or sys.argv[1:])],
         engine_arguments=tail, inputs=inputs, projection=graph["meta"].get("current_reference_projection"),
         limitations=["Execution is not industrial calibration or independent qualification.",
             "F3 is historical reconciliation, not an autonomous 2025 forecast.",
-            "After day361, customer orders and other uses are synthetic scenarios, not observed deliveries.",
+            "After day364, customer orders are a synthetic scenario; after day361, other uses are synthetic scenarios.",
             "A 52-week cycle is364days; prospective seasons are not civil-year demand totals.",
             "Risk and sensitivity scenarios require a separate compatibility qualification."])
     if args.dry_run:
@@ -626,7 +686,8 @@ def main(argv=None):
     manifest["started_at_utc"] = datetime.now(timezone.utc).isoformat()
     error = None
     try:
-        manifest["runtime"] = run_engine(graph, protocol, config, frozen_path, tail, output, args.days)
+        manifest["runtime"] = run_engine(graph, protocol, config, frozen_path, tail, output, args.days,
+                                         scan3_mode=args.scan3_mode)
     except Exception as exc:
         error = exc
         manifest["error"] = repr(exc)

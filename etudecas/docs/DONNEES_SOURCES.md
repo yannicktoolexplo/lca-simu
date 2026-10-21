@@ -226,7 +226,7 @@ ne constituent pas autant de mesures industrielles indépendantes.
 | `268967.xlsx` | BOM : 8 composants ; FIA : 8 conditions | Nomenclature Permixon à Gien, dont le semi-fini 773474. |
 | `773474.xlsx` | BOM : 1 composant ; FIA : 4 conditions | Fabrication à Gaillac et achats de 021081. |
 | `Data_poc.xlsx` | Acteurs, relations, BOM et paramètres de démonstration | Version structurelle ancienne ; certaines références et relations sont dépassées. |
-| `demand_PF.xlsx` | Structure enrichie, 104 lignes de demande, trajets et machines | Demande utilisée dans la référence acceptée ; structure plus complète que Data_poc, mais métadonnées de calendrier anciennes. |
+| `demand_PF.xlsx` | Structure enrichie, 104 lignes de demande, trajets et machines | Ancienne demande de comparaison ; ses deux colonnes de demande sont identiques et son calendrier reste implicite. |
 | `Extract_Données_Complémentaires.xlsx` | 32 stocks initiaux, 25 politiques, 3 tailles de lot | Photo de départ et ancienne version des règles ; à conserver pour comprendre 2025. |
 | `Extract_En_cours.xlsx` | 104 positions du carnet : quantités, sites, dates prévues de livraison et de disponibilité ; statut ferme et prélèvement matière non renseignés | Initialisation du carnet prévu au démarrage, distinct de l'historique exécuté. |
 | `Flow_Data_Inventory_and_Replenishment_rules.xlsx` | 1 646 photos, 27 politiques, 4 tailles de lot ; onglet Graph | Source détaillée de stock daté et version actualisée des paramètres. Graph est une présentation des stocks, pas une nouvelle observation. |
@@ -554,9 +554,14 @@ connues**, sans utiliser rétrospectivement une version future.
 
 ### Demande, réponse et finance : conserver les définitions
 
-La référence acceptée emploie la demande `demand_PF` avec ses quatre valeurs
-négatives Permixon ramenées à zéro, les prévisions datées Flow, et une réponse
-réelle **estimée** avec la part de CA livré. Elle reste inchangée.
+La référence nominale emploie désormais deux rôles distincts du classeur
+`Flow_Data_Customer_Demand.xlsx` : `Historique / Actual Demand` pour la demande
+client exécutée en 2025 et `Projection / Forecasted Demand` pour la prévision
+MRP datée, en retenant seulement la dernière version connue à la date de
+décision. `demand_PF` reste une ancienne référence de comparaison ; ses colonnes
+`forecast_demand` et `real demand` sont identiques sur les 104 lignes et ne
+constituent donc pas deux signaux indépendants. Aucune réponse en unités n'est
+estimée à partir du CA livré.
 
 L'audit confirme les limites de ces rapprochements :
 
@@ -655,7 +660,7 @@ nécessairement l'état de la référence demande/DC actuellement figée.
 | Qu'était-il prévu de recevoir ou consommer ? | Une version datée du Flow MRP ; distinguer J existant de H entrant. |
 | Quels engagements existaient au démarrage ? | En-cours avec leurs dates explicites ; éviter de les commander une seconde fois. |
 | Quelle demande prévoir à une date donnée ? | Dernière version Flow Customer connue à cette date et couvrant la semaine. |
-| Quelle demande est injectée dans la référence acceptée ? | demand_PF avec convention négatifs à zéro, inchangée ici. |
+| Quelle demande est injectée dans la référence nominale ? | En 2025, `Flow_Data_Customer_Demand / Historique / Actual Demand`, convertie en quantité positive entière. Après l'historique, scénario explicite de répétition saisonnière avec croissance ; `demand_PF` reste un comparateur antérieur. |
 | Quelle consommation théorique pour produire ? | BOM primaires, coefficient et unité ; registre physique séparé pour la consommation exécutée. |
 | Quel fournisseur, prix et lot standard ? | FIA primaires ; copies Data_poc/demand_PF comme contrôle, pas nouvelle preuve. |
 | Quelle sécurité et quelle taille de fabrication ? | Ancienne et nouvelle politique conservées avec la version choisie ; date d'effet industrielle inconnue. |
@@ -1243,6 +1248,81 @@ reprend directement les Excel et CSV, sans importer le script de diagnostic :
 94 contrôles ciblés réussis, neuf empreintes stables. Elle confirme aussi le
 rapprochement des 12 matières avec les deux emballages sur 42 semaines.
 
+### Correction de périmètre Scan3 — 16 octobre 2026
+
+L'industriel confirme désormais le sens métier suivant pour
+`Flow_Data_Inventory_movements.xlsx` :
+
+- pour les matières premières et les emballages, `J = Sorties_article_scan3`
+  correspond aux consommations de **268091 ou 268967**, tandis que
+  `I = Sorties` correspond aux consommations des **autres références** ;
+- pour les produits finis, `I = Sorties` est présenté comme le flux vers les
+  clients, mais ses valeurs ferment numériquement le bilan comme un **mouvement
+  net de stock**. Elles ne constituent donc pas une liste de livraisons brutes.
+  Exemple 268091 : du 6 au 13 janvier, le stock augmente de 177 592 UN et
+  `I745 + G745 = 177 610 - 18 = 177 592 UN`. Prendre `abs(I)` inventerait ici
+  une livraison pendant une hausse de stock.
+
+La [contre-vérification directe du 16 octobre](../artifacts/testing/pf_movements_oracle_20261016/rapport.md)
+confirme cette distinction et reconstruit séparément le rapport 4,552493.
+
+Le [rapprochement approfondi du 19 octobre](../artifacts/testing/sorties_factory_reconciliation_20261019/rapport.md)
+montre comment utiliser ce vecteur sans le confondre avec les livraisons brutes.
+Sur les 51 semaines bornées par deux photos de stock, la relation candidate est :
+
+```text
+variation du stock = Divers G + Sorties I
+I = apports PF à Muret − mouvements clients signés
+apports PF implicites = I + demande_PF signée
+```
+
+Le cumul annuel est très proche des lots standards : **4 146 191 UN** pour
+268091, contre `144 × 28 800 = 4 147 200` (écart −1 009 UN, −0,024 %), et
+**972 096 UN** pour 268967, contre `9 × 107 800 = 970 200` (écart +1 896 UN,
++0,195 %). Pour 268967, `I = −demande_PF signée` exactement pendant 24
+semaines, y compris trois corrections de demande négatives. Ces valeurs
+négatives doivent rester signées dans le rapprochement physique ; leur mise à
+zéro reste la convention distincte de la demande prospective simulée.
+
+Cette concordance est annuelle. `Divers G` porte séparément les corrections et
+reclassements enregistrés dans la source ; ils ne doivent pas être réattribués
+au résidu `I + demande_PF signée`. Les résidus hebdomadaires ne donnent pas des
+réceptions mesurées et ne suivent généralement pas les multiples de lots. Ils
+montrent surtout que la demande signée et I ne sont pas deux journaux parfaitement
+synchronisés ou de périmètre hebdomadaire strictement identique. Aucune fenêtre
+plus courte n'est démontrée comme règle de regroupement. Le moteur doit donc
+comparer `réceptions Muret − mouvements clients signés` à I et ses corrections
+explicites à G, tandis que la demande, le service estimé par le CA et les
+prévisions restent des séries commerciales séparées.
+
+**Décision nominale du 19 octobre 2026 :** la comparaison principale de la
+réponse à la demande n'utilise aucune quantité estimée depuis le CA. Elle
+affiche la demande positive de
+`Flow_Data_Customer_Demand.xlsx / Historique / Actual Demand`, les sorties
+réelles Muret vers clients selon l'interprétation métier fournie de
+`abs(Sorties I)` dans `Flow_Data_Inventory_movements.xlsx`, et les livraisons
+issues du registre simulé alimenté par cette même demande Flow. `demand_PF`
+reste affiché comme **ancienne référence secondaire**. La valeur I signée et
+Divers G restent visibles séparément dans le rapprochement physique. Sorties I
+est un mouvement hebdomadaire agrégé et non un journal d'expéditions unitaires ;
+ses cumuls ne prouvent pas un appariement commande–livraison semaine par semaine.
+
+Cette confirmation ne supprime pas le rapport arithmétique 4,552493 ci-dessous.
+Elle invalide en revanche son ancienne interprétation comme consommation
+« d'autres formats » ou « d'autres références ». Ces autres consommations sont
+déjà enregistrées séparément en colonne I. Le résiduel
+`max(0, Scan3 J - consommation BOM simulée)` ne doit donc ni être ajouté à I,
+ni être publié comme `external_component_consume`, ni être prolongé après 2025.
+Il reste un **écart de raccordement de nos références** entre prélèvement
+matière, OF/en-cours, nomenclature et conditionnement.
+
+Le « facteur cinq » parfois cité venait d'un calcul moins rigoureux sur toutes
+les lignes disponibles : 497 943,443 kg de matières contre 102 450,044 kg de
+BOM pour 5 016 700 étuis, soit **4,860354**. Les articles n'ayant pas tous la
+même couverture hebdomadaire, ce chiffre mélange des fenêtres différentes et
+ne doit plus être utilisé. Le chiffre comparable reste **4,552493 sur les
+mêmes 42 semaines**.
+
 ### Origine du rapport 4,55 : recette et volume de conditionnement — 9 octobre 2026
 
 **Décision utilisateur : conserver la BOM et expliquer le rapport, sans en faire
@@ -1357,13 +1437,12 @@ de distinguer ces calculs d'une validation industrielle de leur périmètre.
 
 Les **455 692,961 kg** correspondent exactement à la somme des sorties
 enregistrées dans `Sorties_article_scan3` pour les 12 matières de Cicalfate,
-sur les 42 semaines communes utilisées ci-dessus. Il faut les nommer
-**sorties enregistrées Scan3**, sans présenter leur attribution exclusive au
-PF 268091 comme démontrée par les autres fichiers. Cette attribution reste la
-convention donnée par l'utilisateur ; les exports ne contiennent ni PF
-consommateur ni identifiant d'OF permettant de la vérifier ligne par ligne.
+sur les 42 semaines communes utilisées ci-dessus. L'industriel confirme leur
+attribution au périmètre de nos références. Les exports ne contiennent toutefois
+ni identifiant d'OF ni étape de prélèvement permettant de raccorder chaque ligne
+à la production et au conditionnement correspondants.
 
-**Le partage est visible séparément pour les trois matières confirmées.**
+**Les consommations des autres références sont visibles séparément.**
 À Avène, sur les mêmes 42 semaines, en kg arrondis :
 
 | Matière | Sorties Scan3 | Autres sorties (colonne I) | Total des deux | Part Scan3 | Besoins MRP prévus |
@@ -1963,7 +2042,7 @@ oppose les stocks et mouvements sources à E4C (référence conservée) et F2.
 F2 est un essai explicatif rétrospectif du 1er janvier au 28 décembre, avec
 les 52 photos de stocks jusqu'au 29 décembre. Il ne remplace pas le nominal.
 
-**Hypothèse et règle :** une partie de Scan3 correspond à d'autres formats
+**Essai historique invalidé le 16 octobre 2026 :** cet essai supposait qu'une partie de Scan3 correspondait à d'autres formats
 utilisant les mêmes matières. La part supplémentaire est constante par famille :
 `1 − étuis × coefficient BOM du composant pivot / sorties Scan3 du pivot`.
 Gien : 79,31634 %, d'après 1 000 180 étuis et 291 790 000 gélules sur les
@@ -1980,7 +2059,9 @@ jours de janvier appartenant à la première semaine source sont conservés.
 La prévision des neuf couples devient `max(besoin BOM propre, besoin I MRP
 déjà connu)`, avec les protections séparées. Le futur J n'alimente pas le MRP.
 
-Les six autres couples (042342/Gien ; 001893, 016332, 029313, 039668,
+Cette hypothèse contredit la sémantique désormais confirmée de I et J et ne doit
+plus être utilisée dans le nominal ni dans une projection. Les six autres
+couples (042342/Gien ; 001893, 016332, 029313, 039668,
 099439/Avène) conservent leurs usages estimés existants : ajouter encore une
 part de J pouvait les compter deux fois. Le premier calcul F1 a été interrompu
 pour cette raison et n'est pas utilisé. Les BOM, stocks initiaux, en-cours,
@@ -2277,15 +2358,18 @@ La présentation HTML est acceptée ; aucun nouveau paramétrage du moteur n'est
 adopté par cette décision. L'aval constitue une référence fonctionnelle à
 préserver, mais ses stocks et son service ne sont pas entièrement calibrés :
 F3 présente encore un écart moyen de 289 191 UN pour Cicalfate à Muret et
-173 533 UN pour Permixon. La réponse industrielle reste estimée depuis le CA.
+173 533 UN pour Permixon. Cette section décrit l'essai historique F3. Dans la
+référence actuelle, le CA reste un indicateur financier séparé : aucune quantité
+de service en unités n'en est déduite.
 
-Les principaux délais sont présents dans F3 et identiques à E4C : FIA fixe
-pour les achats externes, traitement à réception lundi–vendredi, libération
-28/33 jours ouvrés à Gaillac, transit 7/10 jours vers Avène/Gien, puis réception
-7/6 jours ouvrés ; libération PF de 10 jours à Avène et 15 à Gien. Les 7 jours
-de transit de 693055 sont hypothétiques et ne sont pas réconciliés avec sa
-référence FIA de 70 jours. Les 28/33 jours sont appliqués après fabrication,
-mais leur interprétation comme seule libération n'est pas démontrée.
+This paragraph describes the historical F3 experiment, not the current rule.
+F3 placed the 10/15 working-day finished-goods delay at Avene/Gien before
+shipment. The current reference instead places those same durations after
+physical arrival at Muret, following the MRP rows for Division 1920 and the
+user confirmation. F3 also modeled 28/33 working days at Gaillac, 7/10 calendar
+days of transit to Avene/Gien, then 7/6 working days at receipt. The 7-day
+693055 transit remains a hypothesis and is not reconciled with its 70-day FIA
+reference; the 28/33-day duration has not been proven to be only a release.
 `tau_process = 3` reste une convention de planification, pas une durée
 physique de fabrication. Les jours fériés ne sont pas intégrés au calendrier
 générique de réception ; les dates explicites des en-cours restent prioritaires.
@@ -2525,3 +2609,14 @@ Cela ne permet pas de dater la fabrication d'un lot, mais contredit une
 attente systématique de 28 jours ouvrés après chacune de ces entrées.
 Les cellules et contre-calculs sont conservés dans l'oracle du dernier
 trimestre du dossier E1/E2 ; les données sources ne sont pas modifiées.
+
+### Delai de disponibilite des PF deplace a Muret - 20 octobre 2026
+
+Les durees restent celles de `Flow_Data_MRP_results.xlsx / Feuille1` : 10
+jours ouvres pour `268091` (cellule source E545) et 15 jours ouvres pour
+`268967` (E593). L'utilisateur a confirme que le controle/liberation des
+produits finis se fait a Muret. Le moteur compte donc ces jours apres l'arrivee
+physique au depot : le stock est d'abord present mais retenu, puis cette meme
+quantite devient disponible. Le transport usine-Muret reste une etape distincte
+et inchangee. Cette regle applique le delai MRP a la disponibilite ; elle ne
+pretend pas disposer de l'historique date des controles de lots industriels.

@@ -11,8 +11,8 @@
   "assets": {
     "graph": {
       "path": "etudecas/config/mrp_reference_20261013/graph.json.gz",
-      "sha256": "55faf50bfad6e18c515d017362e42dcdc40f963dfd40ca94733286a6038dad56",
-      "content_sha256": "3d92521a8e5629fa2cdffefa02f7de95622183cbc7cb01ed30413c57a87b17e0"
+      "sha256": "9e48891f12e6913684a8c82c90f86c87195f3b6f416b9dfcaf078002dcdd7d1f",
+      "content_sha256": "5894679b588ae6655ba7c4672793fbd896927b7e0b2d90a83eeeaf508c97d176"
     },
     "other_use_profile": {
       "path": "etudecas/config/mrp_reference_20261013/external_component_demand_daily.csv.gz",
@@ -33,7 +33,7 @@
     },
     "adapter": {
       "path": "etudecas/simulation/reference_mrp/historical_adapter.py",
-      "sha256": "70637c143c5dcba0345667ff71628ad97d1a9e6f3d9e7db184fb20260c4883d6"
+      "sha256": "2378d69817c90577cd192158dc243b53d3acf8b07438db55ac209e0aead58f82"
     },
     "reconciliation": {
       "path": "etudecas/simulation/reference_mrp/reconciliation.py",

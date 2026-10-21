@@ -28,6 +28,7 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     detect_demand_items,
     detect_production_nodes,
     load_json,
+    sensitivity_run_context,
     numeric_kpis,
     prune_simulation_output,
     run_simulation,
@@ -50,6 +51,11 @@ def parse_args() -> argparse.Namespace:
         help="Simulation runner script.",
     )
     parser.add_argument("--scenario-id", default="scn:BASE", help="Scenario id.")
+    parser.add_argument(
+        "--run-manifest",
+        default=None,
+        help="Nominal run_manifest.json; reuse its engine policy arguments for every sensitivity case.",
+    )
     parser.add_argument(
         "--output-dir",
         default="etudecas/simulation/sensibility/annual_realistic_result",
@@ -321,6 +327,7 @@ def run_case(
     run_script: Path,
     scenario_id: str,
     days: int,
+    engine_args: list[str] | None = None,
 ) -> dict[str, Any]:
     case_dir = output_root / case["study"] / case["case_id"]
     case_input = case_dir / "input_case.json"
@@ -346,6 +353,7 @@ def run_case(
         days=days,
         skip_map=True,
         skip_plots=True,
+        extra_args=engine_args,
     )
     row: dict[str, Any] = {
         "study": case["study"],
@@ -476,10 +484,19 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     cases_root = output_dir / "cases"
     keep_detailed_cases = set(args.keep_detailed_case or [])
-    output_dir.mkdir(parents=True, exist_ok=True)
-    cases_root.mkdir(parents=True, exist_ok=True)
 
     base_data = load_json(input_path)
+    if args.run_manifest:
+        run_script, engine_args = sensitivity_run_context(Path(args.run_manifest), run_script)
+    else:
+        engine_args = None
+    if (base_data.get("meta") or {}).get("mrp_net_requirement_rounding_policy") and engine_args is None:
+        raise ValueError(
+            "This graph enables dated MRP rounding; pass --run-manifest from its nominal run "
+            "so sensitivity cases reuse the same engine policies."
+        )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    cases_root.mkdir(parents=True, exist_ok=True)
     demand_items = detect_demand_items(base_data, args.scenario_id)
     production_nodes = detect_production_nodes(base_data)
     supplier_nodes = detect_supplier_nodes(base_data)
@@ -512,6 +529,7 @@ def main() -> None:
         run_script=run_script,
         scenario_id=args.scenario_id,
         days=args.days,
+        engine_args=engine_args,
     )
     print("[RUN] baseline annual repeat")
     baseline_repeat_row = run_case(
@@ -522,6 +540,7 @@ def main() -> None:
         run_script=run_script,
         scenario_id=args.scenario_id,
         days=args.days,
+        engine_args=engine_args,
     )
 
     baseline_shipments_csv = cases_root / "baseline" / baseline_case["case_id"] / "simulation_output" / "data" / "production_supplier_shipments_daily.csv"
@@ -544,6 +563,7 @@ def main() -> None:
             run_script=run_script,
             scenario_id=args.scenario_id,
             days=args.days,
+            engine_args=engine_args,
         )
         local_rows.append(row)
         if args.artifact_mode == "compact" and case["case_id"] not in keep_detailed_cases:
@@ -560,6 +580,7 @@ def main() -> None:
             run_script=run_script,
             scenario_id=args.scenario_id,
             days=args.days,
+            engine_args=engine_args,
         )
         stress_rows.append(row)
         if args.artifact_mode == "compact" and case["case_id"] not in keep_detailed_cases:

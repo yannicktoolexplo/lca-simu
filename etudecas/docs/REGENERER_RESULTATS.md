@@ -16,6 +16,37 @@ python -B -m etudecas.regenerate --days 1825
 python -B -m etudecas.regenerate --days 1825 --with-map
 ```
 
+## Relancer cinq ans et les sensibilités sur le même graphe
+
+Pour reconstruire le nominal cinq ans, sa carte complète, puis les analyses
+de sensibilité OAT et réaliste (sensibilités locales et scénarios de stress),
+lancer depuis la racine :
+
+```powershell
+python -B etudecas/run_5y_and_sensitivities.py
+```
+
+Le script demande de taper `OUI` avant de créer le dossier ou de lancer un
+calcul. Il écrit dans un nouveau dossier sous `etudecas/resultats/`, conserve
+les fichiers déjà produits si une étape échoue, puis passe exactement le
+`input_graph.json` du nominal aux sensibilités. Les sensibilités utilisent le
+mode compact ; leurs indicateurs et tableaux de synthèse sont conservés. Le
+nominal produit la carte HTML complète. Aucun ancien résultat n'est remplacé.
+
+Pour examiner le plan sans écrire ni calculer :
+
+```powershell
+python -B etudecas/run_5y_and_sensitivities.py --plan-only
+```
+
+Options : `--sensitivities oat` ou `--sensitivities realistic` pour ne lancer
+qu'une famille ; `--no-map` pour omettre la carte ; `--output-root DOSSIER`
+pour choisir un chemin neuf dans le dépôt. `--yes` supprime la confirmation
+interactive et doit donc être utilisé seulement pour un lancement volontaire.
+Les études réalistes relancent leur propre référence et répétition avant les
+variantes ; l'ensemble peut prendre longtemps et produire beaucoup de lignes
+de résultats.
+
 Les valeurs par défaut sont :
 
 ```text

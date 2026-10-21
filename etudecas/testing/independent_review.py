@@ -762,6 +762,115 @@ def declared_scan3_requirements(contract, budgets, events, horizon, scenario, ev
     return result
 
 
+def scan3_reconciliation_mode(manifest, weekly_rows, evidence, *, require_manifest=False):
+    """Resolve the run's Scan3 execution mode without trusting graph intent alone.
+
+    Historical runs predate an explicit execution-mode export.  Their old F3
+    schema remains the legacy residual contract.  A run using the newer F3
+    schema must declare one coherent mode in its manifest/runtime and/or every
+    weekly audit row; an absent or contradictory declaration is rejected.
+    """
+    manifest = manifest if isinstance(manifest, dict) else {}
+    runtime = manifest.get("runtime") if isinstance(manifest.get("runtime"), dict) else {}
+    top = manifest.get("scan3_reconciliation_mode")
+    nested = runtime.get("scan3_reconciliation_mode")
+    row_modes = {str(row.get("scan3_reconciliation_mode", "")).strip()
+                 for row in weekly_rows if str(row.get("scan3_reconciliation_mode", "")).strip()}
+    new_schema = any("scan3_reconciliation_mode" in row or "scan3_target_qty" in row
+                     or "scan3_minus_own_qty" in row for row in weekly_rows)
+    declarations = [value for value in (top, nested) if value is not None]
+    declarations.extend(sorted(row_modes))
+    if not new_schema and not declarations:
+        evidence.check("scan3_execution_mode_legacy_implicit", True)
+        return "legacy_residual"
+    allowed = {"legacy_residual", "audit_only"}
+    manifest_declarations = [value for value in (top, nested) if value is not None]
+    valid = ((not require_manifest or bool(manifest_declarations))
+             and bool(declarations) and all(isinstance(value, str) and value in allowed
+                                        for value in declarations)
+             and len(set(declarations)) == 1
+             and (not new_schema or len(row_modes) == 1))
+    evidence.check("scan3_execution_mode_declared_and_coherent", valid, {
+        "manifest": top, "runtime": nested, "weekly": sorted(row_modes),
+        "new_schema": new_schema,
+    })
+    return declarations[0] if valid else None
+
+
+def audit_scan3_only_export(contract, budgets, events, weekly_rows, allocation_rows,
+                            horizon, scenario, evidence):
+    """Audit J/Scan3 as evidence only; it must create no physical requirement.
+
+    The graph budgets and executed BOM withdrawals are independently rebuilt.
+    The F3 export must report their signed difference while every residual,
+    requirement identity and allocation stays empty/zero.
+    """
+    # Retain all graph-budget and own-BOM checks from the legacy oracle, but do
+    # not return or inject the residual requirements it reconstructs.
+    declared_scan3_requirements(contract, budgets, events, horizon, scenario, evidence)
+    budget_by_id = {}
+    for budget in budgets if isinstance(budgets, list) else []:
+        identity = budget.get("budget_id") if isinstance(budget, dict) else None
+        evidence.check("scan3_audit_budget_identity_unique", bool(identity) and identity not in budget_by_id,
+                       identity)
+        if identity:
+            budget_by_id[identity] = budget
+    weekly_by_id = {}
+    for row in weekly_rows:
+        identity = row.get("budget_id", "")
+        evidence.check("scan3_audit_weekly_identity_unique", bool(identity) and identity not in weekly_by_id,
+                       identity)
+        if identity:
+            weekly_by_id[identity] = row
+    evidence.check("scan3_audit_weekly_row_count", len(weekly_rows) == len(budget_by_id), {
+        "weekly": len(weekly_rows), "budgets": len(budget_by_id)})
+    evidence.check("scan3_audit_weekly_budget_coverage", set(weekly_by_id) == set(budget_by_id), {
+        "missing": sorted(set(budget_by_id) - set(weekly_by_id))[:5],
+        "extra": sorted(set(weekly_by_id) - set(budget_by_id))[:5],
+    })
+    own = Counter()
+    for event in events:
+        if event.get("event_type") == "production_consume":
+            own[(int(event["day"]), event["node_id"], event["item_id"])] += number(event, "qty")
+    zero_fields = (
+        "residual_requested_qty", "residual_executed_qty",
+        "residual_executed_on_closing_day_qty", "residual_backlog_initial_qty",
+        "residual_backlog_final_qty", "residual_backlog_at_closing_qty",
+    )
+    for identity, budget in budget_by_id.items():
+        row = weekly_by_id.get(identity)
+        if row is None:
+            continue
+        pair = budget["node_id"], budget["item_id"]
+        used = math.fsum(own[(day, *pair)] for day in range(
+            int(budget["first_day"]), int(budget["end_day_exclusive"])))
+        target = float(budget["covered_scan3_qty"])
+        gap = target - used
+        context = [identity, *pair]
+        evidence.check("scan3_audit_mode", row.get("scan3_reconciliation_mode") == "audit_only", context)
+        evidence.check("scan3_audit_row_identity", all((
+            row.get("node_id") == pair[0], row.get("item_id") == pair[1],
+            row.get("uom") == budget.get("uom"),
+            row.get("scan3_source_cell") == budget.get("scan3_source_cell"),
+            row.get("source_file") == budget.get("source_file"),
+        )), context)
+        evidence.close("scan3_audit_J_target", number(row, "scan3_target_qty"), target, context)
+        evidence.close("scan3_audit_own_BOM", number(row, "own_physical_qty"), used, context)
+        evidence.close("scan3_audit_signed_gap", number(row, "scan3_minus_own_qty"), gap, context)
+        evidence.close("scan3_audit_own_excess", number(row, "own_exceeds_scan3_qty"), max(0.0, -gap), context)
+        evidence.check("scan3_audit_no_requirement_identity", not str(row.get("requirement_id", "")).strip(), context)
+        evidence.check("scan3_audit_no_execution_dates", not str(row.get("first_execution_day", "")).strip()
+                       and not str(row.get("last_execution_day", "")).strip(), context)
+        for field in zero_fields:
+            evidence.close("scan3_audit_zero_" + field, number(row, field), 0.0, context)
+    evidence.check("scan3_audit_no_residual_allocations", len(allocation_rows) == 0,
+                   allocation_rows[:5])
+    scan3_events = [event.get("source_id") for event in events
+                    if event.get("event_type") == "external_component_consume"
+                    and "zz-reconciled-F3:" in str(event.get("source_id", ""))]
+    evidence.check("scan3_audit_no_external_residual_events", not scan3_events, scan3_events[:5])
+
+
 def declared_prospective_other_uses(meta, policy, horizon, evidence, source_bytes):
     """Verify the frozen exogenous profile from original CSV bytes, not engine helpers.
 
@@ -1118,8 +1227,19 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
     for row in core_rows:
         core[(int(row["day"]), row["node_id"], row["item_id"])] += number(row, "consumed_qty")
     if reconciliation is not None:
-        extra = declared_scan3_requirements(reconciliation["contract"], reconciliation["budgets"],
-                                            events, horizon, scenario, evidence)
+        mode = reconciliation.get("mode", "legacy_residual")
+        if mode == "legacy_residual":
+            extra = declared_scan3_requirements(reconciliation["contract"], reconciliation["budgets"],
+                                                events, horizon, scenario, evidence)
+        elif mode == "audit_only":
+            audit_scan3_only_export(reconciliation["contract"], reconciliation["budgets"], events,
+                                    reconciliation.get("weekly_rows", []),
+                                    reconciliation.get("allocation_rows", []),
+                                    horizon, scenario, evidence)
+            extra = {}
+        else:
+            evidence.check("scan3_execution_mode_supported", False, mode)
+            extra = {}
         for identity, requirement in extra.items():
             evidence.check("scan3_unique_external_identity", identity not in expected, identity)
             expected[identity] = requirement
@@ -1534,8 +1654,18 @@ def audit_run(run):
                 if hashlib.sha256(input_bytes).hexdigest() == summary.get("input_sha256"):
                     meta = json.loads(input_bytes).get("meta", {})
                     if "formats_reconciled_execution" in meta:
+                        weekly_path = run / "data/F3_weekly_reconciliation.csv"
+                        allocation_path = run / "data/F3_residual_allocations.csv"
+                        e.check("scan3_weekly_export_present", weekly_path.is_file(), str(weekly_path))
+                        e.check("scan3_allocation_export_present", allocation_path.is_file(), str(allocation_path))
+                        weekly_rows = list(rows(run, "F3_weekly_reconciliation")) if weekly_path.is_file() else []
+                        allocation_rows = list(rows(run, "F3_residual_allocations")) if allocation_path.is_file() else []
+                        manifest_path = run / "run_manifest.json"
+                        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
+                        mode = scan3_reconciliation_mode(manifest, weekly_rows, e, require_manifest=True)
                         reconciliation = dict(contract=meta["formats_reconciled_execution"],
-                            budgets=meta.get("formats_reconciled_weekly_budgets"))
+                            budgets=meta.get("formats_reconciled_weekly_budgets"), mode=mode,
+                            weekly_rows=weekly_rows, allocation_rows=allocation_rows)
     projection = None
     if declared_meta is not None and ("current_reference_projection" in declared_meta
                                       or "current_reference_other_use_profile" in declared_meta):

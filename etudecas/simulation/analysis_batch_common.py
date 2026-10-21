@@ -49,6 +49,53 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def engine_args_from_run_manifest(path: Path) -> list[str]:
+    """Return the nominal engine policy flags, excluding per-run destinations.
+
+    Sensitivity runs must use the same MRP and calibration arguments as their
+    nominal reference. Only input/output/scenario/horizon and rendering flags
+    are supplied by the sensitivity runner itself.
+    """
+    manifest = load_json(path)
+    args = manifest.get("engine_arguments")
+    if not isinstance(args, list) or not all(isinstance(value, str) for value in args):
+        raise ValueError(f"Run manifest has no valid engine_arguments list: {path}")
+    value_options = {"--input", "--output-dir", "--scenario-id", "--days", "--output-profile"}
+    boolean_options = {"--skip-map", "--skip-plots", "--with-map"}
+    result: list[str] = []
+    index = 0
+    while index < len(args):
+        token = args[index]
+        option, separator, _ = token.partition("=")
+        if option in value_options:
+            if not separator:
+                index += 1
+            index += 1
+            continue
+        if option in boolean_options:
+            index += 1
+            continue
+        result.append(token)
+        index += 1
+    # Sensitivity cases need aggregate KPIs, not multi-year detailed ledgers.
+    # In particular, full mode writes a very large dated weekly MRP export.
+    return [*result, "--output-profile", "compact"]
+
+
+def sensitivity_run_context(path: Path, default_run_script: Path) -> tuple[Path, list[str]]:
+    """Resolve the engine runner needed to reproduce the nominal execution path."""
+    manifest = load_json(path)
+    args = engine_args_from_run_manifest(path)
+    if manifest.get("customer_demand_policy") == "flow_actual_2025_then_weekday_aligned_5pct_growth_v1":
+        scan3_mode = manifest.get("scan3_reconciliation_mode")
+        if scan3_mode not in {"legacy_residual", "audit_only"}:
+            raise ValueError(f"Current-reference manifest has no valid Scan3 mode: {path}")
+        runner = Path(__file__).resolve().parent / "current_reference_sensitivity_runner.py"
+        args.extend(["--current-reference-scan3-mode", scan3_mode])
+        return runner, args
+    return default_run_script, args
+
+
 def write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
