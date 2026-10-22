@@ -30,3 +30,5 @@ Sur les mêmes dates et unités, comparer besoins et ordres prévus, fabrication
 Pour une règle commune, tester des références ou périodes non utilisées pour la régler. Pour un aléa, distinguer la compatibilité d'un scénario avec les observations de l'identification d'une cause réelle. Plusieurs causes peuvent produire la même courbe : ne pas calibrer une loi de probabilité à partir d'un seul scénario rétrospectif.
 
 Faire contre-vérifier les calculs métier avec un oracle indépendant sur l'état stabilisé. Restituer gains, dégradations, effet résiduel, hypothèses réfutées et décision sur le ticket. Préserver la référence ; une amélioration locale ou des invariants réussis n'autorisent pas automatiquement sa promotion. Si les données ne départagent pas les causes, nommer l'observation supplémentaire qui serait discriminante.
+
+Pour fixer séparation chronologique, identifiabilité, critères avant ajustement et incertitude, lire les sections calibration et incertitude du [guide scientifique](../../../etudecas/docs/DEVELOPPEMENT_SCIENTIFIQUE.md).

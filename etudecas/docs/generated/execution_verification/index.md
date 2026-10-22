@@ -23,9 +23,9 @@ Sources métier : [EXECUTION_VERIFICATION.md](<../../EXECUTION_VERIFICATION.md>)
 
 Références :
 
-- implementation : [physical_execution_quantity](<../../../simulation/engine/run_first_simulation.py#L1903>)
-- implementation : [require_physical_integer](<../../../simulation/engine/run_first_simulation.py#L1891>)
-- test : [test_fractional_forecast_accumulates_without_losing_demand](<../../../testing/test_independent_review.py#L158>)
+- implementation : [physical_execution_quantity](<../../../simulation/engine/run_first_simulation.py#L6858>)
+- implementation : [require_physical_integer](<../../../simulation/engine/run_first_simulation.py#L6836>)
+- test : [test_fractional_forecast_accumulates_without_losing_demand](<../../../testing/test_independent_review.py#L285>)
 
 ### INPUT-REJECTION-001 — Refus des entrees invalides
 
@@ -44,8 +44,8 @@ Sources métier : [EXECUTION_VERIFICATION.md](<../../EXECUTION_VERIFICATION.md>)
 Références :
 
 - implementation : [simulate](<../../../simulation/engine/api.py#L292>)
-- implementation : [validate_factors](<../../../simulation/analysis_batch_common.py#L309>)
-- test : [test_invalid_sensitivity_cannot_be_recorded_as_applied](<../../../testing/test_independent_review.py#L197>)
+- implementation : [validate_factors](<../../../simulation/analysis_batch_common.py#L356>)
+- test : [test_invalid_sensitivity_cannot_be_recorded_as_applied](<../../../testing/test_independent_review.py#L324>)
 
 ### TRACE-SELECTION-001 — Selection causale commune
 
@@ -72,7 +72,7 @@ Références :
 
 ### DELIVERY-PROOF-001 — Livraison sous controle independant
 
-Statut déclaré : **documented**. Relecture des sources : **aucun changement détecté**.
+Statut déclaré : **documented**. Relecture des sources : **requise**.
 
 Les invariants CSV sont recalcules sans importer le moteur. Une corruption ou preuve manquante refuse la livraison. Une empreinte identifie les octets sans prouver leur justesse.
 
@@ -86,9 +86,9 @@ Sources métier : [EXECUTION_VERIFICATION.md](<../../EXECUTION_VERIFICATION.md>)
 
 Références :
 
-- implementation : [audit_run](<../../../testing/independent_review.py#L92>)
+- implementation : [audit_run](<../../../testing/independent_review.py#L1389>)
 - implementation : [require_run_invariants](<../../../testing/qualification.py#L20>)
-- test : [test_delivery_gate_refuses_corrupt_stock_and_missing_evidence](<../../../testing/test_independent_review.py#L214>)
+- test : [test_delivery_gate_refuses_corrupt_stock_and_missing_evidence](<../../../testing/test_independent_review.py#L341>)
 - implementation : [implementation_fingerprint](<../../../simulation/source_fingerprint.py#L20>)
 
 ### TRUCK-ESTIMATE-001 — Lots and estimated truck consolidation
@@ -129,10 +129,10 @@ Références :
 
 - implementation : [reconcile_exported_cost](<../../../testing/map_delivery.py#L83>)
 - implementation : [reconcile_browser](<../../../testing/map_delivery.py#L111>)
-- test : [test_cost_rounding_bound_accepts_only_mathematically_possible_error](<../../../testing/test_independent_review.py#L337>)
-- test : [test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit](<../../../testing/test_independent_review.py#L344>)
-- test : [test_unexpected_cost_export_precision_is_not_silently_tolerated](<../../../testing/test_independent_review.py#L356>)
-- test : [test_browser_values_are_reconciled_with_runs](<../../../testing/test_independent_review.py#L287>)
+- test : [test_cost_rounding_bound_accepts_only_mathematically_possible_error](<../../../testing/test_independent_review.py#L464>)
+- test : [test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit](<../../../testing/test_independent_review.py#L471>)
+- test : [test_unexpected_cost_export_precision_is_not_silently_tolerated](<../../../testing/test_independent_review.py#L483>)
+- test : [test_browser_values_are_reconciled_with_runs](<../../../testing/test_independent_review.py#L414>)
 
 ## Référence technique extraite
 
@@ -140,7 +140,7 @@ Les constantes sont affichées comme expressions Python ; les références et d�
 
 ### physical
 
-[etudecas/simulation/engine/run_first_simulation.py:1903](<../../../simulation/engine/run_first_simulation.py#L1903>)
+[etudecas/simulation/engine/run_first_simulation.py:6858](<../../../simulation/engine/run_first_simulation.py#L6858>)
 
 ```python
 def physical_execution_quantity(value: Any, uom: Any) -> float:
@@ -153,7 +153,7 @@ Mass and length retain their precision. This never rounds display values.
 
 ### ledger-guard
 
-[etudecas/simulation/engine/run_first_simulation.py:1891](<../../../simulation/engine/run_first_simulation.py#L1891>)
+[etudecas/simulation/engine/run_first_simulation.py:6836](<../../../simulation/engine/run_first_simulation.py#L6836>)
 
 ```python
 def require_physical_integer(value: Any, uom: Any) -> float:
@@ -173,7 +173,7 @@ Run one simulation from structured inputs and return structured outputs.
 
 ### factor-contract
 
-[etudecas/simulation/analysis_batch_common.py:309](<../../../simulation/analysis_batch_common.py#L309>)
+[etudecas/simulation/analysis_batch_common.py:356](<../../../simulation/analysis_batch_common.py#L356>)
 
 ```python
 def validate_factors(factors: dict[str, float]) -> None:
@@ -197,7 +197,7 @@ def build_lot_trace_payload(lot_events_csv: Path, lot_genealogy_csv: Path, produ
 
 ### csv-oracle
 
-[etudecas/testing/independent_review.py:92](<../../../testing/independent_review.py#L92>)
+[etudecas/testing/independent_review.py:1389](<../../../testing/independent_review.py#L1389>)
 
 ```python
 def audit_run(run):
@@ -229,7 +229,7 @@ def implementation_fingerprint(run_script: Path) -> str:
 
 ### known-demand
 
-[etudecas/testing/test_independent_review.py:158](<../../../testing/test_independent_review.py#L158>)
+[etudecas/testing/test_independent_review.py:285](<../../../testing/test_independent_review.py#L285>)
 
 ```python
 def test_fractional_forecast_accumulates_without_losing_demand():
@@ -237,7 +237,7 @@ def test_fractional_forecast_accumulates_without_losing_demand():
 
 ### corruption
 
-[etudecas/testing/test_independent_review.py:214](<../../../testing/test_independent_review.py#L214>)
+[etudecas/testing/test_independent_review.py:341](<../../../testing/test_independent_review.py#L341>)
 
 ```python
 def test_delivery_gate_refuses_corrupt_stock_and_missing_evidence(known_run):
@@ -245,7 +245,7 @@ def test_delivery_gate_refuses_corrupt_stock_and_missing_evidence(known_run):
 
 ### bad-factor-test
 
-[etudecas/testing/test_independent_review.py:197](<../../../testing/test_independent_review.py#L197>)
+[etudecas/testing/test_independent_review.py:324](<../../../testing/test_independent_review.py#L324>)
 
 ```python
 def test_invalid_sensitivity_cannot_be_recorded_as_applied(factors):
@@ -333,7 +333,7 @@ The score is checked against those quantities, not another payload score.
 
 ### cost-rounding-bound-test
 
-[etudecas/testing/test_independent_review.py:337](<../../../testing/test_independent_review.py#L337>)
+[etudecas/testing/test_independent_review.py:464](<../../../testing/test_independent_review.py#L464>)
 
 ```python
 def test_cost_rounding_bound_accepts_only_mathematically_possible_error(daily_terms, summary, expected):
@@ -341,7 +341,7 @@ def test_cost_rounding_bound_accepts_only_mathematically_possible_error(daily_te
 
 ### cost-rounding-long-test
 
-[etudecas/testing/test_independent_review.py:344](<../../../testing/test_independent_review.py#L344>)
+[etudecas/testing/test_independent_review.py:471](<../../../testing/test_independent_review.py#L471>)
 
 ```python
 def test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit():
@@ -349,7 +349,7 @@ def test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_uni
 
 ### cost-rounding-precision-test
 
-[etudecas/testing/test_independent_review.py:356](<../../../testing/test_independent_review.py#L356>)
+[etudecas/testing/test_independent_review.py:483](<../../../testing/test_independent_review.py#L483>)
 
 ```python
 def test_unexpected_cost_export_precision_is_not_silently_tolerated(value):
@@ -357,7 +357,7 @@ def test_unexpected_cost_export_precision_is_not_silently_tolerated(value):
 
 ### cost-browser-test
 
-[etudecas/testing/test_independent_review.py:287](<../../../testing/test_independent_review.py#L287>)
+[etudecas/testing/test_independent_review.py:414](<../../../testing/test_independent_review.py#L414>)
 
 ```python
 def test_browser_values_are_reconciled_with_runs(run, damage):

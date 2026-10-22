@@ -2,7 +2,7 @@
   "schema_version": "etudecas.documentation.v1",
   "fingerprint_method": "python-ast-v1",
   "business_source_fingerprints": {
-    "etudecas/docs/CALIBRATION_EXECUTION.md": "b8fe3610f98e77a1927696c1aa7d2622345c7ac84c82b57e5bd5901563ac209f"
+    "etudecas/docs/CALIBRATION_EXECUTION.md": "98287f062d645603d08ebce728b070b854647df4fe193c0c20a2369f9350de84"
   },
   "references": [
     {

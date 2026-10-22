@@ -29,3 +29,5 @@ Séparer **symptôme**, **contrainte immédiate démontrée**, **cause de cette 
 Si un essai peut départager les causes, utiliser `etudecas-supply-calibrate`. Sinon, poursuivre les rapprochements accessibles ou décrire précisément l'information manquante et ce qu'elle permettrait de trancher. Un bilan fermé ou un premier rapprochement plausible ne clôt pas le diagnostic. Ne pas remplacer l'incertitude par une longue liste de risques génériques.
 
 Restituer d'abord les causes étayées et leur contribution chiffrée, puis l'écart restant, les alternatives réfutées et la prochaine vérification utile. Donner les preuves accessibles ; conserver au ticket le niveau de confiance et la portée exacte, sans promettre une cause unique quand les données ne l'identifient pas.
+
+Pour reconstruire les informations connues à une date et distinguer causalité simulée et industrielle, lire les sections pertinentes du [guide scientifique](../../../etudecas/docs/DEVELOPPEMENT_SCIENTIFIQUE.md).

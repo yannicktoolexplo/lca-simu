@@ -28,6 +28,8 @@ validation industrielle.
 
 ## Modifier le logiciel
 
+- [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).
+
 - [Comprendre et simplifier les fichiers Python](PLAN_SIMPLIFICATION.md) : parcours courant par étude, cible de refonte, dépendances et priorités ; [tableau filtrable par fichier](INVENTAIRE_PYTHON.csv).
 - [Valider une modification](TEST_VALIDATION.md) : tests relus et sélectionnés, comparaisons numériques et limites des preuves.
 - [Utiliser les fixtures](TEST_FIXTURES.md) : données de test autonomes et intégrations historiques explicites.
