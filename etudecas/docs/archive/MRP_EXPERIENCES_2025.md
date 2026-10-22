@@ -1767,3 +1767,16 @@ les oracles indépendants et les interactions JavaScript sont documentés ;
 le navigateur réel et les tests globaux/interdits ne sont pas exécutés.
 Les résultats lourds restent locaux. Aucune règle par référence ajoutée,
 aucune nouvelle calibration industrielle ni référence promue.
+
+### 22 octobre — accès direct par les creux
+
+Vue courante : `etudecas/resultats/diagnostic_creux_20261022/interface/diagnostic_fusion.html`.
+L'écran est recentré sur le clic dans le graphique : résumé bref, puis une
+étape à la fois, Muret → usine → Gaillac. Les raccourcis classent `abs(I)/D`
+croissant (demande nulle exclue) ; ils ne classent pas un taux de service.
+Les photos d'ouverture/clôture sont jointes aux dates exactes, sans interpolation.
+Les stocks de matière en KG restent distincts des PF en UN ; disponibilité
+prévue et origine inconnue restent explicites. Les analyses et comparaisons
+antérieures sont accessibles dans les détails repliés. Aucun nouveau calcul
+moteur ni changement du diagnostic industriel. Vue détaillée précédente conservée.
+Preuves : `etudecas/artifacts/testing/diagnostic_creux_20261022/final_manifest.json`.
