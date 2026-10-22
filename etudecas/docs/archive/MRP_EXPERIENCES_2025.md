@@ -1550,3 +1550,80 @@ identité, provenance et absence d'exécution anticipée, en conservant les
 contrôles de stock, disponibilité, service, unités et backlog. La convention
 partielle d'ouverture de R5 est conservée et exclue des bilans de semaines
 complètes. Un succès de qualification ne certifie pas la calibration.
+
+## 22 octobre 2026 — reprise, rattrapage et transferts de 693055
+
+Référence conservée : `coherent-MRP-20261014`. Les comparaisons HTML A/D/E du
+21 octobre restent intactes. Investigation 2025 seulement, sans réouverture
+MP/packaging, sans modification du moteur et sans nouvelle simulation annuelle.
+État initial propre : branche `dev_yannick`, commit `4f9586584`.
+
+**Mécanisme simulé établi.** Dans D, les 600 kg exécutés le 3 novembre viennent
+d'une campagne ouverte administrativement le 21 août, sans travail pendant
+l'arrêt. Le 4 novembre, une nouvelle campagne de 2 400 kg s'exécute en quatre
+lots : besoins datés, capacité physique non bornée et continuation dans la même
+journée. Ce n'est pas une cible lissée de stock qui commande ces quantités.
+Avec 600 kg supplémentaires les 6 et 13 novembre, le stock passe de 10 à
+4 210 kg avant tout nouveau départ. L'O.Proc initial de 600 kg, physique le
+27 janvier et disponible le 25 février, est un engagement distinct.
+
+Les 28 jours lundi–vendredi libèrent 600 kg le 11 décembre, puis 2 400 le 12,
+soit 3 000 kg utilisables cumulés. L'override de fréquence logistique de 693055
+dans `config/cases/data_poc.json` impose une revue tous les sept jours. Le
+moteur l'ancre à J0, mercredi 1er janvier : départ suivant le 17 décembre.
+Les 600 kg libérés le 16 portent le départ à 3 600 kg. L'attente n'est donc
+pas la preuve d'un seuil de transfert de 3 600 kg. Réception physique le
+24 décembre, puis disponibilité Avène le 2 janvier 2026 avec sept jours
+lundi–vendredi supplémentaires ; aucun calendrier de jours fériés ajouté.
+
+**Deux tests discriminants exécutés en mémoire.** Sur les commandes D gelées
+du 3 au 17 novembre, un plafond hypothétique de 600 kg par jour calendaire
+lisse le débit du 4 novembre, mais conserve 4 200 kg achevés avant toute
+libération : le pic physique de 4 210 kg reste entier. La première disponibilité
+reste le 11 décembre ; ce seul mécanisme ne peut fournir les 590 kg au moins
+repartis dans la semaine industrielle du 3 novembre. Ce plafond n'est pas
+une capacité industrielle mesurée. Sur les libérations D gelées, une revue
+d'expédition quotidienne permettrait un premier départ le 11 décembre,
+une arrivée physique le 18 et une disponibilité le 29 : six jours gagnés
+au départ, quatre à disponibilité. Aucun gain client n'est déduit de ce
+calcul isolé, qui conserve transit et contrôle. Il ne répète pas C3, où le
+temps de transport lui-même était raccourci.
+
+**Faits source et limites.** Six entrées H de 600 kg du 3 novembre au
+8 décembre compensent 3 600 kg de sorties. Dix-neuf semaines de sorties
+Gaillac correspondent exactement aux entrées Avène de la même semaine,
+soit 13 190 kg ; cela ne mesure pas le transit journalier. Les bornes de
+590 kg entrant puis repartant dans trois semaines confirment le diagnostic
+du 11 octobre, sous hypothèse de photos couvrant tout le physique. H ne
+date pas nécessairement la fabrication. Les versions MRP conservent des
+besoins et révisent les programmes ; sans identifiant, elles ne suivent pas
+un même OF ferme. Les onze semaines de mouvements absentes restent inconnues.
+
+Le recalcul indépendant confirme les effets D/E antérieurs : fabrication
+Avène réduite de 432 000/28 800 UN, mais fichiers de service quotidien
+identiques au nominal. Le stock de Muret absorbe cette différence. La
+qualification précédente reste partielle, notamment pour les ouvertures
+administratives pendant l'arrêt. Les quinze manifestes historiques sont
+intacts ; onze empreintes de consignes/documentation différaient déjà au
+début de cette reprise. Aucun succès global actuel n'est revendiqué.
+
+**Preuves et reprise.** Les bilans physiques de 693055 à Gaillac ont un
+résidu nul sur 364 transitions × quatre runs. Les libérations ont été
+recalculées par un calendrier indépendant. Une contre-lecture a rapproché
+les extraits D des CSV originaux et recalculé les deux expériences sans
+importer leur implémentation. Aucun test d'altération de fichiers, suite
+globale ou navigateur réel exécuté.
+
+- Registre unique :
+  `etudecas/artifacts/testing/reprise_693055_20261022/tickets.json`.
+- Résultats et calculs :
+  `etudecas/artifacts/testing/reprise_693055_20261022/engine_analysis/causal_review.json`.
+- Manifeste agrégé :
+  `etudecas/artifacts/testing/reprise_693055_20261022/final_manifest.json`.
+
+La prochaine discrimination utile est le lien industriel **OF/lot → fin de
+fabrication → entrée H → libération → départ**, particulièrement en novembre.
+Avant de promouvoir une règle commune, il faut connaître capacité, calendrier
+et stade d'enregistrement. Une cadence finie et une revue quotidienne restent
+des sensibilités séparées ; les calculs présents ne justifient ni une nouvelle
+date de panne, ni la suppression des 28 jours, ni une promotion du nominal.
