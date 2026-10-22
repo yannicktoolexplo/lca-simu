@@ -28,7 +28,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--replays', type=Path)
     parser.add_argument('--source-notes', type=Path)
+    parser.add_argument('--timeliness', type=Path)
+    parser.add_argument('--output-dir', type=Path, default=OUT)
+    parser.add_argument('--proof-dir', type=Path, default=PROOF)
     args = parser.parse_args()
+    out = args.output_dir.resolve()
+    proof = args.proof_dir.resolve()
+    out.relative_to(ROOT)
+    proof.relative_to(ROOT)
     old = json.loads(re.search(r'<script[^>]*id="remontee-interactive-data"[^>]*>(.*?)</script>', OLD.read_text(encoding='utf-8'), re.S).group(1))
     comp = json.loads(COMPARISON.read_text(encoding='utf-8'))
     focused = json.loads(FOCUS.read_text(encoding='utf-8'))['episodes']
@@ -49,7 +56,7 @@ def main():
     data = dict(schema_version='diagnostic_fusion.v1', period={'start':'2025-01-01','end':'2025-12-31'},
         products=old['products'], episodes=sorted(episodes,key=lambda e:(e['product'],e['week_start'])),
         focus=[{'id':'w-'+str(p['product'])+'-'+p['week'],'label':'Proxy abs(I) sous demande · bilan et réserves','historical':True} for p in focused],
-        comparison=comp, episode_replays=None, source_notes=None,
+        comparison=comp, episode_replays=None, source_notes=None, episode_timeliness=None,
         conventions={
             'I':'I est conservé signé. abs(I) est un proxy de comparaison, pas une livraison client mesurée.',
             'balance':'Résidu = photo finale − photo initiale − (H + I signé + G). Un résidu nul ne prouve pas la signification métier de I.',
@@ -57,29 +64,34 @@ def main():
             'service':'UN simulées servies / demande de la semaine. Un rattrapage de backlog peut dépasser 100 % ; ce n’est pas un taux à l’heure.',
             'finance':'CA livré / (CA livré + CA perdu), calcul financier séparé : aucune conversion en UN.',
             'scope':'A/D/E : résultats historiques 2025 conservés, qualification globale partielle. Les hypothèses de rejeu aval restent distinctes du MRP autonome.'})
-    for name, path in [('episode_replays', args.replays), ('source_notes', args.source_notes)]:
+    for name, path in [('episode_replays', args.replays), ('source_notes', args.source_notes), ('episode_timeliness', args.timeliness)]:
         if path:
             path = path.resolve()
             data[name] = json.loads(path.read_text(encoding='utf-8'))
             inputs.append(path)
-    OUT.mkdir(parents=True,exist_ok=True)
-    PROOF.mkdir(parents=True,exist_ok=True)
+    out.mkdir(parents=True,exist_ok=True)
+    proof.mkdir(parents=True,exist_ok=True)
     links = [{'label':'Ancienne navigation conservée · 102 semaines','href':str(OLD.relative_to(ROOT))},
              {'label':'Comparaison A/D/E conservée · chronologies de lots','href':str(OLD_COMPARISON.relative_to(ROOT))}] + comp['proof_links']
-    data['links'] = [{'label':x['label'],'href':os.path.relpath(ROOT / x['href'],OUT).replace('\\','/')} for x in links]
+    previous = OUT/'diagnostic_fusion.html'
+    preserved = [OLD, OLD_COMPARISON]
+    if out != OUT.resolve() and previous.is_file():
+        links.append({'label':'Fusion précédente conservée · livraison du 22 octobre','href':str(previous.relative_to(ROOT))})
+        preserved += [previous, OUT/'payload.json', PROOF/'final_manifest.json']
+    data['links'] = [{'label':x['label'],'href':os.path.relpath(ROOT / x['href'],out).replace('\\','/')} for x in links]
     data['provenance'] = [{'path':str(p.relative_to(ROOT)).replace('\\','/'),'sha256':sha(p)} for p in inputs]
     encoded = json.dumps(data,ensure_ascii=False,separators=(',',':')).replace('<','\\u003c').replace('\u2028','\\u2028').replace('\u2029','\\u2029')
     html = Path(__file__).with_name('view.html').read_text(encoding='utf-8').replace('__PAYLOAD__',encoded)
-    target = OUT / 'diagnostic_fusion.html'
+    target = out / 'diagnostic_fusion.html'
     target.write_text(html,encoding='utf-8')
-    (OUT/'payload.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+    (out/'payload.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
     manifest = dict(schema_version='diagnostic_fusion.build.v1', status='built_not_browser_validated',
-        inputs=data['provenance'], outputs=[{'path':str(p.relative_to(ROOT)).replace('\\','/'),'sha256':sha(p),'bytes':p.stat().st_size} for p in [target,OUT/'payload.json']],
-        preserved_originals=[{'path':str(p.relative_to(ROOT)).replace('\\','/'),'sha256':sha(p)} for p in [OLD,OLD_COMPARISON]],
+        inputs=data['provenance'], outputs=[{'path':str(p.relative_to(ROOT)).replace('\\','/'),'sha256':sha(p),'bytes':p.stat().st_size} for p in [target,out/'payload.json']],
+        preserved_originals=[{'path':str(p.relative_to(ROOT)).replace('\\','/'),'sha256':sha(p)} for p in preserved],
         episodes=len(episodes), historical_focus=len(data['focus']), scenarios=[x['id'] for x in comp['cases']],
         browser='NOT_EXECUTED: previous Windows refusal; in-memory interaction checks are separate',
         qualifications='Historical global qualification remains partial; builder does not qualify engine or industrial calibration.')
-    (PROOF/'build_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+    (proof/'build_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps({'html':str(target),'bytes':target.stat().st_size,'episodes':len(episodes),'focus':len(data['focus'])}))
 
 

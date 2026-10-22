@@ -1693,3 +1693,77 @@ Preuves, vérifications exécutées et limites :
 Les tests globaux et d'altération restent exclus ; aucun navigateur réel n'est
 relancé après le refus Windows. La qualification historique A/D/E demeure
 partielle et aucune nouvelle référence n'est promue.
+
+### 22 octobre — rapprochement des écritures et délais des cohortes
+
+**Point de reprise courant.** Le nominal du 14 octobre est conservé. La vue
+enrichie est `etudecas/resultats/diagnostic_suite_20261022/interface/diagnostic_fusion.html` :
+102 semaines, six fiches de diagnostic et quatre épisodes × cinq rejeux avec
+délais. La première fusion et les deux HTML d'origine restent intacts.
+
+Le résidu Permixon du 20 octobre, −4 536 UN, compense exactement celui de la
+semaine précédente, +4 536 UN : `532449−507460 = 17881+7110−2 = 24989 UN`.
+Le bilan ferme sur deux semaines ; l'opération et l'heure de coupure restent
+inconnues. I est positif pendant ces deux semaines. La demande de 74 872 UN
+et le proxy de 24 991 UN ne constituent donc pas un taux de livraison mesuré.
+Sources : Stocks lignes 68/85/44, mouvements lignes 838/839, Historique 96/97.
+
+Sur les 102 semaines des deux PF, 56 ont `abs(I)<D` : 37 Cicalfate et
+19 Permixon. Toutes ces semaines ont un stock initial et un J courant MRP
+supérieurs à D. Le test compare ces quantités ; il ne mesure ni accès réel,
+ni réservation, ni calendrier de livraison. Six paires de résidus se
+compensent, mais les bilans ne ferment pas tous. Les fenêtres glissantes
+se chevauchent. Les versions MRP d'octobre ne montrent pas d'effondrement
+de disponibilité prévue sur les épisodes retenus.
+
+Pour **693055 à Avène**, les 600 kg entrés la semaine du 3 novembre sont
+physiquement présents le 10 novembre : photo 620 kg. Le MRP du 9 novembre
+porte encore J courant 20 kg et J futur 600 kg au 16 novembre ; la version
+du 16 novembre porte J courant 620 kg, sans mouvement intervenant cette
+semaine. Cela documente la différence entre présence physique et
+disponibilité prévue, sans dater la fabrication ni une libération exécutée.
+Sources : mouvements 1105/1106, Stocks 366/972, MRP J45710/J45711/J46800.
+Les 22 fichiers sources inspectés ne fournissent pas le journal nécessaire
+pour relier commande client, réservation, libération et départ effectifs.
+
+**Essais discriminants.** Le FIFO est reconstruit depuis J0 ; les cohortes
+de demande de la semaine sont suivies au-delà de la fenêtre de 28 jours.
+Échéance conventionnelle J+2, pas promesse industrielle. L'appariement des
+dates de service au nominal fournit aussi une mesure indépendante de cette
+convention. Stocks et arrivées simulés sont conservés, sans injection des
+quantités industrielles faibles comme cibles.
+
+| Épisode | UN retardées, restriction 3 j | UN retardées, restriction 7 j | Rattrapage client, 7 j |
+|---|---:|---:|---|
+| Cicalfate 13/10 | 31 040 | 72 428 | 22/10 |
+| Permixon 20/10 | 18 367 | 42 857 | 29/10 |
+| Cicalfate 20/01, témoin | 35 015 | 81 702 | 29/01 |
+| Permixon 28/07, témoin | 26 499 | 61 831 | 06/08 |
+
+Retard moyen pondéré : environ 0,86/4 jours ; P95 : 3/7 jours, pour les
+restrictions de 3/7 jours. Le cumul servi sur 28 jours reste identique.
+Toutes les cohortes étudiées sont mûres et servies ; aucune censure dans
+ces 20 cas. Le backlog global inclut le transit normal et reste distinct
+du retard. Les restrictions d'accès et d'expédition produisent les mêmes
+flux : ces essais ne départagent toujours pas leur cause. Les deux témoins
+sont rétrospectifs et ne valident pas une généralisation aux 56 creux.
+
+**Limite native constatée.** Le garde actuel de `physical_demand_cover_v1`
+refuse les contrôles actifs. Deux assertions en mémoire sur ses fonctions
+exactes confirment nominal accepté/contrôle refusé. Aucun moteur 14 jours
+ou annuel lancé, aucun garde contourné. Les 20 essais sont des rejeux aval.
+
+**Prochain test décisif.** Sur une semaine de creux et sa reprise, apparier
+commande exigible → lot libéré/réservé → départ → réception client. Un stock
+libéré suffisant avec commandes exigibles mais sans départ orienterait vers
+l'exécution/allocation ; un stock bloqué orienterait vers la disponibilité.
+À défaut, ces causes restent indécidables et une nouvelle simulation longue
+n'apporte pas de preuve supplémentaire. La résolution du contrat natif
+serait un chantier séparé, après choix d'un mécanisme étayé.
+
+Registre et preuves : `etudecas/artifacts/testing/diagnostic_suite_20261022/tickets.json`
+et `final_manifest.json` dans le même dossier. Les comparaisons numériques,
+les oracles indépendants et les interactions JavaScript sont documentés ;
+le navigateur réel et les tests globaux/interdits ne sont pas exécutés.
+Les résultats lourds restent locaux. Aucune règle par référence ajoutée,
+aucune nouvelle calibration industrielle ni référence promue.

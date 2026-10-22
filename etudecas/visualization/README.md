@@ -48,15 +48,23 @@ résultats nominal/A/D/E de `comparaison_arrets_693055.html`. Les originaux
 restent conservés. Il nécessite ces preuves locales et n'exécute aucun moteur.
 
 ```powershell
-python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_fusion_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json
+python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --output-dir etudecas/resultats/diagnostic_suite_20261022/interface --proof-dir etudecas/artifacts/testing/diagnostic_suite_20261022/ui
 ```
 
-Livrable : `etudecas/resultats/diagnostic_fusion_20261022/interface/diagnostic_fusion.html`,
+Livrable : `etudecas/resultats/diagnostic_suite_20261022/interface/diagnostic_fusion.html`,
 accessible aussi depuis `etudecas/index.html`. Le manifeste de construction
-est dans `etudecas/artifacts/testing/diagnostic_fusion_20261022/ui`.
+est dans `etudecas/artifacts/testing/diagnostic_suite_20261022/ui`. La première
+fusion reste dans `resultats/diagnostic_fusion_20261022` ; les options de sortie
+permettent de conserver les livrables précédents.
 Un clic sur une semaine aligne les stocks en KG/UN, le bilan signé de Muret,
 les sources et les hypothèses. `abs(I)` reste un indicateur de rapprochement,
 pas un taux de service mesuré. Les rejeux locaux conservent les arrivées
 simulées et ne recalculent pas le MRP amont ; ils sont distincts des scénarios
-annuels. Les détails numériques et les contrôles d'interaction ne remplacent
+annuels. Six fiches distinguent faits, hypothèses, données discriminantes et
+verdict. Quatre épisodes ont cinq cas de rejeu avec livraisons à l'échéance
+conventionnelle J+2, délais pondérés par UN, comparaison appariée au nominal et
+rattrapage. Le backlog total sur 28 jours reste séparé du retard des cohortes
+de la semaine ; les éventuelles observations censurées sont affichées.
+Ces délais simulés ne sont pas un OTIF industriel observé.
+Les détails numériques et les contrôles d'interaction ne remplacent
 pas une validation industrielle ni un rendu navigateur.
