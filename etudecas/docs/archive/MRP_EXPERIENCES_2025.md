@@ -1627,3 +1627,69 @@ Avant de promouvoir une règle commune, il faut connaître capacité, calendrier
 et stade d'enregistrement. Une cadence finie et une revue quotidienne restent
 des sensibilités séparées ; les calculs présents ne justifient ni une nouvelle
 date de panne, ni la suppression des 28 jours, ni une promotion du nominal.
+
+### 22 octobre — repartir des creux de Muret et fusionner les vues
+
+La navigation de `audit_service_reel_2025_20261020/remontee/remontee_chaine_reelle.html`
+est réunie avec les résultats de `aleas_prolonges_693055_20261021/comparaison_arrets_693055.html`
+dans `etudecas/resultats/diagnostic_fusion_20261022/interface/diagnostic_fusion.html`.
+Les originaux, le moteur et la référence restent conservés. La nouvelle vue
+relie 102 semaines sélectionnables aux stocks Gaillac, Avène/Gien, Muret et au
+service simulé ; les six épisodes examinés ont des notes sources. Elle garde
+I signé, son proxy `abs(I)`, les résidus et la finance séparés. Les anciennes
+attributions MP/packaging ne sont pas rouvertes.
+
+Deux épisodes sont testés, sans ajuster leurs sorties sources :
+
+| Semaine / PF | Demande Flow, UN | I signé, UN | Photo initiale Muret, UN | Fait discriminant |
+|---|---:|---:|---:|---|
+| 13 octobre / Cicalfate | 72 428 | −935 | 919 902 | Bilan Muret fermé ; Gaillac faible mais Avène conserve 470→330 kg de693055. |
+| 20 octobre / Permixon | 42 857 | +7 110 | 529 877 | Résidu Muret−4 536 UN ; transfert773474 de3 200 kg versGien documenté. |
+
+Les photos et J courant MRP couvrent la demande hebdomadaire dans les deux
+cas. Cela contredit une explication par stock physique total nul ; cela ne
+mesure ni libération qualité exécutée, ni réservations, ni allocations.
+Le témoin Permixon du28 juillet associe proxy sous demande, stock croissant
+et CA perdu nul. Ces écarts ne deviennent pas des non-livraisons certifiées.
+
+**Expérience nouvelle :** rejeu aval FIFO à cohortes entrantes simulées figées,
+sur deux fenêtres de28 jours. Le nominal reproduit exactement2 920 valeurs
+exportées sur365 jours : départs, service client, stock physique et utilisable
+des deux PF. La demande utilisée est bien Flow Historique ; `demand_PF` reste
+un comparateur ancien. Aucun nouveau calcul annuel du moteur n'a été lancé.
+
+La même règle hypothétique est appliquée à chaque produit : bloquer100 % du
+stock déjà présent, ou suspendre les expéditions, pendant3 puis7 jours
+calendaires. Dates rétrospectives et amplitudes déclarées avant exécution ;
+aucune quantité935/7 110 injectée comme cible. Les arrivées futures simulées
+restent figées et les engagements ne sont pas supprimés.
+
+- Trois jours produisent un creux quotidien rattrapé dans la même semaine :
+  les sorties hebdomadaires restent inchangées.
+- Sept jours donnent zéro départ sur la semaine cible, puis un report de
+  72 428 UN pour Cicalfate et42 857 UN pour Permixon la semaine suivante.
+- Les livraisons clients de la semaine diminuent de51 734/30 612 UN, avec le
+  transport de deux jours conservé. Le cumul servi sur28 jours est inchangé.
+- Blocage d'accès et suspension d'expédition donnent ici les mêmes flux,
+  mais des stocks accessibles différents. Les courbes de sortie seules ne
+  permettent donc pas d'identifier la cause. Les stocks physiques nominaux
+  des essais restent distincts des photos industrielles.
+
+Ces essais reproduisent un mécanisme de creux/rattrapage avec stock élevé,
+pas les quantités industrielles exactes ni la cause des incidents. Les délais
+de production/transfert+14 jours et les calendriers d'expédition déjà explorés
+le21 octobre restent des apprentissages antérieurs, sans nouvelle campagne.
+La réaction amont du MRP à un blocage durable n'est pas simulée ici.
+
+Prochaine discrimination : obtenir pour les deux semaines les statuts
+libéré/bloqué/réservé des lots PF, les commandes réellement exigibles et les
+départs datés. Une restriction seulement visible dans le transport, ou au
+contraire une chute du stock accessible, séparerait les deux mécanismes.
+Le résidu Permixon doit être rapproché avant toute calibration sur ses sorties.
+
+Registre : `etudecas/artifacts/testing/diagnostic_fusion_20261022/tickets.json`.
+Preuves, vérifications exécutées et limites :
+`etudecas/artifacts/testing/diagnostic_fusion_20261022/final_manifest.json`.
+Les tests globaux et d'altération restent exclus ; aucun navigateur réel n'est
+relancé après le refus Windows. La qualification historique A/D/E demeure
+partielle et aucune nouvelle référence n'est promue.
