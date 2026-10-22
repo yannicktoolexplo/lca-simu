@@ -4,6 +4,28 @@ La calibration caractérise des hypothèses de simulation. Elle ne mesure pas
 une performance fournisseur observée et n'autorise pas à promouvoir une action.
 La robustesse des fichiers ne constitue pas une validation scientifique.
 
+## Protocole avant exécution
+
+Appliquer les critères de [développement scientifique](DEVELOPPEMENT_SCIENTIFIQUE.md)
+et le skill `etudecas-supply-calibrate` après le diagnostic de l'écart. Déclarer
+rapprochement historique, rejeu autonome ou prospective ; identifier les données
+d'entrée et celles réservées à la comparaison, avec leurs dates de connaissance.
+Vérifier périmètre, unités, calendriers, état initial, BOM et politiques avant
+d'ajuster un paramètre. Une injection rétrospective reste identifiée comme telle.
+
+Dans le suivi existant, figer avant calcul hypothèse et témoin, paramètres bornés,
+critères de volumes et de dates, fenêtres chronologiques de calibration et de
+validation, budget et condition d'arrêt. Examiner sensibilité, identifiabilité
+et compensations entre paramètres ; déclarer ce que les sources ne permettent
+pas d'identifier. Une meilleure courbe n'établit pas une cause industrielle.
+
+Commencer par un oracle en mémoire et une baseline ciblée. Le déroulement
+screening/confirmation ci-dessous appartient à ce runner précis ; il ne rend
+pas 36 candidats ou 30 répétitions nécessaires à toute calibration. N'étendre
+le calcul que si une question supplémentaire le justifie. Avant promotion,
+contre-vérifier hors ajustement les effets sur stocks, flux, dates et service
+dans toute la chaîne, avec gains, dégradations et limites ; préserver le nominal.
+
 ## Une seule implémentation courante
 
 Le module `supplier_service_regime_calibration_runner.py` contient désormais
@@ -81,7 +103,16 @@ V2, à la politique d'écriture et aux tests de refus, reprise et non-réutilisa
 Il participe à `build-all`, `check-all` et `watch-all`. Les empreintes documentaires
 signalent les changements ; leur acceptation exige une relecture explicite.
 
-Le workflow local prévoit les tests d'écriture sur Windows et Linux. Les erreurs
-Windows sont injectées pour tester les branches de façon déterministe ; cela ne
-prouve pas la cause externe du verrou observé. La présence du workflow ne signifie
-pas qu'il a été exécuté sur GitHub.
+Le workflow et les anciens tests d'écriture Windows/Linux décrivent une couverture
+historique, pas une autorisation d'exécution actuelle. Appliquer la
+[sélection exacte des contrôles](TEST_VALIDATION.md) et les restrictions Sophos de
+`AGENTS.md` : relire chaque cas et ses fixtures, exclure altérations volontaires,
+restaurations de dates, disparitions simulées et écritures factices répétées.
+Ne pas relancer `check_source_revision.py` ni une variante. Une injection d'erreur
+Windows historique ne prouve pas la cause externe d'un verrou.
+
+En cas de nouveau refus d'écriture ou d'alerte, arrêter les exécutions concernées,
+conserver preuves et journal, puis diagnostiquer en lecture seule. La politique
+de reprise interne décrite plus haut n'autorise ni nouvelles sondes ni relances
+pour contourner Sophos. Un contrôle exclu ou non exécuté reste déclaré tel quel ;
+la présence d'un workflow ne signifie pas son exécution locale ou sur GitHub.

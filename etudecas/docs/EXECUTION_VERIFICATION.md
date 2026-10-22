@@ -37,18 +37,28 @@ stock usine ne démontre ni livraison client ni pénurie d'intrants. Les difficu
 historiques de la campagne conservent leur champ séparé. Les libellés trop longs
 ont un détail au survol ; la vue complète peut être ajustée à la largeur.
 
-## Contrôles exécutables
+## Choisir les contrôles autorisés
 
-```powershell
-python -m pytest -c pytest-reference.ini etudecas/testing/test_independent_review.py etudecas/testing/test_independent_review.py -q
-python -m etudecas.testing.adversarial_review --output <preuves>/adversarial.json
-python -m etudecas.testing.qualification --run <nominal> --run <risques> --html <carte.html> --output <preuves>/qualification
-python -S -m etudecas.documentation check-all
-```
+Appliquer [TEST_VALIDATION.md](TEST_VALIDATION.md) avant toute exécution : relire
+les cas exacts et leurs fixtures, puis sélectionner seulement les contrôles
+compatibles avec les restrictions Sophos. Les anciennes prescriptions de modules
+pytest entiers et du runner `adversarial_review` sont historiques ; elles ne sont
+pas une autorisation de les relancer. Aucun test volontaire d'altération, de
+restauration de dates, de disparition simulée ou d'écritures factices répétées
+n'est autorisé ; `check_source_revision.py` et ses variantes restent exclus.
+
+Les commandes de qualification CSV, de documentation et de navigateur sont
+décrites dans [la toolbox](MULTI_AGENT_OPERATIONNEL.md). Désigner les chemins
+réels du calcul et de la carte, annoncer le périmètre et garder les manifestes.
+Une alerte ou un refus d'écriture impose l'arrêt des exécutions concernées et
+un diagnostic en lecture seule, sans nouvelle sonde ni contournement.
 
 Le contrôle des CSV n'importe ni le moteur, ni les payloads, ni leurs validateurs.
 Il recalcule conservation de demande, stocks, mouvements, coûts et identités.
-Les fixtures ont des résultats calculables à la main et des corruptions volontaires.
+Les fixtures historiques comportent des résultats calculables à la main et des
+corruptions volontaires ; les cas interdits restent exclus, même s'ils figurent
+dans une ancienne preuve. Privilégier un oracle en mémoire et la comparaison en
+lecture seule des résultats existants.
 La qualification refuse les preuves manquantes et les invariants incorrects.
 La livraison du diagnostic appelle ce contrôle avant de publier ses résultats.
 Le navigateur hors ligne vérifie plusieurs lots, les compteurs, les campagnes

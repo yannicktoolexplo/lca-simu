@@ -4,7 +4,7 @@ description: Organiser une investigation ou modification Etudecas couvrant plusi
 ---
 Identifier les fichiers et les dépendances avant de déléguer. Utiliser les sous-agents natifs et attribuer une propriété d'écriture disjointe. Ne pas déléguer un travail qui bloque toute progression utile du parent.
 
-Donner à chaque agent objectif, fichiers autorisés et interdits, scénario, données sources, preuve attendue. Explorer reste en lecture seule ; simulation et carte corrigent leur couche ; validator utilise un oracle distinct. Le parent intègre séquentiellement les résultats.
+Donner à chaque agent objectif et critère de réussite, fichiers autorisés/interdits, scénario, données et versions, livrable/preuves, budgets calcul/temps/mémoire/stockage et conditions d’arrêt. Choisir un profil dont les instructions autorisent la mission. Les budgets sont déclaratifs ; leur encodage dans TaskSpec est décrit dans le guide opérationnel. Explorer reste en lecture seule ; simulation et carte corrigent leur couche ; validator utilise un oracle distinct. Le parent intègre séquentiellement les résultats.
 
 Pour une investigation supply chain, lire le [schéma canonique des tickets](../etudecas-supply-diagnose/references/tickets.md) et les skills `etudecas-supply-diagnose` ou `etudecas-supply-calibrate` selon la question. Le parent tient un seul registre dans le dossier de preuves de l'investigation ; il en est le seul éditeur. Les agents retournent des deltas par message, avec identifiant de ticket, conclusion bornée, chiffres décisifs, preuves, limites et prochaine action. Ne pas créer un Markdown par ticket.
 
@@ -16,3 +16,4 @@ Lire `etudecas/docs/MULTI_AGENT_OPERATIONNEL.md` pour les commandes exactes et l
 
 Préserver le nominal, les sensibilités séparées, les quantités physiques UN entières et les deux parcours de lots. Ne pas convertir une réussite d'invariant en preuve scientifique. Restituer les preuves, les fichiers modifiés et les limites ; ne pas présenter le mini-kit du pack comme le moteur principal.
 
+Pour fixer les critères de fin et le niveau de preuve d'une modification, lire les sections pertinentes du [guide scientifique](../../../etudecas/docs/DEVELOPPEMENT_SCIENTIFIQUE.md).

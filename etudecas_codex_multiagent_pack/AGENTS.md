@@ -15,7 +15,10 @@ Les profils installés sont dans [`.codex/agents/`](../.codex/agents/) :
 - `etudecas_validator` : contre-vérification indépendante et preuves.
 
 Les skills installés sont dans [`.agents/skills/`](../.agents/skills/) :
-`etudecas-orchestrate`, `etudecas-qualify` et `etudecas-map-review`.
+`etudecas-orchestrate`, `etudecas-qualify`, `etudecas-map-review`,
+`etudecas-supply-diagnose` et `etudecas-supply-calibrate`.
+Le staging reproduit les versions racine et leur référence de tickets ; les liens
+vers la documentation supposent une installation dans le dépôt complet.
 Le modèle et l'effort sont hérités du parent ; aucun SDK ou service externe
 n'est nécessaire à cette orchestration.
 

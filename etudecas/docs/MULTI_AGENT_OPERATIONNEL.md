@@ -4,7 +4,16 @@ L'orchestration utilise les sous-agents natifs de Codex. La toolbox Python exéc
 
 ## Installation locale et état vérifiable
 
-Le déploiement révisable est dans `etudecas_codex_multiagent_pack/native/`, avec la même arborescence que la racine cible : `AGENTS.md`, `.codex/config.toml`, quatre fichiers `.codex/agents/*.toml`, trois `.agents/skills/*/SKILL.md`. Ces neuf fichiers ont été installés à la racine par l'intégrateur le 20 septembre 2026 ; un doctor racine a ensuite réussi. Sur un autre poste, copier ces fichiers après examen et fusionner les instructions et paramètres existants au lieu de les écraser. Aucun paramètre utilisateur global n'est nécessaire. Lorsque les répertoires cibles sont protégés par l'environnement, conserver le staging et confier la copie à l'intégrateur autorisé ; ne pas contourner la protection.
+Le déploiement révisable est dans `etudecas_codex_multiagent_pack/native/` :
+`AGENTS.md`, `.codex/config.toml`, quatre profils, cinq skills et la référence
+`etudecas-supply-diagnose/references/tickets.md`. Les versions de travail sont
+celles de la racine ; préparer le staging depuis celles-ci et examiner le diff
+avant installation. Les liens des skills ciblent leur emplacement final dans le
+dépôt, pas un pack autonome. Le déploiement initial de neuf fichiers du
+20 septembre 2026 est historique. Sur un autre poste, fusionner les paramètres
+existants ; ne pas écraser la configuration utilisateur. Si les cibles sont
+protégées, préparer le staging puis utiliser le mécanisme d'autorisation du
+runtime ou l'intégrateur autorisé, sans contourner cette protection.
 
 ```powershell
 # Validation structurelle du déploiement préparé, sans prétendre qu'il est installé
@@ -17,9 +26,49 @@ Chaque commande affiche un objet JSON contenant `status`, `manifest` et `error`.
 
 La configuration limite les enfants concurrents à trois, le parent étant exclu. Les quatre rôles disponibles ne doivent donc pas nécessairement tourner simultanément. Le modèle et l'effort sont hérités du parent. Les politiques réelles du runtime restent prioritaires.
 
+## Ce que fournit le harnais
+
+| Niveau | Fonction | Ce que cela ne démontre pas |
+|---|---|---|
+| Codex natif | Découverte des instructions/profils/skills et outils de délégation exposés par la session | Un fichier disque ne prouve pas son chargement ni une sandbox par rôle. |
+| Consignes déclaratives | `AGENTS.md`, rôles, budgets et périmètres | Pas de verrou de fichier, quota automatique ou preuve scientifique. |
+| Procédures spécialisées | Cinq skills et guides métier, chargés selon la tâche | Pas d'automate de routage, tickets ou causalité. |
+| Exécutables déterministes | Toolbox, contrats, tests exacts, calculs CSV, navigateur, docs et gate | Leurs preuves couvrent seulement les contrôles exécutés et compatibles. |
+
+Pour auditer une session, constater les profils et skills exposés, l'instruction
+reçue par un enfant et un retour utile. Distinguer catalogue disponible et skill
+réellement lu. Ne pas tester les permissions par une écriture interdite. Les
+changements disque n'altèrent pas rétroactivement les instructions déjà chargées.
+Le doctor actuel ne contrôle structurellement que les quatre profils et les trois
+skills historiques (orchestration, qualification, carte), pas les deux skills
+supply chain, leurs liens, l'héritage du modèle ni la limite exacte de trois.
+Compléter par lecture TOML, validation des cinq métadonnées et liens à la racine.
+
+Le parent choisit la première procédure utile selon le défaut et les informations
+manquantes. Si le périmètre ou la cause est incertain, commencer par exploration/
+diagnostic ; si une information décide entre routes, expliciter l'incertitude.
+Le choix d'une route ne vaut ni autorisation d'action ni validation d'un résultat.
+Une nouvelle couche de routage exige un gain sur des cas représentatifs face au
+natif et à des règles simples, avec erreurs, abstentions, temps et coût mesurables.
+Aucun score de routage ne remplace un oracle indépendant ou un contrôle déterministe.
+
 ## Contrat d'une délégation
 
-Le parent attribue un objectif observable, un scénario et ses entrées exactes, des fichiers autorisés/interdits, un livrable et les contrôles attendus. Les écrivains n'ont jamais le même fichier en propriété simultanée. Un retour contient : état (`terminé`, `refusé` ou `incomplet`), changements, preuves avec chemins de manifestes, résultat des contrôles et limites. Une narration sans preuve ne vaut pas validation.
+Le parent attribue objectif et réussite observable, scénario/données/versions,
+fichiers autorisés/interdits, livrable et preuves attendues. Il précise les budgets
+calcul (nombre/taille des essais), temps, mémoire et stockage, et les conditions
+d'arrêt ; les budgets cumulés des enfants doivent tenir sur la machine. Si le
+coût est inconnu, mesurer un cas réduit avant d'élargir. Une alerte de sécurité
+arrête les exécutions concernées ; budget atteint ou donnée indispensable absente
+impose un retour borné au parent, sans relance automatiquement plus coûteuse.
+Les écrivains n'ont jamais le même fichier en propriété simultanée. Retourner
+`complete`, `refused` ou `incomplete`, changements réels, preuves, contrôles et
+limites. Une narration sans preuve ne vaut pas validation.
+
+`TaskSpec` n'a pas de champ budget : porter critère, bornes et arrêt dans
+`objective`, ou dans le suivi existant référencé par `inputs`. Ne pas ajouter de
+champ JSON. Ces budgets sont déclaratifs ; `--timeout` borne seulement chaque
+sous-processus, pas la durée totale de mission.
 
 Les objets JSON suivants sont validés strictement par les dataclasses `TaskSpec` et `AgentResult` de `etudecas.toolbox.contracts` : champs inconnus ou manquants refusés, chaînes non vides, listes typées, chemins internes au dépôt et états contrôlés. Exemple de tâche à écrire dans un fichier de preuves `task.json` :
 
@@ -58,7 +107,7 @@ Remplacer les chemins d'exemple par les preuves réelles. Exécuter `python -m e
 | `etudecas_map` | Payloads, HTML, interactions et contrôles navigateur | Pas d'écriture concurrente dans le moteur |
 | `etudecas_validator` | Oracle indépendant, données gelées, contre-exemples | Pas de correction du code évalué ; preuves seulement |
 
-Les restrictions par fichier sont des instructions, pas un mécanisme de confinement. Les profils d'écriture utilisent `workspace-write` et l'explorateur `read-only`, sous réserve des permissions effectivement accordées. Pour une isolation matérielle des modifications, utiliser des worktrees distincts et intégrer séquentiellement.
+Les restrictions par fichier et la lecture seule de l'explorateur sont des consignes de rôle. Les enfants héritent des permissions effectives du parent ; un profil ne crée pas une sandbox distincte. Choisir un rôle dont les instructions autorisent la mission. Les worktrees séparent les modifications, sans remplacer les contrôles d'accès ; intégrer séquentiellement.
 
 Les skills `etudecas-orchestrate`, `etudecas-qualify`, `etudecas-map-review` routent vers les contrôles concrets. Les skills `etudecas-supply-diagnose` et `etudecas-supply-calibrate` guident respectivement l'explication d'un écart supply chain et la comparaison de règles ou paramètres. La délégation doit être utile et indépendante ; une modification simple ne nécessite pas quatre agents.
 
@@ -84,7 +133,7 @@ Handoff contrôle le retour contractuel et gate agrège les preuves techniques s
 
 ## Commandes exécutables
 
-Toutes les commandes partent de la racine, avec Python 3.11 minimum pour la toolbox (`tomllib`, `hashlib.file_digest`). Installer les dépendances explicites avec `python -m pip install -r requirements-etudecas-test.txt`. PyYAML est notamment utilisé pour lire les métadonnées des skills ; aucune installation editable de l'ancienne démonstration n'est nécessaire.
+Toutes les commandes partent de la racine, avec Python 3.11 minimum pour la toolbox (`tomllib`, `hashlib.file_digest`). Vérifier l'environnement existant avant installation. Si nécessaire et justifié, les dépendances runtime/tests sont décrites par `requirements-etudecas-test.txt` ; une revue documentaire ne déclenche aucune installation. Ce fichier ne déclare pas Playwright, pourtant contrôlé par doctor ; la présence du package ne prouve pas celle de Chromium. Ce décalage est suivi dans le backlog de l'audit. PyYAML est notamment utilisé pour lire les métadonnées des skills ; aucune installation editable de l'ancienne démonstration n'est nécessaire.
 
 Après l'incident Sophos, relire chaque cas et ses fixtures avant exécution,
 puis sélectionner son identifiant exact. Les anciens essais d'altération de
@@ -143,10 +192,10 @@ désigner ses propres manifestes, les contrôles effectivement exécutés et leu
 limites. Un manifeste refusé conserve sa signification même si un contrôle
 interne a réussi.
 
-## Sources officielles consultées le 20 septembre 2026
+## Sources officielles revérifiées le 21 octobre 2026
 
 - [Profils natifs et configuration des sous-agents](https://learn.chatgpt.com/docs/agent-configuration/subagents) : champs, héritage, permissions et nombre d'enfants.
 - [Skills et découverte projet](https://learn.chatgpt.com/docs/build-skills) : `.agents/skills` et format `SKILL.md`.
 - [Instructions AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) : portée du dépôt.
 
-Les exemples sont adaptés aux besoins Etudecas, sans framework supplémentaire. L'environnement observé utilise Codex CLI `0.154.0-alpha.6.1` et Python 3.11.9 ; le doctor expose les versions effectivement utilisées sur chaque poste.
+Les exemples sont adaptés aux besoins Etudecas, sans framework supplémentaire. La version `0.154.0-alpha.6.1` était celle observée en septembre. Le relevé du 21 octobre indique Python 3.11.9 et Codex CLI `0.162.0-alpha.17.2` ; cet appel CLI a aussi signalé un refus d'accès à ses fichiers temporaires et n'a pas été relancé. Le [bilan daté](quality/AUDIT_INSTRUCTIONS_20261021.md) distingue versions, preuves et limites.

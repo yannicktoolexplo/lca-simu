@@ -3,7 +3,7 @@
   "fingerprint_method": "python-ast-v1",
   "title": "Execution physique et verification independante",
   "business_source_fingerprints": {
-    "etudecas/docs/EXECUTION_VERIFICATION.md": "2667f9ed09c5804b2e9a706f9413920be8ce2c7673657bd747e0c7c52cdbb9c6",
+    "etudecas/docs/EXECUTION_VERIFICATION.md": "58ae523f00faa6e2ccccf9938361014e74963f1cd62f8d96a0c8f13dd11ff93a",
     "etudecas/docs/LOTS_ET_CAMIONS.md": "c9a6584468552f76c41aec73e264ca53497cb0fe635e0d3f34084f3e0290b5cc",
     "etudecas/config/cases/data_poc.json": "c6ba2705775ff4742996fe8318bd774d1faf9b983a5bd60d5c875d6876c710de",
     "etudecas/docs/changes/2026-09-20-cost-rounding-README.md": "1ae6de1ab28ca8bf87ce1e15ee828f47c07ab94a070f621400a8a3d1f5404f22"
