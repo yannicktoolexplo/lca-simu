@@ -27,6 +27,19 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def article_labels(value, products):
+    """Use article references throughout the delivered copy, including details."""
+    if isinstance(value, dict):
+        return {key: article_labels(item, products) for key, item in value.items()}
+    if isinstance(value, list):
+        return [article_labels(item, products) for item in value]
+    if isinstance(value, str):
+        for article, name in products.items():
+            value = re.sub(re.escape(name), f'PF {article}', value, flags=re.I)
+            value = re.sub(rf'\b{re.escape(article)}\s+PF {re.escape(article)}\b', f'PF {article}', value)
+    return value
+
+
 def photo_stage(episode, comparison, key, label, site):
     """Exact-date industrial photos, with no inferred availability or causality."""
     start = episode['week_start']
@@ -175,6 +188,7 @@ def main():
         preserved += [PREVIOUS_SUITE/'diagnostic_fusion.html',PREVIOUS_SUITE/'payload.json']
     data['links'] = [{'label':x['label'],'href':os.path.relpath(ROOT / x['href'],out).replace('\\','/')} for x in links]
     data['provenance'] = [{'path':str(p.relative_to(ROOT)).replace('\\','/'),'sha256':sha(p)} for p in inputs]
+    data = article_labels(data, old['products'])
     encoded = json.dumps(data,ensure_ascii=False,separators=(',',':')).replace('<','\\u003c').replace('\u2028','\\u2028').replace('\u2029','\\u2029')
     html = Path(__file__).with_name('view.html').read_text(encoding='utf-8').replace('__PAYLOAD__',encoded)
     target = out / 'diagnostic_fusion.html'

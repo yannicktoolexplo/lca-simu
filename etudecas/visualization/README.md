@@ -48,15 +48,17 @@ résultats nominal/A/D/E de `comparaison_arrets_693055.html`. Les originaux
 restent conservés. Il nécessite ces preuves locales et n'exécute aucun moteur.
 
 ```powershell
-python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --output-dir etudecas/resultats/diagnostic_creux_20261022/interface --proof-dir etudecas/artifacts/testing/diagnostic_creux_20261022/ui
+python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --output-dir etudecas/resultats/diagnostic_creux_20261102/interface --proof-dir etudecas/artifacts/testing/diagnostic_creux_20261102/ui
 ```
 
-Livrable : `etudecas/resultats/diagnostic_creux_20261022/interface/diagnostic_fusion.html`,
+Livrable : `etudecas/resultats/diagnostic_creux_20261102/interface/diagnostic_fusion.html`,
 accessible aussi depuis `etudecas/index.html`. Le manifeste de construction
-est dans `etudecas/artifacts/testing/diagnostic_creux_20261022/ui`. Les vues
+est dans `etudecas/artifacts/testing/diagnostic_creux_20261102/ui`. Les vues
 précédentes restent dans `resultats/diagnostic_fusion_20261022` et
 `resultats/diagnostic_suite_20261022`.
 L'écran principal montre les creux cliquables et une seule fiche courte.
+Les produits sont désignés par leur référence article, y compris dans les
+détails et les données embarquées. Les sources industrielles restent intactes.
 Les raccourcis classent les mouvements `abs(I)` par rapport à la demande
 (ratio croissant, puis quantité et date ; demande nulle exclue).
 La remontée Muret → usine → Gaillac utilise les photos à la date exacte ;
