@@ -6,11 +6,12 @@
 </style></head><body><main>
 <p class="date">État examiné : 2 novembre 2026 · observations industrielles 2025 · références article uniquement</p>
 <h1>Ce que les écarts disent vraiment de la supply chain et du simulateur</h1>
+<p class="small">Repères de lecture : PF signifie produit fini ; UN signifie unités ; KG signifie kilogrammes ; CA signifie chiffre d’affaires ; MRP désigne le calcul des besoins de production et d’approvisionnement ; OF signifie ordre de fabrication.</p>
 <p class="lead">Le simulateur explique des mécanismes de propagation et d’absorption par les stocks. Il ne permet pas encore d’attribuer les creux affichés à des ruptures clients réelles, ni de calibrer une panne de Gaillac à partir de ces creux.</p>
 <div class="nav"><a href="../../resultats/diagnostic_reprise_20261102/interface/diagnostic_fusion.html">Ouvrir les creux cliquables</a><a href="../../resultats/diagnostic_reprise_20261102/extraction_a_demander.md">Extraction ciblée préparée</a><a href="../../artifacts/testing/analyse_globale_20261102/final_manifest.json">Preuves de cette analyse</a></div>
 <section class="card key"><h2>Les cinq conclusions décisives</h2>
 <ol>
-<li><strong>La mesure du service est la première difficulté.</strong> Les 56 creux sont ceux de <code>abs(I)/demande</code>. I est un mouvement signé de stock ; les livraisons clients brutes ne sont pas identifiées.</li>
+<li><strong>La mesure du service est la première difficulté.</strong> Sur les 56 points bas, la quantité de mouvement de stock enregistrée est inférieure à la demande. Ce calcul prend une quantité positive aussi bien pour une hausse que pour une baisse du stock. Il ne donne pas les quantités réellement livrées aux clients.</li>
 <li><strong>Le CA perdu et le service physique ne sont pas raccordés.</strong> Les calculs financiers sont vérifiables, mais leurs commandes, échéances, prix et annulations ne sont pas appariés à la demande Flow.</li>
 <li><strong>Les arrêts simulés agissent réellement en amont.</strong> Muret absorbe leur effet dans les essais A/D/E : les livraisons simulées restent identiques, malgré une fabrication PF réduite dans D/E.</li>
 <li><strong>Le rattrapage de Gaillac n’est pas calibré en cadence.</strong> La capacité physique manque. Dans D, quatre passes de 600 kg s’exécutent le même jour. Le reporting les présente à tort comme un maximum de 600 kg/jour.</li>
@@ -18,11 +19,11 @@
 </ol><p class="small">Les sections ci-dessous développent les faits, les hypothèses concurrentes et les limites. Aucun nouveau moteur, paramètre industriel ou scénario long n’a été introduit dans cette analyse.</p></section>
 
 <details id="mesure"><summary>1 · Demande, mouvements, stocks et CA : quatre objets différents</summary>
-<p>La demande Flow indique une quantité par article et semaine. Les photos donnent un stock à une date de coupe. I est un mouvement signé : positif, il contribue à augmenter le stock ; négatif, à le diminuer. Le CA livré/perdu est une mesure financière datée. Ces objets ne deviennent comparables qu’après rapprochement des opérations et des périodes.</p>
-<div class="equation">Bilan vérifié : stock final − stock initial = H + I signé + G + résidu.<br>Hypothèse candidate : I = apports R − sorties clients C.<br>Avec cette hypothèse : un même I peut résulter de plusieurs couples R/C.</div>
-<p>Exemple vérifié, PF 268091, semaine du 13 octobre : demande 72 428 UN, I = −935 UN, G = −435 UN, stock 919 902 → 918 532 UN. Sous l’hypothèse candidate, <strong>72 428 sorties et 71 493 apports</strong>, ou <strong>935 sorties et aucun apport</strong>, donnent exactement les mêmes I et stock final. Ce sont des constructions comptables alternatives, pas des flux industriels retrouvés.</p>
-<p>Prendre la valeur absolue du solde supprime son sens sans faire apparaître les entrées et sorties brutes. Un creux de valeur absolue peut donc coexister avec des livraisons importantes compensées par des apports. Un mouvement positif important peut aussi faire croire à une forte « réponse » alors qu’il augmente le stock.</p>
-<p class="warning">La somme des écarts positifs demande − abs(I) ne représente ni des unités perdues, ni des commandes en retard, ni un manque matière démontré.</p>
+<p>La demande Flow indique une quantité par article et semaine. Les photos donnent le stock présent à une date donnée. Dans le fichier des mouvements de stock, <strong>la colonne « Sorties », appelée techniquement colonne I, contient des quantités positives ou négatives</strong> : les valeurs positives contribuent à augmenter le stock, les négatives à le diminuer. Son intitulé ne suffit donc pas à en faire un relevé des livraisons clients. Le chiffre d’affaires livré/perdu est une mesure financière datée. Il faut rapprocher les opérations et les périodes avant de comparer ces informations.</p>
+<div class="equation">Bilan vérifié : stock final − stock initial = entrées déclarées + mouvement de la colonne « Sorties » + ajustements divers + écart restant à expliquer.<br>Hypothèse à vérifier : le mouvement de la colonne « Sorties » regroupe des apports au stock et des sorties vers les clients.<br>Avec cette hypothèse, le même mouvement net peut correspondre à plusieurs quantités entrées et livrées.</div>
+<p>Exemple vérifié, PF 268091, semaine du 13 octobre : demande 72 428 UN, mouvement enregistré −935 UN, ajustements divers −435 UN, stock 919 902 → 918 532 UN. Sous l’hypothèse précédente, <strong>72 428 sorties et 71 493 apports</strong>, ou <strong>935 sorties et aucun apport</strong>, donnent exactement le même mouvement net et le même stock final. Ce sont deux exemples de calcul possibles, pas des livraisons réellement retrouvées dans les données.</p>
+<p>La courbe utilise la quantité du mouvement sans son signe : une hausse comme une baisse du stock est représentée par une quantité positive. Elle ne permet donc plus de distinguer ces deux sens. Un mouvement net faible peut coexister avec des livraisons importantes compensées par des apports. À l’inverse, un apport important peut créer un pic sur la courbe sans prouver une forte livraison aux clients.</p>
+<p class="warning">Additionner les écarts entre la demande et cette courbe de mouvements ne mesure ni des unités perdues, ni des commandes en retard, ni un manque matière démontré.</p>
 <h3>Périmètre réellement couvert</h3>
 <p>Les 102 épisodes sont 51 semaines par PF, du <strong>6 janvier au 28 décembre 2025</strong>, bornées par des photos du 6 janvier au 29 décembre. Ils ne couvrent pas toute l’année civile. La source de demande contient aussi deux horizons de bord ; une somme de 51 semaines ne se compare pas sans adaptation à un run de 365 jours.</p>
 <p>Le repère des mouvements est le dimanche précédent, rattaché par l’adaptateur au lundi suivant. Cela ne constitue pas un horodatage physique de départ. Une semaine absente reste inconnue. Les huit fenêtres de reprise incomplètes sont affichées sans extrapolation.</p>
@@ -32,36 +33,36 @@
 <details id="muret"><summary>2 · Les faits globaux de Muret et les creux d’octobre</summary>
 <div class="scroll"><table><thead><tr><th>51 semaines communes · UN</th><th>PF 268091</th><th>PF 268967</th></tr></thead><tbody>
 <tr><td>Demande Flow positive</td><td>4 145 843</td><td>1 691 923</td></tr>
-<tr><td>I signé cumulé</td><td>+583 049</td><td>−585 950</td></tr>
-<tr><td>Somme abs(I)</td><td>4 097 493</td><td>1 759 532</td></tr>
-<tr><td>Crédits I positifs / débits I négatifs</td><td>2 340 271 / 1 757 222</td><td>586 791 / 1 172 741</td></tr>
+<tr><td>Solde des mouvements de la colonne « Sorties »</td><td>+583 049</td><td>−585 950</td></tr>
+<tr><td>Somme des quantités de mouvements, hausses et baisses comptées positivement</td><td>4 097 493</td><td>1 759 532</td></tr>
+<tr><td>Mouvements augmentant le stock / mouvements réduisant le stock</td><td>2 340 271 / 1 757 222</td><td>586 791 / 1 172 741</td></tr>
 <tr><td>Stock initial → final</td><td>423 434 → 1 010 323</td><td>1 092 542 → 492 888</td></tr>
 <tr><td>Résidu cumulé du bilan</td><td>0</td><td>−13 608</td></tr>
 <tr><td>Bilans hebdomadaires fermés</td><td>38 / 51</td><td>46 / 51</td></tr>
-<tr><td>Creux abs(I) &lt; demande</td><td>37</td><td>19</td></tr>
-<tr><td>Dont creux avec I positif</td><td>11</td><td>8</td></tr>
+<tr><td>Semaines où la quantité de mouvement est inférieure à la demande</td><td>37</td><td>19</td></tr>
+<tr><td>Dont semaines avec un mouvement qui augmente le stock</td><td>11</td><td>8</td></tr>
 </tbody></table></div>
-<p>H vaut zéro sur ces 102 épisodes. Cela ne démontre pas qu’aucun apport physique n’a eu lieu : le sens et l’agrégation des opérations derrière I restent à qualifier. Pour PF 268967, le résidu −13 608 UN interdit de présenter le bilan complet comme réconcilié.</p>
-<p>Sur les 56 creux, le stock initial couvre au moins <strong>4,82 fois</strong> la demande hebdomadaire pour PF 268091 et <strong>7,25 fois</strong> pour PF 268967. J courant MRP la couvre au moins 4,11 et 4,50 fois. Un manque de stock total initial n’explique donc pas ces creux. Mais ces photos ne prouvent pas que les lots étaient libres, libérés, allouables et expédiables à chaque échéance.</p>
+<p>La colonne « Entrées » vaut zéro sur ces 102 épisodes. Cela ne démontre pas qu’aucun apport physique n’a eu lieu : il faut encore identifier les opérations regroupées dans la colonne « Sorties ». Pour PF 268967, l’écart restant à expliquer de −13 608 UN interdit de présenter le bilan complet comme réconcilié.</p>
+<p>Sur les 56 creux, le stock initial couvre au moins <strong>4,82 fois</strong> la demande hebdomadaire pour PF 268091 et <strong>7,25 fois</strong> pour PF 268967. Le stock prévu disponible dans le calcul des besoins la couvre au moins 4,11 et 4,50 fois. Un manque de stock total initial n’explique donc pas ces creux. Mais ces photos ne prouvent pas que les lots étaient libres, libérés, allouables et expédiables à chaque échéance.</p>
 <h3>Le rebond de PF 268091</h3>
-<div class="scroll"><table><thead><tr><th>Semaine</th><th>Demande UN</th><th>I signé UN</th><th>Variation de stock UN</th><th>Lecture</th></tr></thead><tbody>
-<tr><td>13 octobre</td><td>72 428</td><td>−935</td><td>−1 370</td><td>Faible mouvement net ; bilan fermé avec G = −435</td></tr>
-<tr><td>20 octobre</td><td>80 431</td><td>+264 260</td><td>+264 255</td><td>Crédit net ; bilan fermé avec G = −5</td></tr>
+<div class="scroll"><table><thead><tr><th>Semaine</th><th>Demande UN</th><th>Mouvement enregistré UN</th><th>Variation de stock UN</th><th>Lecture</th></tr></thead><tbody>
+<tr><td>13 octobre</td><td>72 428</td><td>−935</td><td>−1 370</td><td>Faible mouvement net ; bilan fermé avec des ajustements divers de −435</td></tr>
+<tr><td>20 octobre</td><td>80 431</td><td>+264 260</td><td>+264 255</td><td>Mouvement augmentant le stock ; bilan fermé avec des ajustements divers de −5</td></tr>
 </tbody></table></div>
-<p>Du 13 au 27 octobre, la somme abs(I) dépasse la demande de 112 336 UN, mais inclut 264 260 UN de crédits I. La hausse de stock sur ces deux semaines vaut <strong>262 885 UN</strong>. Le chiffre <strong>264 255 UN</strong> concerne seulement le 20→27 octobre : les fenêtres doivent rester distinctes. Aucun rattrapage client n’est démontré par ce rebond.</p>
+<p>Du 13 au 27 octobre, les quantités de mouvements, hausses et baisses comptées positivement, dépassent la demande de 112 336 UN. Mais ce total inclut un mouvement de 264 260 UN qui augmente le stock. La hausse de stock sur ces deux semaines vaut <strong>262 885 UN</strong>. Le chiffre <strong>264 255 UN</strong> concerne seulement le 20→27 octobre : les fenêtres doivent rester distinctes. Aucun rattrapage client n’est démontré par ce rebond.</p>
 <h3>Le témoin PF 268967</h3>
-<p>Les résidus +4 536 / −4 536 UN des semaines du 13 et du 20 octobre se compensent exactement. Ce constat soutient un problème de rattachement temporel ou de périmètre comptable, sans identifier l’opération industrielle. Depuis le 20 octobre, abs(I) reste inférieur à la demande de 18 963 UN sur quatre semaines ; ce n’est pas une mesure du retard client.</p>
+<p>Les écarts de bilan +4 536 / −4 536 UN des semaines du 13 et du 20 octobre se compensent exactement. Ce constat soutient un problème de rattachement temporel ou de périmètre comptable, sans identifier l’opération industrielle. Depuis le 20 octobre, les quantités de mouvements, hausses et baisses comptées positivement, restent inférieures à la demande de 18 963 UN sur quatre semaines ; ce n’est pas une mesure du retard client.</p>
 <p class="small">Sources précises : mouvements G785:J786 et G838:J839 ; stocks E57:H58, E64:H64, E68:H68, E85:H85, E44:H44. Les tableaux globaux ont été recomptés dans <a href="../../artifacts/testing/analyse_globale_20261102/metrics-0741c5c9d37a442db69f2f273bff5a3f/metrics.json">les agrégats de cette analyse</a>.</p>
 </details>
 
 <details id="finance"><summary>3 · Le CA perdu correspond-il à la demande réellement non servie ?</summary>
 <p><strong>La correspondance n’est pas établie.</strong> La formule CA livré / (CA livré + CA perdu) est financièrement calculable. Elle ne devient pas un taux de service en UN sans connaître commandes, produits/formats, prix, échéances, annulations et règles de rattachement. La devise elle-même n’est pas précisée dans le CSV examiné.</p>
-<div class="scroll"><table><thead><tr><th>PF / semaine</th><th>abs(I) / demande</th><th>Part CA livré</th><th>Conséquence</th></tr></thead><tbody>
-<tr><td>268091 · 13 octobre</td><td>1,29 %</td><td>98,72 %</td><td>Le creux du proxy ne correspond pas à une perte financière de même ampleur</td></tr>
-<tr><td>268091 · 20 octobre</td><td>328,55 %</td><td>73,36 %</td><td>Le fort rebond du proxy coexiste avec une part financière plus basse</td></tr>
-<tr><td>268967 · 28 juillet</td><td>48,50 % environ</td><td>100 %</td><td>CA perdu nul malgré un creux du proxy</td></tr>
+<div class="scroll"><table><thead><tr><th>PF / semaine</th><th>Quantité du mouvement de stock rapportée à la demande, sans distinguer hausse et baisse</th><th>Part CA livré</th><th>Conséquence</th></tr></thead><tbody>
+<tr><td>268091 · 13 octobre</td><td>1,29 %</td><td>98,72 %</td><td>Le faible mouvement de stock ne correspond pas à une perte financière de même ampleur</td></tr>
+<tr><td>268091 · 20 octobre</td><td>328,55 %</td><td>73,36 %</td><td>Le fort rebond de la courbe des mouvements coexiste avec une part financière plus basse</td></tr>
+<tr><td>268967 · 28 juillet</td><td>48,50 % environ</td><td>100 %</td><td>CA perdu nul malgré un faible mouvement de stock</td></tr>
 </tbody></table></div>
-<p>Dans 42 semaines, abs(I) atteint ou dépasse la demande alors que le CA perdu est positif. Trois semaines PF 268967 ont une demande Flow nulle et un CA livré positif. Ces contre-exemples interdisent une équivalence directe ; ils ne permettent pas de désigner quelle source est fausse, car leurs périmètres et leurs événements peuvent différer.</p>
+<p>Dans 42 semaines, la quantité du mouvement de stock atteint ou dépasse la demande alors que le CA perdu est positif. Trois semaines PF 268967 ont une demande Flow nulle et un CA livré positif. Ces contre-exemples interdisent une équivalence directe ; ils ne permettent pas de désigner quelle source est fausse, car leurs périmètres et leurs événements peuvent différer.</p>
 <div class="scroll"><table><thead><tr><th>Part CA livré</th><th>PF 268091</th><th>PF 268967</th></tr></thead><tbody>
 <tr><td>Année civile · 261 dates documentées</td><td>92,8726 %</td><td>95,3985 %</td></tr>
 <tr><td>51 semaines communes · 255 dates</td><td>92,8384 %</td><td>95,4388 %</td></tr>
@@ -75,9 +76,9 @@
 
 <details id="gaillac"><summary>4 · 693055 : reprise, rattrapage, libérations et transferts</summary>
 <div class="route" aria-label="Étapes à distinguer"><span>Engagement</span><i>→</i><span>Fabrication physique</span><i>→</i><span>Stock détenu</span><i>→</i><span>Libération</span><i>→</i><span>Départ</span><i>→</i><span>Réception</span><i>→</i><span>Disponibilité aval</span></div>
-<p>Une entrée H n’est pas nécessairement une fin de fabrication. Une quantité MRP reportée n’est pas un OF industriel identifié. Une photo de stock peut inclure des lots indisponibles. Ces distinctions expliquent pourquoi un rapprochement de courbes ne date pas à lui seul une panne ou une reprise.</p>
+<p>Une quantité enregistrée dans la colonne « Entrées » n’est pas nécessairement une fin de fabrication. Une quantité reportée dans le calcul des besoins n’est pas un ordre de fabrication industriel identifié. Une photo de stock peut inclure des lots indisponibles. Ces distinctions expliquent pourquoi un rapprochement de courbes ne date pas à lui seul une panne ou une reprise.</p>
 <h3>Ce que les sources soutiennent</h3>
-<p>À Avène, les 600 kg entrés la semaine du 3 novembre sont présents dans la photo du 10 novembre : 620 kg. Le MRP du 9 novembre porte encore J courant 20 kg et 600 kg futurs au 16 novembre ; la version du 16 novembre porte J courant 620 kg. Cela documente une disponibilité <em>prévue</em> postérieure à la présence physique. Ce n’est pas la date de libération exécutée d’un lot retrouvé.</p>
+<p>À Avène, les 600 kg entrés la semaine du 3 novembre sont présents dans la photo du 10 novembre : 620 kg. Le calcul des besoins daté du 9 novembre indique encore 20 kg disponibles immédiatement et 600 kg disponibles plus tard, au 16 novembre ; la version du 16 novembre indique 620 kg disponibles immédiatement. Cela documente une disponibilité <em>prévue</em> postérieure à la présence physique. Ce n’est pas la date de libération exécutée d’un lot retrouvé.</p>
 <p>À Gaillac, 693055 présente encore des entrées : +600 kg la semaine du 10 novembre, puis +600 kg et 1 200 kg sortis la semaine du 1er décembre. La baisse du stock ne prouve donc pas une absence de fabrication. À la photo du 29 décembre, le stock est de 10 kg ; tous les scénarios annuels comparés conservent 1 810 kg à cette même date. Le surplus de 1 800 kg n’est pas supprimé par les arrêts testés.</p>
 <p class="small">Sources : mouvements Gaillac G1059:J1059 / G1062:J1062 ; photo finale Stocks E1474:H1474. À Avène : mouvements 1105/1106, stocks 366/972, MRP J45710/J45711/J46800.</p>
 <h3>Pourquoi le scénario D reprend de cette manière</h3>
@@ -128,11 +129,11 @@
 
 <details id="verdict"><summary>6 · Erreur de simulation, règle manquante ou aléa plausible ?</summary>
 <div class="scroll"><table><thead><tr><th>Objet</th><th>Verdict</th><th>Ce qui permettrait de conclure davantage</th></tr></thead><tbody>
-<tr><td>Abs(I) assimilé à une réponse client</td><td><strong>Interprétation non fondée.</strong> L’ancien template de comparaison emploie encore « Réponse réelle » ; le diagnostic récent dit correctement « proxy ».</td><td>Journal brut typé et appariement commandes/BL</td></tr>
+<tr><td>Mouvement de stock présenté comme une quantité livrée au client</td><td><strong>Interprétation non fondée.</strong> L’ancien modèle d’écran emploie encore « Réponse réelle » ; le diagnostic récent précise qu’il s’agit d’un indicateur de comparaison, sans mesure des livraisons réelles.</td><td>Détail des opérations par type et rapprochement des commandes avec les bons de livraison</td></tr>
 <tr><td>Maximum « quotidien » de production</td><td><strong>Bug de reporting reproduit.</strong> Maximum par passe, comptage des passes comme jours.</td><td>Correction ciblée de l’agrégat avec oracle par article/site/jour, sans changer les mouvements physiques</td></tr>
 <tr><td>Rattrapage rapide à Gaillac</td><td><strong>Cadence non paramétrée industriellement.</strong> Pas une preuve de capacité réelle, ni de bug de conservation.</td><td>Débit, durée de campagne et calendrier réellement applicables ; lot distinct de capacité/jour</td></tr>
 <tr><td>OF engagé avant le travail</td><td><strong>Convention active.</strong> Le mécanisme alternatif existe mais n’est pas activé dans le nominal.</td><td>Identités OF, statut ferme, premier travail, politique réelle de replanification/annulation</td></tr>
-<tr><td>28/70 jours et disponibilité</td><td><strong>Frontières temporelles non identifiées.</strong> Les dates calculées sont traçables ; leur équivalence industrielle n’est pas démontrée.</td><td>Fin physique → entrée H → libération → départ d’un même lot</td></tr>
+<tr><td>28/70 jours et disponibilité</td><td><strong>Frontières temporelles non identifiées.</strong> Les dates calculées sont traçables ; leur équivalence industrielle n’est pas démontrée.</td><td>Fin physique → entrée enregistrée en stock → libération → départ d’un même lot</td></tr>
 <tr><td>Panne ou blocage qualité</td><td><strong>Aléa plausible, cause non identifiée.</strong> Les reports MRP montrent des besoins, pas une panne.</td><td>Événement daté, motif et quantité affectée, puis propagation et témoin</td></tr>
 <tr><td>CA définitivement perdu</td><td><strong>Sémantique à raccorder.</strong> Un retard dans un moteur qui conserve la demande ne prouve pas une vente annulée.</td><td>Commandes annulées/perdues, dates, prix et règle métier distincte du backlog</td></tr>
 </tbody></table></div>
@@ -141,9 +142,9 @@
 
 <section class="card key" id="suite"><h2>La suite recommandée, dans l’ordre</h2>
 <ol>
-<li><strong>Établir le service réellement observé.</strong> Commencer par PF 268091, 13→27 octobre, puis suivre les mêmes commandes jusqu’au 10 novembre. Qualifier le crédit I de +264 260 UN. Apparier mouvements bruts, commandes et réceptions clients. Le témoin PF 268967 utilise les mêmes conventions. Sans cela, choisir une panne resterait une hypothèse non identifiable.</li>
-<li><strong>Fiabiliser les diagnostics déjà reproductibles.</strong> Corriger le reporting par jour et les libellés assimilant le proxy au service ; conserver les vues historiques. L’oracle minimal comporte plusieurs passes d’un même article/site/jour et un autre jour. Cette correction de calcul peut avancer sans attendre les données industrielles et sans recalcul long.</li>
-<li><strong>Reconstituer un seul lot 693055 de bout en bout.</strong> OF/lot → premier travail → fin physique → entrée H → libération → départ → réception et disponibilité Avène. Tester la cohérence des délais et de la cadence sur cet objet identifié, puis sur un autre épisode.</li>
+<li><strong>Établir le service réellement observé.</strong> Commencer par PF 268091, 13→27 octobre, puis suivre les mêmes commandes jusqu’au 10 novembre. Identifier les opérations derrière le mouvement positif de +264 260 UN dans la colonne « Sorties ». Rapprocher les entrées et sorties détaillées, les commandes et les réceptions clients. Le témoin PF 268967 utilise les mêmes conventions. Sans cela, choisir une panne resterait une hypothèse non identifiable.</li>
+<li><strong>Fiabiliser les diagnostics déjà reproductibles.</strong> Corriger le reporting par jour et les libellés assimilant l’indicateur de mouvements au service client ; conserver les vues historiques. L’oracle minimal comporte plusieurs passes d’un même article/site/jour et un autre jour. Cette correction de calcul peut avancer sans attendre les données industrielles et sans recalcul long.</li>
+<li><strong>Reconstituer un seul lot 693055 de bout en bout.</strong> Ordre de fabrication/lot → premier travail → fin physique → entrée enregistrée en stock → libération → départ → réception et disponibilité Avène. Tester la cohérence des délais et de la cadence sur cet objet identifié, puis sur un autre épisode.</li>
 <li><strong>Exécuter un seul essai court qui départage les mécanismes.</strong> Après identification de l’événement, témoin et intervention sur 14–28 jours, mêmes besoins exogènes et engagements connus. Mesurer dates d’étapes, stocks utilisables, déficit et retard des mêmes cohortes. Vérifier activation, bilans et dégradations du témoin. Élargir seulement si la question du rattrapage dépasse ce cas.</li>
 </ol>
 <p>La priorité scientifique est le raccord des observations ; la priorité technique immédiatement reproductible est le calcul des agrégats quotidiens. La référence reste conservée jusqu’à preuve d’un gain de chaîne, avec coûts et dégradations explicités. Les stocks de sécurité ne sont pas diminués pour provoquer artificiellement une rupture.</p>
