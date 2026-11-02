@@ -11489,13 +11489,29 @@ def build_factory_nominal_capacity_rows(
             current_capacity = max(0.0, to_float(((proc.get("capacity") or {}).get("max_rate")), 0.0))
             capacity_source = str(((proc.get("capacity") or {}).get("source")) or "")
             capacity_modes = sorted({str(row.get("capacity_limit_mode") or "n/a") for row in pair_rows})
-            max_actual = max(max(0.0, to_float(row.get("actual_qty"), 0.0)) for row in pair_rows)
+            # Each constraint row is an execution pass. A campaign can run
+            # several passes on the same day; only executed quantities are
+            # additive. Desired/planned quantities below remain snapshots.
+            actual_by_day: dict[int, float] = defaultdict(float)
+            capacity_binding_dates: set[int] = set()
+            input_shortage_dates: set[int] = set()
+            for row in pair_rows:
+                day_value = to_float(row.get("day"), float("nan"))
+                if not math.isfinite(day_value) or not day_value.is_integer():
+                    raise ValueError("Production constraint reporting requires an integer day")
+                day = int(day_value)
+                actual_by_day[day] += max(0.0, to_float(row.get("actual_qty"), 0.0))
+                if str(row.get("binding_cause") or "") == "capacity":
+                    capacity_binding_dates.add(day)
+                if str(row.get("binding_cause") or "") == "input_shortage":
+                    input_shortage_dates.add(day)
+            max_actual = max(actual_by_day.values())
             max_planned = max(max(0.0, to_float(row.get("planned_qty_after_lot_rule"), 0.0)) for row in pair_rows)
             max_desired = max(max(0.0, to_float(row.get("desired_qty"), 0.0)) for row in pair_rows)
             total_actual = sum(max(0.0, to_float(row.get("actual_qty"), 0.0)) for row in pair_rows)
-            active_days = sum(1 for row in pair_rows if max(0.0, to_float(row.get("actual_qty"), 0.0)) > 1e-9)
-            capacity_binding_days = sum(1 for row in pair_rows if str(row.get("binding_cause") or "") == "capacity")
-            input_shortage_days = sum(1 for row in pair_rows if str(row.get("binding_cause") or "") == "input_shortage")
+            active_days = sum(qty > 1e-9 for qty in actual_by_day.values())
+            capacity_binding_days = len(capacity_binding_dates)
+            input_shortage_days = len(input_shortage_dates)
             avg_actual_active = total_actual / active_days if active_days > 0 else 0.0
             target_utilization, target_profile = factory_industrial_capacity_target(
                 node_name=node_name,
@@ -11517,7 +11533,7 @@ def build_factory_nominal_capacity_rows(
                 else ""
             )
             current_avg_util = (
-                (total_actual / max(1, len(pair_rows))) / current_capacity
+                (total_actual / len(actual_by_day)) / current_capacity
                 if current_capacity > 1e-9
                 else ""
             )
