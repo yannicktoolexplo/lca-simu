@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 import re
 
+from .recovery import add_recovery
+
 ROOT = Path(__file__).resolve().parents[3]
 OLD = ROOT / 'etudecas/resultats/audit_service_reel_2025_20261020/remontee/remontee_chaine_reelle.html'
 COMPARISON = ROOT / 'etudecas/resultats/aleas_prolonges_693055_20261021/report_payload.json'
@@ -156,7 +158,8 @@ def main():
     for e in episodes:
         f = next((x for x in focused if str(x['product']) == e['product'] and x['week'] == e['week_start']), None)
         e['upstream_source'] = [x for x in f['upstream_current_points'] if str(x['article']) in {'693055','773474'}] if f else []
-    inputs = [OLD, COMPARISON, OLD_COMPARISON, FOCUS, Path(__file__), Path(__file__).with_name('view.html')]
+    inputs = [OLD, COMPARISON, OLD_COMPARISON, FOCUS, Path(__file__),
+              Path(__file__).with_name('view.html'), Path(__file__).with_name('recovery.py')]
     data = dict(schema_version='diagnostic_fusion.v1', period={'start':'2025-01-01','end':'2025-12-31'},
         products=old['products'], episodes=sorted(episodes,key=lambda e:(e['product'],e['week_start'])),
         focus=[{'id':'w-'+str(p['product'])+'-'+p['week'],'label':'Proxy abs(I) sous demande · bilan et réserves','historical':True} for p in focused],
@@ -174,12 +177,18 @@ def main():
             data[name] = json.loads(path.read_text(encoding='utf-8'))
             inputs.append(path)
     add_drilldown(data)
+    add_recovery(data)
     out.mkdir(parents=True,exist_ok=True)
     proof.mkdir(parents=True,exist_ok=True)
     links = [{'label':'Ancienne navigation conservée · 102 semaines','href':str(OLD.relative_to(ROOT))},
              {'label':'Comparaison A/D/E conservée · chronologies de lots','href':str(OLD_COMPARISON.relative_to(ROOT))}] + comp['proof_links']
     previous = OUT/'diagnostic_fusion.html'
     preserved = [OLD, OLD_COMPARISON]
+    compact = ROOT/'etudecas/resultats/diagnostic_creux_20261102/interface'
+    if out != compact.resolve() and (compact/'diagnostic_fusion.html').is_file():
+        links.append({'label':'Vue compacte précédente conservée',
+                      'href':str((compact/'diagnostic_fusion.html').relative_to(ROOT))})
+        preserved += [compact/'diagnostic_fusion.html', compact/'payload.json']
     if out != OUT.resolve() and previous.is_file():
         links.append({'label':'Fusion précédente conservée · livraison du 22 octobre','href':str(previous.relative_to(ROOT))})
         preserved += [previous, OUT/'payload.json', PROOF/'final_manifest.json']

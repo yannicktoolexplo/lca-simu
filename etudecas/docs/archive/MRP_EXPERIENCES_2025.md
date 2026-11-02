@@ -1792,3 +1792,27 @@ Ces statuts manquent encore dans les sources disponibles ; les restrictions
 de stock et d'expédition restent indécidables. Tester ensuite le mécanisme
 étayé sur un cas court et une autre référence, avant toute simulation longue.
 Preuves : `etudecas/artifacts/testing/diagnostic_creux_20261102/final_manifest.json`.
+
+### 2 novembre — distinguer reprise du stock et rattrapage client
+
+Vue courante : `etudecas/resultats/diagnostic_reprise_20261102/interface/diagnostic_fusion.html`.
+Au clic, « Après le creux » compare 1, 2 et 4 semaines, signes de I conservés.
+Pour PF 268091, le rebond du 20 octobre est I = +264 260 UN ; le stock augmente
+de 264 255 UN, avec G = −5. Le dépassement apparent de demande sur deux semaines
+(+112 336 UN de somme abs(I) − demande) ne démontre aucun rattrapage client.
+Pour PF 268967 à partir du 20 octobre, ce même indicateur reste à −18 963 UN
+sur quatre semaines ; ce n'est pas une mesure du retard client.
+
+Test comptable court : sous l'hypothèse candidate I = apports − sorties clients,
+la semaine du 13 octobre permet aussi bien 72 428 UN sorties et 71 493 UN
+d'apports que 935 UN sorties et aucun apport. Même I = −935, même photo finale
+918 532 UN. Ces deux constructions prouvent une ambiguïté de mesure sous cette
+hypothèse, pas les flux réels ni une cause industrielle. Aucune règle MRP ou
+restriction physique ajoutée ; référence et anciennes vues préservées.
+
+Suite préparée : `resultats/diagnostic_reprise_20261102/extraction_a_demander.md`
+définit les mouvements bruts, commandes, statuts de lots et livraisons à apparier.
+Preuves : `artifacts/testing/diagnostic_reprise_20261102/final_manifest.json`.
+Contre-validation des calculs et contrôles JS en mémoire ; navigateur réel et
+nouvelle simulation native non exécutés. Les causes restent indécidables sans
+les journaux d'exécution ; les détails de validation restent dans le manifeste.
