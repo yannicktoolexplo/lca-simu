@@ -48,12 +48,12 @@ résultats nominal/A/D/E de `comparaison_arrets_693055.html`. Les originaux
 restent conservés. Il nécessite ces preuves locales et n'exécute aucun moteur.
 
 ```powershell
-python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --output-dir etudecas/resultats/diagnostic_creux_20261102/interface --proof-dir etudecas/artifacts/testing/diagnostic_creux_20261102/ui
+python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --output-dir etudecas/resultats/diagnostic_reprise_20261102/interface --proof-dir etudecas/artifacts/testing/diagnostic_reprise_20261102/ui
 ```
 
-Livrable : `etudecas/resultats/diagnostic_creux_20261102/interface/diagnostic_fusion.html`,
+Livrable : `etudecas/resultats/diagnostic_reprise_20261102/interface/diagnostic_fusion.html`,
 accessible aussi depuis `etudecas/index.html`. Le manifeste de construction
-est dans `etudecas/artifacts/testing/diagnostic_creux_20261102/ui`. Les vues
+est dans `etudecas/artifacts/testing/diagnostic_reprise_20261102/ui`. Les vues
 précédentes restent dans `resultats/diagnostic_fusion_20261022` et
 `resultats/diagnostic_suite_20261022`.
 L'écran principal montre les creux cliquables et une seule fiche courte.
@@ -63,6 +63,12 @@ Les raccourcis classent les mouvements `abs(I)` par rapport à la demande
 (ratio croissant, puis quantité et date ; demande nulle exclue).
 La remontée Muret → usine → Gaillac utilise les photos à la date exacte ;
 une absence reste inconnue. Les analyses longues sont repliées par défaut.
+« Après le creux » distingue le retour du proxy d'un rattrapage client.
+Les détails comparent 1, 2 et 4 semaines : crédits I positifs, débits I négatifs,
+demande et bilan de stock. Une fenêtre incomplète n'est pas extrapolée.
+Deux décompositions comptables hypothétiques peuvent montrer que le même
+stock final reste compatible avec des sorties différentes ; elles ne
+reconstituent ni des livraisons observées ni une simulation native.
 Un clic sur une semaine aligne les stocks en KG/UN, le bilan signé de Muret,
 les sources et les hypothèses. `abs(I)` reste un indicateur de rapprochement,
 pas un taux de service mesuré. Les rejeux locaux conservent les arrivées

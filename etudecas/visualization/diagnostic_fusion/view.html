@@ -44,6 +44,15 @@ function chart(host,series,{start,end,unit,interactive=false,height=210}={}){
 function metric(host,value,label){const n=el('div',undefined,'metric');n.appendChild(el('strong',value));n.appendChild(el('span',label));host.appendChild(n)}
 function table(host,headers,rows){clear(host);const t=el('table'),head=el('tr');headers.forEach(h=>head.appendChild(el('th',h)));t.appendChild(head);rows.forEach(row=>{const tr=el('tr');row.forEach(v=>tr.appendChild(el('td',v===null||v===undefined?'inconnu':String(v))));t.appendChild(tr)});host.appendChild(t)}
 function renderMain(){const rows=weekSeries(),s=current().service[state.product]||[],series=[{label:'Demande source',color:'#263436',values:rows.map(e=>({date:e.week_start,value:e.demand_UN}))},{label:state.movement==='signed'?'I signé':'abs(I), proxy',color:'#cb6a24',values:rows.map(e=>({date:e.week_start,value:state.movement==='signed'?e.I_signed_UN:e.abs_I_proxy_UN}))}];chart($('main-chart'),series,{start:'2025-01-01',end:'2025-12-31',unit:'UN / semaine',interactive:true,height:250});chart($('service-comparison-chart'),[...series,{label:'Servi simulé',color:'#137b79',values:s.map(v=>({date:v.date,value:v.served_UN}))}],{start:'2025-01-01',end:'2025-12-31',unit:'UN / semaine'});$('movement-label').textContent=state.movement==='signed'?'I signé · mouvement UN':'abs(I) · proxy UN';$('proxy-note').textContent=state.movement==='signed'?D.conventions.I:'L\u2019orange repr\u00e9sente les mouvements de stock en valeur absolue, pas des livraisons client mesur\u00e9es.';clear($('low-points'));lowPoints().forEach(e=>{const b=el('button');b.setAttribute('data-low-shortcut',e.id);b.className=state.selectedByUser&&e.id===state.episode?'active':'';b.appendChild(el('strong',short(e.week_start)));b.appendChild(el('span',fmt(100*e.abs_I_proxy_UN/e.demand_UN,1)+' %'));b.addEventListener('click',()=>selectEpisode(e.id));$('low-points').appendChild(b)})}
+function renderRecovery(host,r){
+ if(!r)return;
+ const box=el('section');box.id='recovery';box.appendChild(el('h3','Après le creux'));box.appendChild(el('p',r.summary||'Reprise non documentée.'));
+ const details=el('details');details.id='recovery-details';details.appendChild(el('summary','Vérifier la reprise'));
+ const rows=el('div',undefined,'scroll');table(rows,['Fenêtre','Début','Fin exclue','Couverture','Demande · UN','abs(I) · UN','Crédits I positifs · UN','Débits I négatifs · UN','Δ stock · UN','Résidu · UN'],(r.windows||[]).map(w=>[fmt(w.weeks)+' sem.',w.start,w.end_exclusive,w.status==='complete'?fmt(w.observed_weeks)+' sem. observées':'fenêtre incomplète · '+fmt(w.observed_weeks)+' sem. observées',fmt(w.demand_UN),fmt(w.abs_I_UN),fmt(w.positive_I_UN),fmt(w.negative_I_magnitude_UN),fmt(w.stock_delta_UN),fmt(w.residual_UN)]));details.appendChild(rows);
+ details.appendChild(el('p','Mouvements de stock et demande source : aucun flux n’est certifié comme livraison client. Une valeur inconnue reste inconnue.','small'));
+ if(r.witness&&r.witness.status==='ambiguous'){details.appendChild(el('p',r.witness.summary||'Les observations ne départagent pas les explications.'));details.appendChild(el('p','Reconstruction hypothétique, pas une mesure industrielle.','small'))}
+ box.appendChild(details);host.appendChild(box)
+}
 function renderDrilldown(){
  const e=selected(),d=e.drilldown||{},stages=Array.isArray(d.stages)&&d.stages.length?d.stages:[{id:'muret',label:'Muret'},{id:'factory',label:state.product==='268091'?'Avène':'Gien'},{id:'gaillac',label:'Gaillac'}];
  $('drilldown-panel').hidden=!state.selectedByUser;$('drilldown-title').textContent=(e.abs_I_proxy_UN<e.demand_UN?'Le creux du ':'La semaine du ')+short(e.week_start);
@@ -59,7 +68,8 @@ function renderDrilldown(){
   host.appendChild(el('h3',e.abs_I_proxy_UN<e.demand_UN?'Un mouvement faible par rapport à la demande':'Le mouvement de cette semaine'));
   host.appendChild(el('p',d.summary||'Le proxy est à rapprocher des stocks et des flux. Son origine reste inconnue.'));
   host.appendChild(el('p',`Proxy ${fmt(e.abs_I_proxy_UN)} UN · demande ${fmt(e.demand_UN)} UN · ${fmt(d.ratio_pct??(e.demand_UN?100*e.abs_I_proxy_UN/e.demand_UN:null),1)} %`,'small'));
-  if(d.gap_UN!==null&&d.gap_UN!==undefined)host.appendChild(el('p','Écart demande − mouvement : '+fmt(d.gap_UN)+' UN, sans mesure des unités client non livrées.','small'))
+  if(d.gap_UN!==null&&d.gap_UN!==undefined)host.appendChild(el('p','Écart demande − mouvement : '+fmt(d.gap_UN)+' UN, sans mesure des unités client non livrées.','small'));
+  renderRecovery(host,e.recovery)
  }else{
   const s=stages.find(s=>s.id===state.stage);host.appendChild(el('h3',s.label));
   const row=el('div');row.appendChild(el('span',s.value===null||s.value===undefined?'Valeur inconnue':fmt(s.value,2)+' '+(s.unit||'unité inconnue'),'value'));row.appendChild(el('span',s.status||'Niveau de preuve non documenté','status'));host.appendChild(row);
