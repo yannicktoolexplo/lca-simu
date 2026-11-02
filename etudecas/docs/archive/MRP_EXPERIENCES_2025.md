@@ -1780,3 +1780,15 @@ prévue et origine inconnue restent explicites. Les analyses et comparaisons
 antérieures sont accessibles dans les détails repliés. Aucun nouveau calcul
 moteur ni changement du diagnostic industriel. Vue détaillée précédente conservée.
 Preuves : `etudecas/artifacts/testing/diagnostic_creux_20261022/final_manifest.json`.
+
+### 2 novembre — présentation par références article
+
+Vue courante : `etudecas/resultats/diagnostic_creux_20261102/interface/diagnostic_fusion.html`.
+Libellés des produits remplacés par les références PF dans toute la vue et
+les données embarquées ; chiffres, sources, classements et clics conservés.
+Prochaine investigation : PF 268091, creux du 13 octobre 2025 et reprise,
+en reliant commandes exigibles, lots libérés/réservés et départs réels.
+Ces statuts manquent encore dans les sources disponibles ; les restrictions
+de stock et d'expédition restent indécidables. Tester ensuite le mécanisme
+étayé sur un cas court et une autre référence, avant toute simulation longue.
+Preuves : `etudecas/artifacts/testing/diagnostic_creux_20261102/final_manifest.json`.
