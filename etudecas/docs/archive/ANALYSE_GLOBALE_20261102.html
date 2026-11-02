@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analyse globale 2025 · données, simulation et décisions</title>
+<style>
+:root{--ink:#183638;--muted:#536c70;--line:#d5e1dd;--teal:#126d6c;--paper:#f3f5ef;--warn:#924321}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:32px 24px 60px}h1{font-size:clamp(28px,4vw,42px);line-height:1.2;margin:10px 0 18px}h2{font-size:23px;line-height:1.3}h3{font-size:18px;margin-top:26px}.date{font-size:13px;color:var(--muted)}.lead{font-size:20px}.card,details{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin:18px 0}.key{border-left:5px solid var(--teal)}summary{font-size:20px;font-weight:700;cursor:pointer}summary:focus-visible,a:focus-visible{outline:3px solid #bc692b;outline-offset:3px}details[open]>summary{margin-bottom:22px}a{color:#12647b}table{border-collapse:collapse;width:100%;font-size:14px;margin:18px 0}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}th{color:var(--muted)}.scroll{overflow:auto}p{margin:12px 0}.small{font-size:13px;color:var(--muted)}.warning{color:var(--warn);font-weight:650}.equation{padding:14px;background:#edf4f0;font:14px/1.7 ui-monospace,monospace;overflow-wrap:anywhere}li{margin:10px 0}code{font-size:.9em;overflow-wrap:anywhere}.nav{display:flex;gap:16px;flex-wrap:wrap}.tag{font-size:12px;border:1px solid var(--line);padding:3px 8px;border-radius:6px;white-space:nowrap}.route{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}.route span{padding:9px 12px;background:#edf4f0;border-radius:6px}.route i{font-style:normal;color:var(--muted)}@media(max-width:650px){main{padding:20px 12px}details,.card{padding:16px}table{font-size:12px}th,td{padding:7px}}@media print{body{background:white}main{max-width:none;padding:0}.nav{display:none}details{break-inside:avoid}a{color:inherit}}
+</style></head><body><main>
+<p class="date">État examiné : 2 novembre 2026 · observations industrielles 2025 · références article uniquement</p>
+<h1>Ce que les écarts disent vraiment de la supply chain et du simulateur</h1>
+<p class="lead">Le simulateur explique des mécanismes de propagation et d’absorption par les stocks. Il ne permet pas encore d’attribuer les creux affichés à des ruptures clients réelles, ni de calibrer une panne de Gaillac à partir de ces creux.</p>
+<div class="nav"><a href="../../resultats/diagnostic_reprise_20261102/interface/diagnostic_fusion.html">Ouvrir les creux cliquables</a><a href="../../resultats/diagnostic_reprise_20261102/extraction_a_demander.md">Extraction ciblée préparée</a><a href="../../artifacts/testing/analyse_globale_20261102/final_manifest.json">Preuves de cette analyse</a></div>
+<section class="card key"><h2>Les cinq conclusions décisives</h2>
+<ol>
+<li><strong>La mesure du service est la première difficulté.</strong> Les 56 creux sont ceux de <code>abs(I)/demande</code>. I est un mouvement signé de stock ; les livraisons clients brutes ne sont pas identifiées.</li>
+<li><strong>Le CA perdu et le service physique ne sont pas raccordés.</strong> Les calculs financiers sont vérifiables, mais leurs commandes, échéances, prix et annulations ne sont pas appariés à la demande Flow.</li>
+<li><strong>Les arrêts simulés agissent réellement en amont.</strong> Muret absorbe leur effet dans les essais A/D/E : les livraisons simulées restent identiques, malgré une fabrication PF réduite dans D/E.</li>
+<li><strong>Le rattrapage de Gaillac n’est pas calibré en cadence.</strong> La capacité physique manque. Dans D, quatre passes de 600 kg s’exécutent le même jour. Le reporting les présente à tort comme un maximum de 600 kg/jour.</li>
+<li><strong>La prochaine avancée dépend d’événements identifiés.</strong> Il faut relier commandes, mouvements bruts, lots libres/libérés/réservés, départs et réceptions. Une nouvelle courbe ajustée seule n’identifierait pas la cause.</li>
+</ol><p class="small">Les sections ci-dessous développent les faits, les hypothèses concurrentes et les limites. Aucun nouveau moteur, paramètre industriel ou scénario long n’a été introduit dans cette analyse.</p></section>
+
+<details id="mesure"><summary>1 · Demande, mouvements, stocks et CA : quatre objets différents</summary>
+<p>La demande Flow indique une quantité par article et semaine. Les photos donnent un stock à une date de coupe. I est un mouvement signé : positif, il contribue à augmenter le stock ; négatif, à le diminuer. Le CA livré/perdu est une mesure financière datée. Ces objets ne deviennent comparables qu’après rapprochement des opérations et des périodes.</p>
+<div class="equation">Bilan vérifié : stock final − stock initial = H + I signé + G + résidu.<br>Hypothèse candidate : I = apports R − sorties clients C.<br>Avec cette hypothèse : un même I peut résulter de plusieurs couples R/C.</div>
+<p>Exemple vérifié, PF 268091, semaine du 13 octobre : demande 72 428 UN, I = −935 UN, G = −435 UN, stock 919 902 → 918 532 UN. Sous l’hypothèse candidate, <strong>72 428 sorties et 71 493 apports</strong>, ou <strong>935 sorties et aucun apport</strong>, donnent exactement les mêmes I et stock final. Ce sont des constructions comptables alternatives, pas des flux industriels retrouvés.</p>
+<p>Prendre la valeur absolue du solde supprime son sens sans faire apparaître les entrées et sorties brutes. Un creux de valeur absolue peut donc coexister avec des livraisons importantes compensées par des apports. Un mouvement positif important peut aussi faire croire à une forte « réponse » alors qu’il augmente le stock.</p>
+<p class="warning">La somme des écarts positifs demande − abs(I) ne représente ni des unités perdues, ni des commandes en retard, ni un manque matière démontré.</p>
+<h3>Périmètre réellement couvert</h3>
+<p>Les 102 épisodes sont 51 semaines par PF, du <strong>6 janvier au 28 décembre 2025</strong>, bornées par des photos du 6 janvier au 29 décembre. Ils ne couvrent pas toute l’année civile. La source de demande contient aussi deux horizons de bord ; une somme de 51 semaines ne se compare pas sans adaptation à un run de 365 jours.</p>
+<p>Le repère des mouvements est le dimanche précédent, rattaché par l’adaptateur au lundi suivant. Cela ne constitue pas un horodatage physique de départ. Une semaine absente reste inconnue. Les huit fenêtres de reprise incomplètes sont affichées sans extrapolation.</p>
+<p class="small">Sources : Flow_Data_Customer_Demand.xlsx, Historique A3:C53 / A56:C106 ; Flow_Data_Inventory_movements.xlsx, lignes 745–795 / 798–848 ; calcul du diagnostic et provenance par épisode dans le <a href="../../resultats/diagnostic_reprise_20261102/interface/payload.json">payload conservé</a>.</p>
+</details>
+
+<details id="muret"><summary>2 · Les faits globaux de Muret et les creux d’octobre</summary>
+<div class="scroll"><table><thead><tr><th>51 semaines communes · UN</th><th>PF 268091</th><th>PF 268967</th></tr></thead><tbody>
+<tr><td>Demande Flow positive</td><td>4 145 843</td><td>1 691 923</td></tr>
+<tr><td>I signé cumulé</td><td>+583 049</td><td>−585 950</td></tr>
+<tr><td>Somme abs(I)</td><td>4 097 493</td><td>1 759 532</td></tr>
+<tr><td>Crédits I positifs / débits I négatifs</td><td>2 340 271 / 1 757 222</td><td>586 791 / 1 172 741</td></tr>
+<tr><td>Stock initial → final</td><td>423 434 → 1 010 323</td><td>1 092 542 → 492 888</td></tr>
+<tr><td>Résidu cumulé du bilan</td><td>0</td><td>−13 608</td></tr>
+<tr><td>Bilans hebdomadaires fermés</td><td>38 / 51</td><td>46 / 51</td></tr>
+<tr><td>Creux abs(I) &lt; demande</td><td>37</td><td>19</td></tr>
+<tr><td>Dont creux avec I positif</td><td>11</td><td>8</td></tr>
+</tbody></table></div>
+<p>H vaut zéro sur ces 102 épisodes. Cela ne démontre pas qu’aucun apport physique n’a eu lieu : le sens et l’agrégation des opérations derrière I restent à qualifier. Pour PF 268967, le résidu −13 608 UN interdit de présenter le bilan complet comme réconcilié.</p>
+<p>Sur les 56 creux, le stock initial couvre au moins <strong>4,82 fois</strong> la demande hebdomadaire pour PF 268091 et <strong>7,25 fois</strong> pour PF 268967. J courant MRP la couvre au moins 4,11 et 4,50 fois. Un manque de stock total initial n’explique donc pas ces creux. Mais ces photos ne prouvent pas que les lots étaient libres, libérés, allouables et expédiables à chaque échéance.</p>
+<h3>Le rebond de PF 268091</h3>
+<div class="scroll"><table><thead><tr><th>Semaine</th><th>Demande UN</th><th>I signé UN</th><th>Variation de stock UN</th><th>Lecture</th></tr></thead><tbody>
+<tr><td>13 octobre</td><td>72 428</td><td>−935</td><td>−1 370</td><td>Faible mouvement net ; bilan fermé avec G = −435</td></tr>
+<tr><td>20 octobre</td><td>80 431</td><td>+264 260</td><td>+264 255</td><td>Crédit net ; bilan fermé avec G = −5</td></tr>
+</tbody></table></div>
+<p>Du 13 au 27 octobre, la somme abs(I) dépasse la demande de 112 336 UN, mais inclut 264 260 UN de crédits I. La hausse de stock sur ces deux semaines vaut <strong>262 885 UN</strong>. Le chiffre <strong>264 255 UN</strong> concerne seulement le 20→27 octobre : les fenêtres doivent rester distinctes. Aucun rattrapage client n’est démontré par ce rebond.</p>
+<h3>Le témoin PF 268967</h3>
+<p>Les résidus +4 536 / −4 536 UN des semaines du 13 et du 20 octobre se compensent exactement. Ce constat soutient un problème de rattachement temporel ou de périmètre comptable, sans identifier l’opération industrielle. Depuis le 20 octobre, abs(I) reste inférieur à la demande de 18 963 UN sur quatre semaines ; ce n’est pas une mesure du retard client.</p>
+<p class="small">Sources précises : mouvements G785:J786 et G838:J839 ; stocks E57:H58, E64:H64, E68:H68, E85:H85, E44:H44. Les tableaux globaux ont été recomptés dans <a href="../../artifacts/testing/analyse_globale_20261102/metrics-0741c5c9d37a442db69f2f273bff5a3f/metrics.json">les agrégats de cette analyse</a>.</p>
+</details>
+
+<details id="finance"><summary>3 · Le CA perdu correspond-il à la demande réellement non servie ?</summary>
+<p><strong>La correspondance n’est pas établie.</strong> La formule CA livré / (CA livré + CA perdu) est financièrement calculable. Elle ne devient pas un taux de service en UN sans connaître commandes, produits/formats, prix, échéances, annulations et règles de rattachement. La devise elle-même n’est pas précisée dans le CSV examiné.</p>
+<div class="scroll"><table><thead><tr><th>PF / semaine</th><th>abs(I) / demande</th><th>Part CA livré</th><th>Conséquence</th></tr></thead><tbody>
+<tr><td>268091 · 13 octobre</td><td>1,29 %</td><td>98,72 %</td><td>Le creux du proxy ne correspond pas à une perte financière de même ampleur</td></tr>
+<tr><td>268091 · 20 octobre</td><td>328,55 %</td><td>73,36 %</td><td>Le fort rebond du proxy coexiste avec une part financière plus basse</td></tr>
+<tr><td>268967 · 28 juillet</td><td>48,50 % environ</td><td>100 %</td><td>CA perdu nul malgré un creux du proxy</td></tr>
+</tbody></table></div>
+<p>Dans 42 semaines, abs(I) atteint ou dépasse la demande alors que le CA perdu est positif. Trois semaines PF 268967 ont une demande Flow nulle et un CA livré positif. Ces contre-exemples interdisent une équivalence directe ; ils ne permettent pas de désigner quelle source est fausse, car leurs périmètres et leurs événements peuvent différer.</p>
+<div class="scroll"><table><thead><tr><th>Part CA livré</th><th>PF 268091</th><th>PF 268967</th></tr></thead><tbody>
+<tr><td>Année civile · 261 dates documentées</td><td>92,8726 %</td><td>95,3985 %</td></tr>
+<tr><td>51 semaines communes · 255 dates</td><td>92,8384 %</td><td>95,4388 %</td></tr>
+</tbody></table></div>
+<p>Les dates financières sont des « First delivery date », pas des échéances contractuelles appariées. Les six dates de bord exclues du rapprochement hebdomadaire sont les 1–3 janvier et 29–31 décembre. La correction de CA perdu −45,86 du 9 octobre est conservée. Les 102 ratios hebdomadaires ont été revérifiés depuis les montants bruts du CSV.</p>
+<h3>La sémantique du simulateur compte aussi</h3>
+<p>Le moteur conserve le retard : retard suivant = retard précédent + demande − servi. Cette transition n’annule pas automatiquement une demande tardive. Une livraison retardée puis rattrapée n’est donc pas une vente définitivement perdue. Pour valider du CA perdu, il faudrait une règle de perte/annulation et des données qui l’étayent, en plus des prix et du périmètre financier.</p>
+<p>Le carnet client initial nul est un défaut d’initialisation déclaré, pas un carnet industriel observé. Il peut influencer les premiers jours et le niveau de référence des retards.</p>
+<p class="small">Code : <a href="../../simulation/engine/run_first_simulation.py">run_first_simulation.py</a>, transition de service vers les lignes 18399–18413 et sémantique économique vers 24983. Source : CA_Perdu_Réel.csv. L’ancienne estimation « demande_PF × part CA livré » subsiste dans un champ du producteur de comparaison ; elle reste une estimation hypothétique et ne doit pas être réutilisée comme livraison mesurée.</p>
+</details>
+
+<details id="gaillac"><summary>4 · 693055 : reprise, rattrapage, libérations et transferts</summary>
+<div class="route" aria-label="Étapes à distinguer"><span>Engagement</span><i>→</i><span>Fabrication physique</span><i>→</i><span>Stock détenu</span><i>→</i><span>Libération</span><i>→</i><span>Départ</span><i>→</i><span>Réception</span><i>→</i><span>Disponibilité aval</span></div>
+<p>Une entrée H n’est pas nécessairement une fin de fabrication. Une quantité MRP reportée n’est pas un OF industriel identifié. Une photo de stock peut inclure des lots indisponibles. Ces distinctions expliquent pourquoi un rapprochement de courbes ne date pas à lui seul une panne ou une reprise.</p>
+<h3>Ce que les sources soutiennent</h3>
+<p>À Avène, les 600 kg entrés la semaine du 3 novembre sont présents dans la photo du 10 novembre : 620 kg. Le MRP du 9 novembre porte encore J courant 20 kg et 600 kg futurs au 16 novembre ; la version du 16 novembre porte J courant 620 kg. Cela documente une disponibilité <em>prévue</em> postérieure à la présence physique. Ce n’est pas la date de libération exécutée d’un lot retrouvé.</p>
+<p>À Gaillac, 693055 présente encore des entrées : +600 kg la semaine du 10 novembre, puis +600 kg et 1 200 kg sortis la semaine du 1er décembre. La baisse du stock ne prouve donc pas une absence de fabrication. À la photo du 29 décembre, le stock est de 10 kg ; tous les scénarios annuels comparés conservent 1 810 kg à cette même date. Le surplus de 1 800 kg n’est pas supprimé par les arrêts testés.</p>
+<p class="small">Sources : mouvements Gaillac G1059:J1059 / G1062:J1062 ; photo finale Stocks E1474:H1474. À Avène : mouvements 1105/1106, stocks 366/972, MRP J45710/J45711/J46800.</p>
+<h3>Pourquoi le scénario D reprend de cette manière</h3>
+<p>Une campagne est ouverte administrativement le 21 août, mais son premier travail positif intervient le 3 novembre. Le 4 novembre, quatre passes de 600 kg donnent 2 400 kg exécutés dans la même journée. La capacité physique nominale de Gaillac n’est pas renseignée : la convention « non modélisée » reprend après la levée de l’arrêt. Le lot de 600 kg n’est pas une capacité industrielle de 600 kg par jour.</p>
+<p>La suite du calendrier découle des conventions activées : fabrication du premier lot le 3 novembre → libération Gaillac le 11 décembre après 28 jours lundi–vendredi → revue hebdomadaire ancrée le mercredi → départ le 17 décembre → réception Avène le 24 décembre. Le 2 janvier 2026 est une disponibilité <strong>prévue hors horizon</strong>, pas un événement exécuté de 2025. Cette chronologie explique le calcul ; elle ne démontre pas le calendrier industriel.</p>
+<p>Les 70 jours de la FIA sont bien présents dans la source, mais leur événement de départ et leur contenu ne sont pas réconciliés avec cette chaîne. Les ajouter aux délais actifs ou les convertir en transport serait arbitraire. De même, <code>tau_process</code> reste une marge de planification ; il ne fournit pas une durée physique de fabrication manquante.</p>
+<h3>Un bug de reporting est établi</h3>
+<div class="scroll"><table><thead><tr><th>Cas · 693055</th><th>Somme des productions</th><th>Vrai maximum par jour</th><th>Maximum exporté</th><th>Vrais jours actifs / jours exportés</th></tr></thead><tbody>
+<tr><td>Nominal</td><td>13 200 kg</td><td>600 kg</td><td>600 kg</td><td>22 / 22</td></tr>
+<tr><td>A</td><td>13 200 kg</td><td>600 kg</td><td>600 kg</td><td>22 / 22</td></tr>
+<tr><td>D</td><td>13 200 kg</td><td><strong>2 400 kg</strong></td><td>600 kg</td><td><strong>19 / 22</strong></td></tr>
+<tr><td>E</td><td>13 200 kg</td><td><strong>1 200 kg</strong></td><td>600 kg</td><td><strong>21 / 22</strong></td></tr>
+</tbody></table></div>
+<p>Le producteur prend le maximum d’une ligne et compte les lignes positives comme des jours. Plusieurs passes le même jour invalident ces deux agrégats. <strong>Erreur avérée : le reporting quotidien.</strong> Les mouvements physiques bruts restent cohérents. <strong>Lacune de modèle/données : la cadence industrielle de Gaillac.</strong> Les deux problèmes ne doivent pas être confondus.</p>
+<p class="small">Oracle nouveau : <a href="../../artifacts/testing/analyse_globale_20261102/modele/32d8b60625e849fab6d2fc243aa27b2c/manifest.json">réagrégation indépendante des CSV</a>. Code concerné : build_factory_nominal_capacity_rows, run_first_simulation.py vers 11489–11548. Le défaut est reproduit et inscrit au backlog ; cette mission d’analyse ne modifie pas le producteur.</p>
+<h3>Les essais déjà négatifs évitent de recommencer à l’aveugle</h3>
+<p>Une cadence hypothétique de 600 kg/jour et une revue quotidienne ont déjà été examinées en mémoire : le plafond seul laisse 4 200 kg fabriqués avant la première libération et un pic de 4 210 kg ; une revue quotidienne avance certains départs mais ne reproduit pas les entrées de début novembre. Ces calculs sont à plan figé, pas un nouveau moteur en boucle fermée. Ils ne justifient ni une capacité mesurée de 600 kg/jour ni une nouvelle répétition sans donnée discriminante.</p>
+<p class="small"><a href="../../artifacts/testing/reprise_693055_20261022/final_manifest.json">Analyse courte antérieure de reprise</a>. Le statut d’engagement au premier travail physique existe comme option du moteur, mais n’est pas actif dans le nominal. Ses essais antérieurs n’ont pas justifié une promotion générale.</p>
+</details>
+
+<details id="scenarios"><summary>5 · Ce que les simulations prouvent, et ce qu’elles ne reproduisent pas</summary>
+<p>Les arrêts A/D/E sont des hypothèses rétrospectives. Ils modifient effectivement les fabrications et disponibilités ; l’absence d’effet client ne vient pas d’une intervention inerte. Le stock aval absorbe la baisse de production.</p>
+<div class="scroll"><table><thead><tr><th>Scénario annuel</th><th>Fabrication PF 268091</th><th>Stock Muret au 31 décembre</th><th>Livré client PF 268091</th><th>Jours sans 693055 utilisable à Avène</th></tr></thead><tbody>
+<tr><td>Nominal</td><td>2 880 000 UN</td><td>1 082 477 UN</td><td>4 161 487 UN</td><td>0</td></tr>
+<tr><td>A · arrêt puis reprise septembre</td><td>2 880 000 UN</td><td>1 082 477 UN</td><td>4 161 487 UN</td><td>0</td></tr>
+<tr><td>D · arrêt prolongé jusqu’au 2 novembre</td><td>2 448 000 UN</td><td>650 477 UN</td><td>4 161 487 UN</td><td>25</td></tr>
+<tr><td>E · courte reprise puis nouvel arrêt</td><td>2 851 200 UN</td><td>1 053 677 UN</td><td>4 161 487 UN</td><td>5</td></tr>
+</tbody></table></div>
+<p>Les 432 000 UN fabriquées en moins dans D et les 28 800 UN en moins dans E se retrouvent dans la diminution du stock physique final de Muret. Les 730 lignes quotidiennes client, deux PF sur 365 jours, sont identiques au nominal dans chacun des scénarios comparés. La propagation jusqu’aux stocks est démontrée ; une perte de livraison client supplémentaire n’apparaît pas dans ces essais.</p>
+<h3>Un gain local peut s’accompagner de dégradations</h3>
+<p>Erreur absolue moyenne sur les mêmes dates de photos : plus faible est meilleur. Les KG et les UN ont des colonnes distinctes ; ils ne sont pas additionnés.</p>
+<div class="scroll"><table><thead><tr><th>Cas</th><th>Gaillac 693055 · KG</th><th>Avène 693055 · KG</th><th>Muret PF 268091 · UN</th></tr></thead><tbody>
+<tr><td>Nominal</td><td>893,96</td><td>421,83</td><td>278 563</td></tr>
+<tr><td>A</td><td>837,36</td><td>367,26</td><td>278 563</td></tr>
+<tr><td>D</td><td>803,40</td><td>472,39</td><td>282 615</td></tr>
+<tr><td>E</td><td>814,72</td><td>413,82</td><td>278 563</td></tr>
+</tbody></table></div>
+<p>D améliore Gaillac d’environ 10,1 %, mais dégrade Avène d’environ 12,0 % et Muret de 1,45 %. E améliore Gaillac d’environ 8,9 %, Avène de 1,9 %, et laisse Muret inchangé. Les 13 200 kg fabriqués à Gaillac et le surplus final restent identiques. <strong>Aucun de ces résultats ne justifie de promouvoir une panne comme explication commune de toute la chaîne.</strong></p>
+<h3>Comparabilité et limites</h3>
+<p>Graphes matérialisés, demande Flow, horizon, paramètres et cœur moteur ont été rapprochés. Une différence de version de <code>current_reference.py</code> subsiste entre baseline et scénarios ; les préfixes physiques/MRP avant intervention ont été comparés dans les preuves antérieures. Les résultats se réutilisent sur ce périmètre explicite, avec cette réserve. Ils ne constituent pas une nouvelle qualification de l’ensemble du projet.</p>
+<p>Les annuels ont utilisé un adaptateur expérimental contrôlé. Le chemin natif général refuse actuellement la composition <code>physical_demand_cover_v1</code> avec des contrôles actifs. Les contrôles de capacité, transport et libération existent dans le code ; ce refus ne prouve pas leur absence. Il interdit de présenter un nouveau scénario aval natif comme qualifié sans résoudre son contrat de composition.</p>
+<p>Les scénarios historiques conservent aussi des initialisations rétroprojetées et un complément de besoins reconstruit dépendant de l’exécution. Ces conventions doivent être déclarées ; elles limitent l’interprétation comme rejeu entièrement autonome. Elles peuvent compenser certains effets. Aucun diagnostic MP/packaging n’est rouvert ici.</p>
+<h3>Les vingt rejeux aval</h3>
+<p>Sur quatre épisodes, des restrictions d’accès au stock ou de départ de trois/sept jours créent des retards : environ 0,86/4 jours de retard moyen, P95 de 3/7 jours, alors que le cumul à 28 jours est rattrapé. Cela montre pourquoi un cumul annuel ne suffit pas. Mais les deux mécanismes produisent les mêmes flux sortants et ne sont pas identifiables par ces flux seuls.</p>
+<p>Les réceptions amont y sont gelées, la réallocation est FIFO et l’échéance demande + deux jours est conventionnelle. Ces calculs ne retrouvent ni les commandes réelles ni leurs promesses. Ils ne recalculent pas le MRP de toute la chaîne.</p>
+<p class="small">Preuves : <a href="../../artifacts/testing/analyse_globale_20261102/modele/32d8b60625e849fab6d2fc243aa27b2c/comparability_manifest.json">comparabilité revue</a> ; <a href="../../artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json">retards des rejeux</a> ; <a href="../../artifacts/testing/aleas_prolonges_693055_20261021/final_manifest.json">qualification historique partielle des arrêts</a>. Le critère « aucune ouverture administrative pendant l’arrêt » reste non satisfait, même si la fabrication et la consommation physiques sont nulles durant l’arrêt.</p>
+</details>
+
+<details id="verdict"><summary>6 · Erreur de simulation, règle manquante ou aléa plausible ?</summary>
+<div class="scroll"><table><thead><tr><th>Objet</th><th>Verdict</th><th>Ce qui permettrait de conclure davantage</th></tr></thead><tbody>
+<tr><td>Abs(I) assimilé à une réponse client</td><td><strong>Interprétation non fondée.</strong> L’ancien template de comparaison emploie encore « Réponse réelle » ; le diagnostic récent dit correctement « proxy ».</td><td>Journal brut typé et appariement commandes/BL</td></tr>
+<tr><td>Maximum « quotidien » de production</td><td><strong>Bug de reporting reproduit.</strong> Maximum par passe, comptage des passes comme jours.</td><td>Correction ciblée de l’agrégat avec oracle par article/site/jour, sans changer les mouvements physiques</td></tr>
+<tr><td>Rattrapage rapide à Gaillac</td><td><strong>Cadence non paramétrée industriellement.</strong> Pas une preuve de capacité réelle, ni de bug de conservation.</td><td>Débit, durée de campagne et calendrier réellement applicables ; lot distinct de capacité/jour</td></tr>
+<tr><td>OF engagé avant le travail</td><td><strong>Convention active.</strong> Le mécanisme alternatif existe mais n’est pas activé dans le nominal.</td><td>Identités OF, statut ferme, premier travail, politique réelle de replanification/annulation</td></tr>
+<tr><td>28/70 jours et disponibilité</td><td><strong>Frontières temporelles non identifiées.</strong> Les dates calculées sont traçables ; leur équivalence industrielle n’est pas démontrée.</td><td>Fin physique → entrée H → libération → départ d’un même lot</td></tr>
+<tr><td>Panne ou blocage qualité</td><td><strong>Aléa plausible, cause non identifiée.</strong> Les reports MRP montrent des besoins, pas une panne.</td><td>Événement daté, motif et quantité affectée, puis propagation et témoin</td></tr>
+<tr><td>CA définitivement perdu</td><td><strong>Sémantique à raccorder.</strong> Un retard dans un moteur qui conserve la demande ne prouve pas une vente annulée.</td><td>Commandes annulées/perdues, dates, prix et règle métier distincte du backlog</td></tr>
+</tbody></table></div>
+<p>Il n’y a pas aujourd’hui de preuve suffisante pour conclure que « le MRP est faux » dans son ensemble, ni qu’une règle unique déjà identifiée explique tous les écarts. Les propositions de règle commune doivent porter sur des états et événements métier : disponibilité datée, engagement, débit partagé, calendrier, allocation et demande perdue ou reportée. Une branche spécifique à une référence pour rapprocher sa courbe ne remplace pas cette identification.</p>
+</details>
+
+<section class="card key" id="suite"><h2>La suite recommandée, dans l’ordre</h2>
+<ol>
+<li><strong>Établir le service réellement observé.</strong> Commencer par PF 268091, 13→27 octobre, puis suivre les mêmes commandes jusqu’au 10 novembre. Qualifier le crédit I de +264 260 UN. Apparier mouvements bruts, commandes et réceptions clients. Le témoin PF 268967 utilise les mêmes conventions. Sans cela, choisir une panne resterait une hypothèse non identifiable.</li>
+<li><strong>Fiabiliser les diagnostics déjà reproductibles.</strong> Corriger le reporting par jour et les libellés assimilant le proxy au service ; conserver les vues historiques. L’oracle minimal comporte plusieurs passes d’un même article/site/jour et un autre jour. Cette correction de calcul peut avancer sans attendre les données industrielles et sans recalcul long.</li>
+<li><strong>Reconstituer un seul lot 693055 de bout en bout.</strong> OF/lot → premier travail → fin physique → entrée H → libération → départ → réception et disponibilité Avène. Tester la cohérence des délais et de la cadence sur cet objet identifié, puis sur un autre épisode.</li>
+<li><strong>Exécuter un seul essai court qui départage les mécanismes.</strong> Après identification de l’événement, témoin et intervention sur 14–28 jours, mêmes besoins exogènes et engagements connus. Mesurer dates d’étapes, stocks utilisables, déficit et retard des mêmes cohortes. Vérifier activation, bilans et dégradations du témoin. Élargir seulement si la question du rattrapage dépasse ce cas.</li>
+</ol>
+<p>La priorité scientifique est le raccord des observations ; la priorité technique immédiatement reproductible est le calcul des agrégats quotidiens. La référence reste conservée jusqu’à preuve d’un gain de chaîne, avec coûts et dégradations explicités. Les stocks de sécurité ne sont pas diminués pour provoquer artificiellement une rupture.</p>
+</section>
+
+<details id="harnais"><summary>7 · Harnais, procédures, contrôles et intérêt de Jev</summary>
+<div class="scroll"><table><thead><tr><th>Niveau</th><th>Effectivement constaté</th><th>Limite</th></tr></thead><tbody>
+<tr><td>Fonctions natives Codex</td><td>Outils d’exécution, patch, délégation, messages et suivi exposés ; trois tâches spécialisées ont rendu cette analyse.</td><td>Capacité d’outil ≠ contrôle scientifique ; modèle réellement servi, jetons et facture non établis par ces preuves.</td></tr>
+<tr><td>Consignes déclaratives</td><td>AGENTS reçu et lu ; quatre profils, configuration de trois enfants ; responsabilités et budgets annoncés.</td><td>Propriété d’un fichier et budgets restent des consignes. Les permissions effectives viennent du runtime.</td></tr>
+<tr><td>Procédures spécialisées</td><td>Cinq skills Etudecas disponibles dans le catalogue ; procédures utiles lues et appliquées selon les tâches.</td><td>Présence au catalogue ≠ toutes les procédures exécutées ; tickets tenus par le parent.</td></tr>
+<tr><td>Contrôles exécutables</td><td>Toolbox doctor/tests ciblés/qualify/browser/docs/gate/handoff, contrats typés et empreintes ; manifestes d’exécution précis.</td><td>Une aide ou un module présent ne vaut pas réussite ; gate ne valide pas une causalité.</td></tr>
+</tbody></table></div>
+<p>La documentation officielle confirme que les sous-agents héritent des permissions du parent et qu’une consigne de lecture seule ne crée pas de sandbox séparée. Les skills sont découverts puis chargés selon leur usage ; leur catalogue ne démontre pas leur exécution. Sources consultées pour cette passe : <a href="https://learn.chatgpt.com/docs/agent-configuration/subagents">OpenAI Docs · sous-agents</a> et <a href="https://learn.chatgpt.com/docs/build-skills">skills</a>. Les observations de session et les lectures locales restent distinctes de ces descriptions générales.</p>
+<h3>Lacunes encore présentes</h3>
+<ul>
+<li>Doctor vérifie trois skills sur cinq et un plafond positif, pas exactement trois enfants. Handoff ne détecte pas un fichier changé mais omis de la déclaration ; la revue du diff reste nécessaire.</li>
+<li>Les plafonds de temps/RAM/stockage des délégations ne sont pas des quotas automatiquement vérifiés. Le timeout toolbox borne chaque sous-processus, pas toute l’investigation.</li>
+<li>Le workflow CI contient encore des modules entiers avec modifications/suppressions de fichiers interdites par la consigne utilisateur, ainsi qu’un fichier de test référencé absent. La CI doit être revue avant réactivation ; elle n’a pas été lancée dans cette passe.</li>
+<li>Le contrôle V8 du HTML vérifie sa logique et ses valeurs avec un DOM de substitution. Aucun rendu CSS, clic physique, comportement natif de navigateur ou accessibilité complète n’a été validé depuis le refus Windows antérieur.</li>
+</ul>
+<h3>Jev : aucune intégration justifiée par les preuves disponibles</h3>
+<p>Le jeu existant de douze tickets synthétiques donne 12/12 routes attendues au natif et 11/12 aux règles simples. Aucune mauvaise route n’est acceptée ; les règles ont une abstention inutile supplémentaire. Jev n’a pas été appelé ni mesuré. L’utilisateur a demandé une inspiration éventuelle, sans accès externe.</p>
+<p>Les temps historiques portent sur des frontières différentes : aller-retour natif incluant autre travail, contre lot de règles en mémoire. Le coût natif est inconnu et le CPU des règles non valorisé. On ne peut en déduire un gain de vitesse ou de coût. Le jeu est petit, synthétique et non indépendant de sa conception.</p>
+<p><strong>Décision : conserver le fonctionnement natif et les contrôles déterministes.</strong> L’idée utile est déjà applicable : destinations bornées, première procédure pertinente et abstention explicite en cas d’incertitude. Ajouter un classificateur ne fournirait ni les événements industriels manquants ni un oracle de validation. Réévaluer seulement si des erreurs de routage réelles et répétées fournissent un problème mesurable.</p>
+<p class="small">Source locale : <a href="../../docs/quality/AUDIT_INSTRUCTIONS_20261021.md">audit du 21 octobre</a>, résultats de routage recomptés dans <a href="../../artifacts/testing/analyse_globale_20261102/validator/d062535e2525467e9142f78a31e3706a/final_manifest.json">l’audit indépendant actuel</a>. Aucune nouvelle dépendance, API LLM externe ou migration du noyau.</p>
+</details>
+
+<details id="preuves"><summary>8 · Force des preuves, limites et reproduction</summary>
+<p>État de départ : branche <code>dev_yannick</code>, commit <code>c43a037a46c78b76852a66f29748c7047a8443c1</code>, arbre propre. Référence active : <code>coherent-MRP-20261014</code>. Aucun fichier moteur, donnée source, configuration métier ou ancienne comparaison n’est modifié par cette analyse.</p>
+<div class="scroll"><table><thead><tr><th>Contrôle</th><th>Résultat observé</th><th>Portée</th></tr></thead><tbody>
+<tr><td>Conservation de la dernière livraison</td><td>669/669 empreintes et 5/5 preuves conformes</td><td>Conservation des octets et rattachement des preuves ; pas calibration industrielle</td></tr>
+<tr><td>Revue élargie</td><td>2 129 rapprochements sur 846 fichiers, stabilité avant/après</td><td>Treize différences historiques de versions conservées ; aucune preuve absente</td></tr>
+<tr><td>Calculs de cette analyse</td><td>323 contrôles, ratios financiers par semaine et 12 erreurs de stock recomptées aux mêmes dates</td><td>Agrégats et comparaisons, sans conversion du CA en unités</td></tr>
+<tr><td>Oracle CSV amont</td><td>Productions journalières réagrégées, services quotidiens comparés, bug de reporting reproduit</td><td>Code et calculs ; causalité industrielle non identifiée</td></tr>
+<tr><td>Reprise livrée auparavant</td><td>306 fenêtres : 298 complètes, 8 incomplètes ; 22 cellules source et 8 cas mémoire</td><td>Fenêtres qui se chevauchent ; pas 306 expériences indépendantes</td></tr>
+<tr><td>Interface livrée auparavant</td><td>5 754 assertions V8, 102 sélections, 306 étapes</td><td>Logique et affichage de valeurs, pas oracle scientifique ni rendu navigateur</td></tr>
+<tr><td>Doctor et gate limité à doctor, nouveaux</td><td>Réussis sur l’environnement actuel</td><td>Diagnostic d’installation ; aucune qualification globale moteur/carte</td></tr>
+</tbody></table></div>
+<p>Les anciennes suites et les arrêts ont des empreintes de contexte différentes et des qualifications partielles. Les sorties conservées sont réutilisables avec les rapprochements précis réalisés ; elles ne sont pas transformées en certificat global actuel. Les CSV/exports absents ou les critères non satisfaits restent signalés.</p>
+<p>Aucun test global, test d’altération de fichiers, restauration de dates, simulation longue, nouveau navigateur ou Codex CLI n’a été exécuté. Le diagnostic MP/packaging reste suspendu. Les sorties des années futures sont des scénarios déclarés, pas des observations industrielles.</p>
+<ul>
+<li><a href="../../artifacts/testing/analyse_globale_20261102/protocol.json">Périmètre et budgets de cette analyse</a></li>
+<li><a href="../../artifacts/testing/analyse_globale_20261102/aggregate_metrics.py">Reproduction des agrégats en lecture seule</a> et <a href="../../artifacts/testing/analyse_globale_20261102/metrics-0741c5c9d37a442db69f2f273bff5a3f/manifest.json">manifeste</a></li>
+<li><a href="../../artifacts/testing/analyse_globale_20261102/modele/32d8b60625e849fab6d2fc243aa27b2c/analyse.md">Revue du modèle, code et chronologies</a> ; <a href="../../artifacts/testing/analyse_globale_20261102/validator/d062535e2525467e9142f78a31e3706a/findings.md">contre-revue des preuves et du harnais</a></li>
+<li><a href="../../artifacts/testing/analyse_globale_20261102/tickets.json">Registre et prochains contrôles discriminants</a> ; <a href="../../artifacts/testing/analyse_globale_20261102/final_manifest.json">manifeste final</a></li>
+</ul>
+<p class="small">Ce rapport HTML est autonome pour sa lecture. Les liens de preuves et de résultats nécessitent la copie locale du projet ; les artefacts lourds restent locaux. Les liens externes sont uniquement des références documentaires, sans ressource chargée automatiquement.</p>
+</details>
+</main></body></html>
