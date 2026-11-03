@@ -84,4 +84,14 @@ pas une validation industrielle ni un rendu navigateur.
 
 La couverture industrielle est de 51 semaines observées par article (6 janvier–28 décembre 2025), séparée des scénarios annuels. Les finances ne sont jamais converties en unités physiques. La carte sur cinq ans du 14 octobre reste une livraison datée ; ses comparaisons ne sont pas actualisées par le diagnostic.
 
+L’option `--receipt-stages etudecas/artifacts/testing/disponibilites_20261103/receipt_stage_review.json`
+ajoute la revue des deux attentes dans une nouvelle copie sous
+`resultats/disponibilites_20261103/interface` (preuves dans un sous-dossier unique
+de `artifacts/testing/disponibilites_20261103/ui`). Son encart est limité au
+PF 268091, semaines des 7, 14 et 21 avril ; ses détails sont repliés.
+« Retard simulé d’avril » ouvre le 7 avril sans qualifier cette semaine de
+rupture réelle. L’essai synthétique et les disponibilités simulées restent
+séparés du service annuel et de l’identité industrielle inconnue des étapes.
+Le fichier de revue et son rapport sont inclus dans la provenance.
+
 L’arbre KPI utilise `simulation.analysis.production_daily_metrics` : flux exécutés additionnés, enveloppes restantes dédupliquées par programme, déficit calculé après la dernière passe quotidienne. Sans versions datées identifiables, les révisions sont inconnues (`null`) et exclues du score, déclaré partiel. Les enveloppes journalières ne sont pas assimilées à des nouveaux besoins.
