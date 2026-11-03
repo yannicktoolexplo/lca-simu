@@ -61,6 +61,9 @@ deux attentes localisées, quatre cas courts et effet du calendrier d’expédit
 [Formats confirmés et besoins sans double compte](archive/FORMATS_CONFIRMES_20261103.html) :
 confirmation industrielle du périmètre, ventilation encore inconnue et contrôles courts sur les besoins.
 
+[Semaine d’avril et bilan des 2 et 3 novembre](archive/SEMAINE_AVRIL_ET_BILAN_20261103.html) :
+observations industrielles, lots simulés, service des demandes de la semaine et fichier de rapprochement à compléter.
+
 L'[accueil des résultats](../index.html) donne accès aux quatre présentations
 conservées ; le [guide de reconstruction](REGENERER_RESULTATS.md) précise leurs
 entrées et leurs limites. Les audits, bilans de livraison et anciennes notes de
