@@ -12236,8 +12236,9 @@ def html_template(
           const stressCases = Number(global.stress_case_count || global.case_count || 0);
           const suppliers = Number(global.supplier_count || Object.keys(metrics.nodes || {{}}).length || 0);
           const dominant = global.dominant_label || SIMULATED_RISK_FAMILY_LABELS[global.dominant_family] || global.dominant_family || "n/a";
-          const maxImpact = Number(global.max_impact_metier_pct || global.max_impact_pct || 0);
-          globalSummary.textContent = `Stress tests fournisseurs: ${{stressCases}} cas simules sur ${{suppliers}} fournisseurs. Famille dominante: ${{dominant}}. Impact metier max: ${{fmtPanelQty(maxImpact, 1)}}%.`;
+          const maxImpact = global.max_impact_metier_pct ?? global.max_impact_pct;
+          const impactLabel = maxImpact === null || maxImpact === undefined || !Number.isFinite(Number(maxImpact)) ? "inconnu" : fmtPanelQty(Number(maxImpact), 1) + "%";
+          globalSummary.textContent = `Stress tests fournisseurs: ${{stressCases}} cas simules sur ${{suppliers}} fournisseurs. Famille dominante: ${{dominant}}. Impact metier max: ${{impactLabel}}. ${{global.assessment_status === "donnees_insuffisantes" ? "Classement global inconnu : donnees insuffisantes." : ""}}`;
         }} else {{
           const counts = global.applied_family_counts || global.family_counts || {{}};
           const families = Object.entries(counts)
@@ -14866,27 +14867,29 @@ def html_template(
       if (!content) return false;
       if (simulatedRiskVisibleMode() === "campaign") {{
         const global = (SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.global) || {{}};
-        const nodes = Object.entries((SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.nodes) || {{}})
-          .sort((a, b) => Number((b[1] || {{}}).score || 0) - Number((a[1] || {{}}).score || 0));
+        const nodes = Object.entries((SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.nodes) || {{}});
+        const complete = nodes.length > 0 && nodes.every(([, row]) => row.score !== null && row.score !== undefined && Number.isFinite(Number(row.score)));
+        if (complete) nodes.sort((a, b) => Number(b[1].score) - Number(a[1].score));
+        const campaignPct = value => value === null || value === undefined || !Number.isFinite(Number(value)) ? "inconnu" : fmtPanelQty(Number(value), 1) + "%";
         if (!nodes.length) {{
           content.innerHTML = '<div class="panelEmptyState">Aucun stress test fournisseur disponible pour ce run.</div>';
           return false;
         }}
         const topRows = nodes.slice(0, 15).map(([supplierId, row], idx) => {{
           const color = row.driver_color || "#64748b";
-          const score = Number(row.score_decisionnel_pct || row.impact_pct || 0);
-          const metier = Number(row.impact_metier_pct || 0);
+          const score = Object.prototype.hasOwnProperty.call(row, "score_decisionnel_pct") ? row.score_decisionnel_pct : row.impact_pct;
+          const metier = row.impact_metier_pct;
           return `
             <tr>
-              <td class="num">${{idx + 1}}</td>
+              <td class="num">${{complete ? idx + 1 : "inconnu"}}</td>
               <td><span class="sensitivityLegendDot" style="background:${{escapeHtmlText(color)}}"></span> ${{escapeHtmlText(supplierId)}}</td>
               <td>${{escapeHtmlText(row.status_label || "n/a")}}</td>
               <td>${{escapeHtmlText(row.driver_label || "n/a")}}</td>
-              <td class="num">${{fmtPanelQty(score, 1)}}%</td>
+              <td class="num">${{campaignPct(score)}}</td>
               <td>${{escapeHtmlText(row.impact_metier_kpi || "n/a")}}</td>
               <td>${{escapeHtmlText(row.impact_metier_delta || "n/a")}}</td>
-              <td class="num">${{fmtPanelQty(metier, 1)}}%</td>
-              <td>${{escapeHtmlText(row.impact_metier_lecture || row.impact_explanation || "aucune degradation KPI visible")}}</td>
+              <td class="num">${{campaignPct(metier)}}</td>
+              <td>${{escapeHtmlText(row.impact_metier_lecture || row.impact_explanation || "Donnees insuffisantes pour conclure.")}}</td>
             </tr>
           `;
         }}).join("");
@@ -14895,6 +14898,7 @@ def html_template(
             <div class="orderLedgerTextHeader">Risques simules - stress tests fournisseurs</div>
             <div class="orderLedgerStatus">Cette vue affiche les stress tests contrefactuels disponibles: ${{Number(global.stress_case_count || global.case_count || 0)}} cas sur ${{nodes.length}} fournisseurs. Le mode scenario injecte reste accessible avec le bouton dedie quand des evenements state-dependent existent.</div>
             <div class="orderLedgerStatus">Lecture metier: chaque ligne degrade un fournisseur dans une simulation separee et mesure les KPI qui bougent vraiment. Ce n'est pas un evenement observe dans la trajectoire nominale.</div>
+            <div class="orderLedgerStatus">${{complete ? "Classement limite aux scores disponibles et comparables." : "Classement global inconnu : donnees insuffisantes. Les composantes connues restent consultables separement."}}</div>
             <table class="materialTable">
               <thead>
                 <tr>

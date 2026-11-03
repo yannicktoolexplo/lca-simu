@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from etudecas.case_config import ITEM_DISPLAY_REFERENCE_NOTES
+from etudecas.simulation.analysis.production_daily_metrics import aggregate_production_days
 from etudecas.simulation.kpi_engine import (
     DEFAULT_PHYSICS_KPI_DEFINITIONS,
     KpiDefinition,
@@ -360,7 +361,8 @@ def build_global_kpi_tree_payload(
 
     production_by_day: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     production_line_by_day: dict[tuple[str, str], dict[int, dict[str, float]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-    for row in constraint_rows:
+    production_days = aggregate_production_days(constraint_rows)
+    for row in production_days:
         day = int(to_float(row.get("day")) or 0)
         node_id = str(row.get("node_id") or "")
         output_item_id = str(row.get("output_item_id") or "")
@@ -399,16 +401,18 @@ def build_global_kpi_tree_payload(
             actual
             - planned
         )
-        if str(row.get("binding_cause") or "") == "input_shortage":
+        causes = row.get("binding_causes", [])
+        if "input_shortage" in causes and lot_plan_shortfall > 1e-9:
             production_by_day[day]["input_shortage_day"] = 1.0
             production_by_day[day]["input_shortage_line_count"] += 1.0
-            production_by_day[day]["input_shortage_shortfall_desired_qty"] += shortfall
-            production_by_day[day]["input_shortage_shortfall_lot_plan_qty"] += lot_plan_shortfall
-            production_by_day[day]["input_shortage_plan_gap_qty"] += abs(actual - planned)
-        if str(row.get("binding_cause") or "") == "capacity":
+            if causes == ["input_shortage"]:
+                production_by_day[day]["input_shortage_shortfall_desired_qty"] += shortfall
+                production_by_day[day]["input_shortage_shortfall_lot_plan_qty"] += lot_plan_shortfall
+                production_by_day[day]["input_shortage_plan_gap_qty"] += abs(actual - planned)
+        if "capacity" in causes:
             production_by_day[day]["capacity_day"] = 1.0
             production_by_day[day]["capacity_line_count"] += 1.0
-        if str(row.get("binding_cause") or "") == "weekly_lot_limit":
+        if "weekly_lot_limit" in causes:
             production_by_day[day]["weekly_lot_limit_day"] = 1.0
             production_by_day[day]["weekly_lot_limit_line_count"] += 1.0
 
@@ -452,10 +456,10 @@ def build_global_kpi_tree_payload(
         else:
             cost_source_note = f"cout non disponible ({reconstructed_note})"
 
-    def series_from_map(values: dict[int, float]) -> dict[str, Any]:
+    def series_from_map(values: dict[int, float | None]) -> dict[str, Any]:
         return {
             "days": days,
-            "values": [round(float(values.get(day, 0.0)), 6) for day in days],
+            "values": [None if values.get(day, 0.0) is None else round(float(values.get(day, 0.0)), 6) for day in days],
         }
 
     component_stock_csv = component_immobilized_stock_csv or (
@@ -576,31 +580,13 @@ def build_global_kpi_tree_payload(
         node_id, item_id = line_key
         return f"{display_node_label(node_id)} / {item_labels.get(item_id, compact_item_label(item_id))}"
 
-    line_nervousness = {day: 0.0 for day in days}
-    production_replanning_count = {day: 0.0 for day in days}
-    previous_planned_by_line: dict[tuple[str, str], float | None] = {line_key: None for line_key in line_keys}
+    line_nervousness = {day: None for day in days}
+    production_replanning_count = {day: None for day in days}
     for day in days:
-        nervousness_values: list[float] = []
-        replanning_count = 0
-        for line_key in line_keys:
-            current_planned = max(0.0, production_line_by_day[line_key][day].get("planned_qty", 0.0))
-            previous_planned = previous_planned_by_line.get(line_key)
-            if previous_planned is None:
-                delta_pct = 0.0
-            else:
-                reference = max(abs(previous_planned), abs(current_planned), 1.0)
-                delta_pct = min(500.0, 100.0 * abs(current_planned - previous_planned) / reference)
-                if abs(current_planned - previous_planned) > max(1.0, reference * 0.01):
-                    replanning_count += 1
-            if current_planned > 1e-9 or (previous_planned or 0.0) > 1e-9:
-                nervousness_values.append(delta_pct)
-            previous_planned_by_line[line_key] = current_planned
-        line_nervousness[day] = (
-            sum(nervousness_values) / len(nervousness_values)
-            if nervousness_values
-            else 0.0
-        )
-        production_replanning_count[day] = float(replanning_count)
+        observations = [row for row in production_days if row['day'] == day]
+        if observations and all(row.get('plan_revision_count') is not None for row in observations):
+            production_replanning_count[day] = sum(row['plan_revision_count'] for row in observations)
+            line_nervousness[day] = sum(row['plan_revision_magnitude_pct'] for row in observations) / len(observations)
 
     def forward_line_variance_rates(window_days: int) -> tuple[dict[int, float], dict[int, float], dict[tuple[str, str], dict[int, float]], dict[tuple[str, str], dict[int, float]]]:
         avg_coverage_by_day: dict[int, float] = {}
@@ -686,11 +672,9 @@ def build_global_kpi_tree_payload(
             scores = []
             for line_key in line_keys:
                 window_planned = sum(production_line_by_day[line_key][wday].get("planned_qty", 0.0) for wday in window)
-                window_actual = sum(production_line_by_day[line_key][wday].get("actual_qty", 0.0) for wday in window)
+                window_actual = sum(min(production_line_by_day[line_key][wday].get("actual_qty", 0.0), production_line_by_day[line_key][wday].get("planned_qty", 0.0)) for wday in window)
                 if window_planned > 1e-9:
-                    scores.append(max(0.0, 100.0 - 100.0 * abs(window_actual - window_planned) / window_planned))
-                elif window_actual > 1e-9:
-                    scores.append(0.0)
+                    scores.append(100.0 * window_actual / window_planned)
             out[day] = sum(scores) / len(scores) if scores else 100.0
         return out
 
@@ -895,13 +879,13 @@ def build_global_kpi_tree_payload(
     purchase_cost_index = {day: 100.0 * purchase_cost[day] / avg_total_supply_cost for day in days}
 
     raw_material_stockout_flag = {day: 0.0 for day in days}
-    for row in constraint_rows:
+    for row in production_days:
         day = int(to_float(row.get("day")) or 0)
         if day not in raw_material_stockout_flag:
             continue
         # A dormant or superseded reference with zero stock is not a shortage.
         # Require an executed production constraint and an unmet lot plan.
-        if row.get("binding_cause") == "input_shortage" and (to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0) > 1e-9:
+        if "input_shortage" in row.get("binding_causes", []) and (to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0) > 1e-9:
             raw_material_stockout_flag[day] = 1.0
 
     raw_material_stockout_days_30d: dict[int, float] = {}
@@ -964,6 +948,9 @@ def build_global_kpi_tree_payload(
         "material_delay_days": material_delay_days,
         "inventory_cost": inventory_cost,
     }
+    # Missing versions must not become a perfect score through kpi_engine's fallback.
+    excluded_physics_metrics = [name for name, values in physics_actual_series.items() if any(value is None for value in values.values())]
+    physics_kpi_definitions = tuple(definition for definition in physics_kpi_definitions if definition.name not in excluded_physics_metrics)
     physics_kpi_rows = compute_kpi_rows(days, physics_actual_series, physics_kpi_definitions)
     physics_kpi_csv = effective_daily_kpi_csv.parent / "physics_of_decision_kpi_daily.csv"
     if physics_kpi_rows and write_derived_artifacts:
@@ -1296,7 +1283,7 @@ def build_global_kpi_tree_payload(
             "name": "Alignement quotidien strict lots vs reference aval",
             "formula": "100 - moyenne lignes min(100, |Production_jour - Reference_jour| / Reference_jour x 100)",
             "terms": "Production_jour=actual_qty. Reference_jour=demande client pour PF, consommation aval observee pour semi-finis/intermediaires, puis fallback desired_qty si l'aval n'est pas observable. Lignes sans reference active exclues.",
-            "interpretation": "Tres strict; penalise fortement les lots. A lire comme nervosite journaliere face a la reference aval, pas comme performance seule.",
+            "interpretation": "Tres strict ; penalise les ecarts journaliers face a la reference aval, sans mesurer les revisions de programme.",
         },
         {
             "family": "Production",
@@ -1599,13 +1586,14 @@ def build_global_kpi_tree_payload(
 
     physics_kpi_display = [
         ("product_availability", "Disponibilite produit", "#0f766e", "served_qty / required_with_backlog_qty"),
-        ("line_adherence", "Adherence plan lotifie", "#2563eb", "actual_qty vs planned_qty_after_lot_rule, moyenne glissante 30j"),
-        ("line_nervousness", "Nervosite planning (%)", "#d97706", "Amplitude moyenne journaliere des changements de plan par ligne"),
-        ("production_replanning_count", "Volume replanifie associe", "#7c3aed", "Nombre de lignes dont le plan change vs jour precedent; le KPI decisionnel reste le taux de replanification quand disponible."),
+        ("line_adherence", "Execution / enveloppes journalieres", "#2563eb", "Flux executes / enveloppes journalieres apres lotification, sur 30 jours ; les restes ne sont pas de nouveaux besoins."),
+        ("line_nervousness", "Amplitude des revisions identifiees (%)", "#d97706", "Versions de propositions identifiables et datees uniquement ; sinon inconnu."),
+        ("production_replanning_count", "Nombre de revisions identifiees", "#7c3aed", "Comparaisons de versions identifiables ; une baisse du reste ne constitue pas une revision."),
         ("raw_material_stockout_days", "Jours de production bloques par intrants (30j)", "#dc2626", "Contrainte input_shortage executee avec deficit face au plan lotifie ; les references inactives a stock nul ne sont pas des ruptures."),
         ("material_delay_days", "Retard matiere", "#0891b2", "Moyenne des retards reception: delai effectif - delai previsionnel"),
         ("inventory_cost", "Cout stock", "#be123c", "Cout stock journalier; cible=cout stock moyen baseline"),
     ]
+    physics_kpi_display = [entry for entry in physics_kpi_display if entry[0] not in excluded_physics_metrics]
     physics_label_by_name = {name: label for name, label, _color, _source in physics_kpi_display}
     physics_color_by_name = {name: color for name, _label, color, _source in physics_kpi_display}
     physics_source_by_name = {name: source for name, _label, _color, source in physics_kpi_display}
@@ -1702,8 +1690,10 @@ def build_global_kpi_tree_payload(
     max_physics_global = max((float(to_float(row.get("global_score")) or 0.0) for row in physics_kpi_rows), default=0.0)
     physics_payload = {
         "kind": "physics_kpi",
+        "status": "partial_missing_metrics" if excluded_physics_metrics else "available",
+        "excluded_metrics": excluded_physics_metrics,
         "title": "Physics of Decision - trajectoire KPI",
-        "subtitle": "Distances normalisees: 0 = cible atteinte, 1 = catastrophe. Score global = aggregation euclidienne ponderee.",
+        "subtitle": "Score partiel : revisions inconnues exclues. " + "Distances normalisees: 0 = cible atteinte, 1 = catastrophe. Score = aggregation euclidienne ponderee." if excluded_physics_metrics else "Distances normalisees: 0 = cible atteinte, 1 = catastrophe. Score = aggregation euclidienne ponderee.",
         "csv_path": str(physics_kpi_csv),
         "startup_cutoff_day": startup_cutoff_days,
         "days": days,
@@ -1850,6 +1840,14 @@ def build_global_kpi_tree_payload(
         "valuation_status": monetary["valuation_status"],
         "cost_scope_note": monetary["cost_scope_note"],
         "kind": "kpi_tree",
+        "production_planning_semantics": {
+            "status": "origine_inconnue" if any(row['signal_status'] == 'origine_inconnue' for row in production_days) else "programmes_identifies",
+            "executed": "Somme des flux executes, par site/article/jour.",
+            "planned": "Enveloppe maximale par programme ; sans identite, maximum global declare incertain. Les enveloppes journalieres ne sont pas de nouveaux besoins.",
+            "shortfall": "Ecart restant apres toutes les passes du jour, non somme des manques intermediaires.",
+            "revisions": "Versions de propositions identifiables et datees uniquement ; sinon null et exclusion du score partiel.",
+            "cause_attribution": "Presence de contraintes associees ; un manque quantifie n'est attribue a input_shortage que si cette cause est seule tracee.",
+        },
         "title": "Arborescence KPI management supply",
         "subtitle": "Clique une courbe KPI principale pour afficher ses KPI secondaires. Le bouton Physics of Decision bascule vers les distances normalisees.",
         "definitions": [
@@ -1927,7 +1925,7 @@ def build_global_kpi_tree_payload(
                 ],
                 "secondary": [
                     {"label": "Concordance production / besoin (30j) (%)", **series_from_map(monthly_line_adherence_score), "color": "#2563eb"},
-                    {"label": "Adherence plan lotifie mensuelle (%)", **series_from_map(monthly_lot_plan_adherence_score), "color": "#65a30d", "dash": "dash"},
+                    {"label": "Execution / enveloppes journalieres (30j) (%)", **series_from_map(monthly_lot_plan_adherence_score), "color": "#65a30d", "dash": "dash"},
                     {"label": "Couverture demande horizon 30j (%)", **series_from_map(forward_30d_coverage_rate), "color": "#0f766e"},
                     {"label": "Taux de rattrapage retard net 30j (%)", **series_from_map(net_delay_catchup_30d_rate), "color": "#0891b2"},
                     *delay_deficit_line_series,
@@ -1952,8 +1950,8 @@ def build_global_kpi_tree_payload(
                     {"label": "Lignes contraintes matiere (%)", **series_from_map(input_shortage_line_share), "color": "#be123c"},
                     {"label": "Manque matiere vs plan lotifie (%)", **series_from_map(input_shortage_lot_plan_loss_share), "color": "#dc2626", "dash": "dash"},
                     {"label": "Manque matiere vs besoin usine (%)", **series_from_map(input_shortage_desired_loss_share), "color": "#f97316"},
-                    {"label": "Nervosite planning (%)", **series_from_map(line_nervousness), "color": "#7c3aed"},
-                    {"label": "Volume replanifie associe", **series_from_map(production_replanning_count), "color": "#475569", "dash": "dot"},
+                    {"label": "Amplitude des revisions identifiees (%)", **series_from_map(line_nervousness), "color": "#7c3aed"},
+                    {"label": "Nombre de revisions identifiees", **series_from_map(production_replanning_count), "color": "#475569", "dash": "dot"},
                     {"label": "Jours de production bloques par intrants (30j)", **series_from_map(raw_material_stockout_days_30d), "color": "#64748b", "dash": "dot"},
                 ],
                 "secondary_y_label": "% / lignes",

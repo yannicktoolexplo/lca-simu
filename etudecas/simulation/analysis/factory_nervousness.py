@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from .production_daily_metrics import aggregate_production_days, daily_plan_metrics
+
 
 FACTORY_NERVOUSNESS_FIELDS = [
     "node_id",
@@ -39,6 +41,9 @@ FACTORY_NERVOUSNESS_FIELDS = [
     "nervousness_level",
     "nervousness_type",
     "business_reading",
+    "planning_semantics_status",
+    "planned_signal_semantics",
+    "true_plan_revision_count",
 ]
 
 EPS = 1e-9
@@ -154,7 +159,10 @@ def build_factory_nervousness_rows(
         requested_lot_starts = 0.0
         actual_lot_starts = 0.0
 
-        for row in constraint_rows_by_pair.get(pair, []):
+        pair_source_rows = constraint_rows_by_pair.get(pair, [])
+        pair_daily_rows = aggregate_production_days(pair_source_rows, horizon_days=horizon)
+        revision_metrics = daily_plan_metrics(pair_source_rows, horizon_days=horizon)
+        for row in pair_daily_rows:
             day = _to_int(row.get("day"), -1)
             if 0 <= day < horizon:
                 desired[day] += max(0.0, _to_float(row.get("desired_qty")))
@@ -243,6 +251,9 @@ def build_factory_nervousness_rows(
                 "nervousness_level": level,
                 "nervousness_type": kind,
                 "business_reading": reading,
+                "planning_semantics_status": revision_metrics["planning_semantics_status"],
+                "planned_signal_semantics": "somme_des_enveloppes_journalieres_et_variation_des_etats_pas_volume_OF",
+                "true_plan_revision_count": revision_metrics["production_replanning_count"],
             }
         )
     return out

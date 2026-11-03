@@ -329,28 +329,37 @@ def safe_ratio(numerator: float, denominator: float) -> float:
     return numerator / denominator
 
 
-def extract_metrics(case_dir: Path, summary: dict[str, Any]) -> dict[str, float]:
+def optional_number(value):
+    """Une absence ou valeur non finie reste inconnue, jamais zéro."""
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if math.isfinite(result) else None
+
+
+def optional_delta(metrics, baseline, key, scale=1.0):
+    actual, reference = optional_number(metrics.get(key)), optional_number(baseline.get(key))
+    return (actual-reference)*scale if actual is not None and reference is not None else None
+
+
+def optional_round(value, digits=6, scale=1.0):
+    number = optional_number(value)
+    return round(number*scale, digits) if number is not None else None
+
+
+def extract_metrics(case_dir: Path, summary: dict[str, Any]) -> dict[str, Any]:
     kpis = summary.get("kpis") or {}
     derived = derived_case_kpis(case_dir)
-    out = {
-        "fill_rate": to_float(kpis.get("fill_rate"), 1.0),
-        "ending_backlog": to_float(kpis.get("ending_backlog"), 0.0),
-        "total_cost": to_float(kpis.get("total_cost"), 0.0),
-        "total_holding_cost": to_float(kpis.get("total_holding_cost"), 0.0),
-        "total_inventory_cost_legacy_raw_holding": to_float(kpis.get("total_inventory_cost_legacy_raw_holding"), 0.0),
-        "total_external_procurement_cost": to_float(kpis.get("total_external_procurement_cost"), 0.0),
-        "avg_inventory": to_float(kpis.get("avg_inventory"), 0.0),
-        "ending_inventory": to_float(kpis.get("ending_inventory"), 0.0),
-        "total_unreliable_loss_qty": to_float(kpis.get("total_unreliable_loss_qty"), 0.0),
-        "total_supplier_capacity_binding_qty": to_float(kpis.get("total_supplier_capacity_binding_qty"), 0.0),
-        "total_shipped": to_float(kpis.get("total_shipped"), 0.0),
-        "total_produced": to_float(kpis.get("total_produced"), 0.0),
-    }
-    out.update({f"derived_{key}": to_float(value, 0.0) for key, value in derived.items()})
-    out["derived_inventory_cost"] = to_float(
-        derived.get("inventory_holding_cost_proxy_total"),
-        to_float(kpis.get("total_holding_cost"), 0.0),
-    )
+    names = ("fill_rate", "ending_backlog", "total_cost", "total_holding_cost",
+             "total_inventory_cost_legacy_raw_holding", "total_external_procurement_cost",
+             "avg_inventory", "ending_inventory", "total_unreliable_loss_qty",
+             "total_supplier_capacity_binding_qty", "total_shipped", "total_produced")
+    out = {key: optional_number(kpis.get(key)) for key in names}
+    out.update({f"derived_{key}": value if isinstance(value, str) else optional_number(value)
+                for key, value in derived.items()})
+    inventory_cost = derived.get("inventory_cost", derived.get("inventory_holding_cost_proxy_total"))
+    out["derived_inventory_cost"] = optional_number(inventory_cost if inventory_cost is not None else kpis.get("total_holding_cost"))
     return out
 
 
@@ -389,7 +398,7 @@ def clamp_unit(value: float) -> float:
     return min(1.0, max(0.0, value))
 
 
-def impact_reading_from_deltas(
+def _complete_impact_reading_from_deltas(
     *,
     fill_rate_delta_pts: float,
     availability_delta_pts: float,
@@ -486,211 +495,151 @@ def impact_reading_from_deltas(
     }
 
 
-def impact_reading_from_metrics(metrics: dict[str, float], baseline: dict[str, float]) -> dict[str, Any]:
-    inventory_cost = metrics.get("derived_inventory_cost", metrics.get("total_holding_cost", 0.0))
-    baseline_inventory_cost = baseline.get("derived_inventory_cost", baseline.get("total_holding_cost", 0.0))
+def impact_reading_from_deltas(**kwargs) -> dict[str, Any]:
+    """Conserver les impacts connus sans fabriquer un score global complet."""
+    dependencies = {
+        "service": ("fill_rate_delta_pts",), "availability": ("availability_delta_pts",),
+        "adherence": ("adherence_delta_pts",), "backlog": ("ending_backlog", "baseline_total_shipped"),
+        "replanning": ("production_replanning_delta",), "nervousness": ("line_nervousness_delta",),
+        "delay": ("material_delay_days_delta",), "stockout": ("raw_material_stockout_days_delta",),
+        "cost": ("total_cost_delta_pct",), "inventory_cost": ("inventory_cost_delta", "baseline_inventory_cost"),
+        "loss": ("total_unreliable_loss_delta", "baseline_total_shipped"),
+        "shipped": ("total_shipped_delta", "baseline_total_shipped"),
+    }
+    values = {key: optional_number(kwargs.get(key)) for fields in dependencies.values() for key in fields}
+    missing = [component for component, fields in dependencies.items() if any(values[f] is None for f in fields)]
+    # The complete formula is reused only for the components whose arguments
+    # are known. Neutral placeholders below are discarded for missing components.
+    reading = _complete_impact_reading_from_deltas(**{key: value if value is not None else 0.0 for key, value in values.items()})
+    for component in missing:
+        reading["components"][component] = None
+    known = {key: value for key, value in reading["components"].items() if value is not None}
+    primary = max(known, key=lambda key: (known[key], DECISION_WEIGHTS[key])) if known else None
+    if missing:
+        reading["score_decisionnel_modele"] = None
+        reading["impact_metier_score"] = known[primary] if primary is not None else None
+        same_primary = primary is not None and reading['impact_metier_kpi'] == COMPONENT_LABELS[primary]
+        reading["impact_metier_kpi"] = COMPONENT_LABELS[primary] if primary is not None else "non évaluable"
+        if not same_primary:
+            reading["impact_metier_delta"] = "composante connue ; lecture partielle" if primary else "inconnu"
+        reading["impact_metier_lecture"] += " ; lecture partielle, composantes inconnues : " + ", ".join(missing)
+    reading["assessment_status"] = "donnees_insuffisantes" if missing else "evaluable"
+    reading["impact_metier_status"] = "partiel" if missing and known else ("inconnu" if missing else "complet")
+    reading["missing_components"] = missing
+    return reading
+
+
+def impact_reading_from_metrics(metrics: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
+    cost_delta = optional_delta(metrics, baseline, "total_cost")
+    base_cost = optional_number(baseline.get("total_cost"))
     return impact_reading_from_deltas(
-        fill_rate_delta_pts=(metrics.get("fill_rate", 1.0) - baseline.get("fill_rate", 1.0)) * 100.0,
-        availability_delta_pts=(
-            metrics.get("derived_product_availability", 1.0)
-            - baseline.get("derived_product_availability", 1.0)
-        ) * 100.0,
-        adherence_delta_pts=(
-            metrics.get("derived_line_adherence", 1.0)
-            - baseline.get("derived_line_adherence", 1.0)
-        ) * 100.0,
-        ending_backlog=metrics.get("ending_backlog", 0.0),
-        baseline_total_shipped=max(0.0, baseline.get("total_shipped", 0.0)),
-        production_replanning_delta=(
-            metrics.get("derived_production_replanning_count", 0.0)
-            - baseline.get("derived_production_replanning_count", 0.0)
-        ),
-        line_nervousness_delta=(
-            metrics.get("derived_line_nervousness", 0.0)
-            - baseline.get("derived_line_nervousness", 0.0)
-        ),
-        material_delay_days_delta=(
-            metrics.get("derived_material_delay_days", 0.0)
-            - baseline.get("derived_material_delay_days", 0.0)
-        ),
-        raw_material_stockout_days_delta=(
-            metrics.get("derived_raw_material_stockout_days", 0.0)
-            - baseline.get("derived_raw_material_stockout_days", 0.0)
-        ),
-        total_cost_delta_pct=safe_ratio(
-            metrics.get("total_cost", 0.0) - baseline.get("total_cost", 0.0),
-            max(1.0, baseline.get("total_cost", 0.0)),
-        ) * 100.0,
-        inventory_cost_delta=inventory_cost - baseline_inventory_cost,
-        baseline_inventory_cost=baseline_inventory_cost,
-        total_unreliable_loss_delta=(
-            metrics.get("total_unreliable_loss_qty", 0.0)
-            - baseline.get("total_unreliable_loss_qty", 0.0)
-        ),
-        total_shipped_delta=metrics.get("total_shipped", 0.0) - baseline.get("total_shipped", 0.0),
-    )
+        fill_rate_delta_pts=optional_delta(metrics, baseline, "fill_rate", 100),
+        availability_delta_pts=optional_delta(metrics, baseline, "derived_product_availability", 100),
+        adherence_delta_pts=optional_delta(metrics, baseline, "derived_line_adherence", 100),
+        ending_backlog=metrics.get("ending_backlog"), baseline_total_shipped=baseline.get("total_shipped"),
+        production_replanning_delta=optional_delta(metrics, baseline, "derived_production_replanning_count"),
+        line_nervousness_delta=optional_delta(metrics, baseline, "derived_line_nervousness"),
+        material_delay_days_delta=optional_delta(metrics, baseline, "derived_material_delay_days"),
+        raw_material_stockout_days_delta=optional_delta(metrics, baseline, "derived_raw_material_stockout_days"),
+        total_cost_delta_pct=cost_delta/max(1.0,base_cost)*100 if cost_delta is not None and base_cost is not None else None,
+        inventory_cost_delta=optional_delta(metrics, baseline, "derived_inventory_cost"),
+        baseline_inventory_cost=baseline.get("derived_inventory_cost"),
+        total_unreliable_loss_delta=optional_delta(metrics, baseline, "total_unreliable_loss_qty"),
+        total_shipped_delta=optional_delta(metrics, baseline, "total_shipped"))
 
 
 def enrich_existing_case_row(row: dict[str, Any]) -> dict[str, Any]:
-    total_shipped = to_float(row.get("total_shipped"), 0.0)
-    total_shipped_delta = to_float(row.get("total_shipped_delta"), 0.0)
-    inventory_cost = to_float(row.get("inventory_cost"), 0.0)
-    inventory_cost_delta = to_float(row.get("inventory_cost_delta"), 0.0)
+    shipped, shipped_delta = optional_number(row.get("total_shipped")), optional_number(row.get("total_shipped_delta"))
+    inventory, inventory_delta = optional_number(row.get("inventory_cost")), optional_number(row.get("inventory_cost_delta"))
     reading = impact_reading_from_deltas(
-        fill_rate_delta_pts=to_float(row.get("fill_rate_delta_pts"), 0.0),
-        availability_delta_pts=to_float(row.get("product_availability_delta_pts"), 0.0),
-        adherence_delta_pts=to_float(row.get("line_adherence_delta_pts"), 0.0),
-        ending_backlog=to_float(row.get("ending_backlog"), 0.0),
-        baseline_total_shipped=max(0.0, total_shipped - total_shipped_delta),
-        production_replanning_delta=to_float(row.get("production_replanning_delta"), 0.0),
-        line_nervousness_delta=to_float(row.get("line_nervousness_delta"), 0.0),
-        material_delay_days_delta=to_float(row.get("material_delay_days_delta"), 0.0),
-        raw_material_stockout_days_delta=to_float(row.get("raw_material_stockout_days_delta"), 0.0),
-        total_cost_delta_pct=to_float(row.get("total_cost_delta_pct"), 0.0),
-        inventory_cost_delta=inventory_cost_delta,
-        baseline_inventory_cost=max(0.0, inventory_cost - inventory_cost_delta),
-        total_unreliable_loss_delta=to_float(row.get("total_unreliable_loss_delta"), 0.0),
-        total_shipped_delta=total_shipped_delta,
-    )
+        fill_rate_delta_pts=row.get("fill_rate_delta_pts"), availability_delta_pts=row.get("product_availability_delta_pts"),
+        adherence_delta_pts=row.get("line_adherence_delta_pts"), ending_backlog=row.get("ending_backlog"),
+        baseline_total_shipped=shipped-shipped_delta if shipped is not None and shipped_delta is not None else None,
+        production_replanning_delta=row.get("production_replanning_delta"), line_nervousness_delta=row.get("line_nervousness_delta"),
+        material_delay_days_delta=row.get("material_delay_days_delta"), raw_material_stockout_days_delta=row.get("raw_material_stockout_days_delta"),
+        total_cost_delta_pct=row.get("total_cost_delta_pct"), inventory_cost_delta=inventory_delta,
+        baseline_inventory_cost=inventory-inventory_delta if inventory is not None and inventory_delta is not None else None,
+        total_unreliable_loss_delta=row.get("total_unreliable_loss_delta"), total_shipped_delta=shipped_delta)
     enriched = dict(row)
-    decision_score = reading["score_decisionnel_modele"]
-    observed_score = reading["impact_metier_score"]
-    enriched["score_decisionnel_modele"] = round(decision_score, 9)
-    enriched["score_decisionnel_pct"] = round(decision_score * 100.0, 4)
-    enriched["impact_metier_score"] = round(observed_score, 9)
-    enriched["impact_metier_pct"] = round(observed_score * 100.0, 4)
-    enriched["impact_metier_kpi"] = reading["impact_metier_kpi"]
-    enriched["impact_metier_delta"] = reading["impact_metier_delta"]
-    enriched["impact_metier_lecture"] = reading["impact_metier_lecture"]
-    enriched["cout_interpretation"] = reading["cout_interpretation"]
-    # Backward-compatible aliases: old map versions still expect impact_score/impact_pct.
-    enriched["impact_score"] = round(decision_score, 9)
-    enriched["impact_pct"] = round(decision_score * 100.0, 4)
+    for key in enriched:
+        if key.endswith(('_delta', '_delta_pts', '_delta_pct')) or key in (
+                'line_nervousness', 'production_replanning_count', 'line_adherence'):
+            enriched[key] = optional_number(enriched[key])
+    for key in ("assessment_status", "missing_components", "impact_metier_status", "impact_metier_kpi",
+                "impact_metier_delta", "impact_metier_lecture", "cout_interpretation"):
+        enriched[key] = reading[key]
+    score, observed = reading["score_decisionnel_modele"], reading["impact_metier_score"]
+    for key in ("score_decisionnel_modele", "impact_score"):
+        enriched[key] = optional_round(score, 9)
+    for key in ("score_decisionnel_pct", "impact_pct"):
+        enriched[key] = optional_round(score, 4, 100)
+    enriched["impact_metier_score"] = optional_round(observed, 9)
+    enriched["impact_metier_pct"] = optional_round(observed, 4, 100)
     enriched["impact_explanation"] = reading["impact_metier_lecture"]
     return enriched
 
 
-def case_row(
-    *,
-    supplier_id: str,
-    family_key: str,
-    case_id: str,
-    event_row: dict[str, Any] | None,
-    metrics: dict[str, float],
-    baseline_metrics: dict[str, float],
-    case_dir: Path,
-) -> dict[str, Any]:
-    reading = impact_reading_from_metrics(metrics, baseline_metrics)
-    score = reading["score_decisionnel_modele"]
+def case_row(*, supplier_id: str, family_key: str, case_id: str,
+             event_row: dict[str, Any] | None, metrics: dict[str, Any],
+             baseline_metrics: dict[str, Any], case_dir: Path) -> dict[str, Any]:
     family = RISK_FAMILIES.get(family_key, {})
-    row = {
-        "case_id": case_id,
-        "supplier_id": supplier_id,
-        "risk_family": family_key,
-        "risk_family_label": family.get("label", family_key),
-        "risk_type": (event_row or {}).get("risk_type", "baseline"),
-        "multiplier": (event_row or {}).get("multiplier", ""),
-        "event_start_day": (event_row or {}).get("start_day", ""),
-        "event_end_day": (event_row or {}).get("end_day", ""),
-        "impact_score": round(score, 9),
-        "impact_pct": round(score * 100.0, 4),
-        "score_decisionnel_modele": round(score, 9),
-        "score_decisionnel_pct": round(score * 100.0, 4),
-        "impact_metier_score": round(reading["impact_metier_score"], 9),
-        "impact_metier_pct": round(reading["impact_metier_score"] * 100.0, 4),
-        "impact_metier_kpi": reading["impact_metier_kpi"],
-        "impact_metier_delta": reading["impact_metier_delta"],
-        "impact_metier_lecture": reading["impact_metier_lecture"],
-        "cout_interpretation": reading["cout_interpretation"],
-        "impact_explanation": reading["impact_metier_lecture"],
-        "fill_rate": metrics.get("fill_rate"),
-        "fill_rate_delta_pts": round((metrics.get("fill_rate", 1.0) - baseline_metrics.get("fill_rate", 1.0)) * 100.0, 6),
-        "ending_backlog": metrics.get("ending_backlog"),
-        "product_availability": metrics.get("derived_product_availability"),
-        "product_availability_delta_pts": round(
-            (metrics.get("derived_product_availability", 1.0) - baseline_metrics.get("derived_product_availability", 1.0)) * 100.0,
-            6,
-        ),
-        "line_adherence": metrics.get("derived_line_adherence"),
-        "line_adherence_delta_pts": round(
-            (metrics.get("derived_line_adherence", 1.0) - baseline_metrics.get("derived_line_adherence", 1.0)) * 100.0,
-            6,
-        ),
-        "line_nervousness": metrics.get("derived_line_nervousness"),
-        "line_nervousness_delta": round(metrics.get("derived_line_nervousness", 0.0) - baseline_metrics.get("derived_line_nervousness", 0.0), 6),
-        "production_replanning_count": metrics.get("derived_production_replanning_count"),
-        "production_replanning_delta": round(
-            metrics.get("derived_production_replanning_count", 0.0) - baseline_metrics.get("derived_production_replanning_count", 0.0),
-            6,
-        ),
-        "raw_material_stockout_days": metrics.get("derived_raw_material_stockout_days"),
-        "raw_material_stockout_days_delta": round(
-            metrics.get("derived_raw_material_stockout_days", 0.0) - baseline_metrics.get("derived_raw_material_stockout_days", 0.0),
-            6,
-        ),
-        "material_delay_days": metrics.get("derived_material_delay_days"),
-        "material_delay_days_delta": round(metrics.get("derived_material_delay_days", 0.0) - baseline_metrics.get("derived_material_delay_days", 0.0), 6),
-        "total_cost": metrics.get("total_cost"),
-        "total_cost_delta": round(metrics.get("total_cost", 0.0) - baseline_metrics.get("total_cost", 0.0), 6),
-        "total_cost_delta_pct": round(safe_ratio(metrics.get("total_cost", 0.0) - baseline_metrics.get("total_cost", 0.0), max(1.0, baseline_metrics.get("total_cost", 0.0))) * 100.0, 6),
-        "inventory_cost": metrics.get("derived_inventory_cost"),
-        "inventory_cost_delta": round(metrics.get("derived_inventory_cost", 0.0) - baseline_metrics.get("derived_inventory_cost", 0.0), 6),
-        "total_unreliable_loss_qty": metrics.get("total_unreliable_loss_qty"),
-        "total_unreliable_loss_delta": round(metrics.get("total_unreliable_loss_qty", 0.0) - baseline_metrics.get("total_unreliable_loss_qty", 0.0), 6),
-        "total_shipped": metrics.get("total_shipped"),
-        "total_shipped_delta": round(metrics.get("total_shipped", 0.0) - baseline_metrics.get("total_shipped", 0.0), 6),
-        "case_dir": str(case_dir),
-    }
+    row = dict(case_id=case_id, supplier_id=supplier_id, risk_family=family_key,
+        risk_family_label=family.get("label",family_key), risk_type=(event_row or {}).get("risk_type","baseline"),
+        multiplier=(event_row or {}).get("multiplier",""), event_start_day=(event_row or {}).get("start_day",""),
+        event_end_day=(event_row or {}).get("end_day",""), case_dir=str(case_dir))
+    fields = {"fill_rate":"fill_rate", "ending_backlog":"ending_backlog", "product_availability":"derived_product_availability",
+        "line_adherence":"derived_line_adherence", "line_nervousness":"derived_line_nervousness",
+        "production_replanning_count":"derived_production_replanning_count", "raw_material_stockout_days":"derived_raw_material_stockout_days",
+        "material_delay_days":"derived_material_delay_days", "total_cost":"total_cost", "inventory_cost":"derived_inventory_cost",
+        "total_unreliable_loss_qty":"total_unreliable_loss_qty", "total_shipped":"total_shipped"}
+    for output, source in fields.items():
+        row[output] = optional_number(metrics.get(source))
+    deltas = {"fill_rate_delta_pts":("fill_rate",100), "product_availability_delta_pts":("derived_product_availability",100),
+        "line_adherence_delta_pts":("derived_line_adherence",100), "line_nervousness_delta":("derived_line_nervousness",1),
+        "production_replanning_delta":("derived_production_replanning_count",1),
+        "raw_material_stockout_days_delta":("derived_raw_material_stockout_days",1), "material_delay_days_delta":("derived_material_delay_days",1),
+        "total_cost_delta":("total_cost",1), "inventory_cost_delta":("derived_inventory_cost",1),
+        "total_unreliable_loss_delta":("total_unreliable_loss_qty",1), "total_shipped_delta":("total_shipped",1)}
+    for output,(source,scale) in deltas.items():
+        row[output] = optional_round(optional_delta(metrics,baseline_metrics,source,scale))
+    base_cost = optional_number(baseline_metrics.get("total_cost"))
+    row["total_cost_delta_pct"] = optional_round(row["total_cost_delta"]/max(1.0,base_cost)*100 if row["total_cost_delta"] is not None and base_cost is not None else None)
     return enrich_existing_case_row(row)
 
 
 def summarize_by_supplier(case_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by_supplier: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    grouped = defaultdict(list)
     for row in case_rows:
-        if row.get("risk_family") == "baseline":
-            continue
-        by_supplier[str(row.get("supplier_id") or "")].append(row)
-
-    out: list[dict[str, Any]] = []
-    for supplier_id, rows in by_supplier.items():
-        rows = [enrich_existing_case_row(row) for row in rows]
-        rows_sorted = sorted(rows, key=lambda row: (-to_float(row.get("score_decisionnel_modele"), 0.0), str(row.get("risk_family"))))
-        worst = rows_sorted[0]
-        family_impacts = {
-            str(row.get("risk_family")): to_float(row.get("score_decisionnel_modele"), 0.0)
-            for row in rows
-        }
-        out.append(
-            {
-                "supplier_id": supplier_id,
-                "worst_risk_family": worst.get("risk_family"),
-                "worst_risk_family_label": worst.get("risk_family_label"),
-                "worst_risk_type": worst.get("risk_type"),
-                "worst_impact_score": worst.get("impact_score"),
-                "worst_impact_pct": worst.get("impact_pct"),
-                "worst_impact_explanation": worst.get("impact_explanation"),
-                "worst_score_decisionnel_modele": worst.get("score_decisionnel_modele"),
-                "worst_score_decisionnel_pct": worst.get("score_decisionnel_pct"),
-                "worst_impact_metier_score": worst.get("impact_metier_score"),
-                "worst_impact_metier_pct": worst.get("impact_metier_pct"),
-                "worst_impact_metier_kpi": worst.get("impact_metier_kpi"),
-                "worst_impact_metier_delta": worst.get("impact_metier_delta"),
-                "worst_impact_metier_lecture": worst.get("impact_metier_lecture"),
-                "worst_cout_interpretation": worst.get("cout_interpretation"),
-                "tested_family_count": len(rows),
-                "capacity_impact_pct": round(100.0 * family_impacts.get("capacity", 0.0), 4),
-                "stock_impact_pct": round(100.0 * family_impacts.get("stock", 0.0), 4),
-                "lead_impact_pct": round(100.0 * family_impacts.get("lead", 0.0), 4),
-                "reliability_impact_pct": round(100.0 * family_impacts.get("reliability", 0.0), 4),
-                "quality_impact_pct": round(100.0 * family_impacts.get("quality", 0.0), 4),
-                "upstream_impact_pct": round(100.0 * family_impacts.get("upstream", 0.0), 4),
-                "cost_impact_pct": round(100.0 * family_impacts.get("cost", 0.0), 4),
-            }
-        )
-    out.sort(key=lambda row: (-to_float(row.get("worst_score_decisionnel_modele"), 0.0), str(row.get("supplier_id"))))
-    for idx, row in enumerate(out, start=1):
-        row["rank"] = idx
-    return out
+        if row.get("risk_family") != "baseline":
+            grouped[str(row.get("supplier_id") or "")].append(enrich_existing_case_row(row))
+    output = []
+    for supplier, rows in sorted(grouped.items()):
+        known = [row for row in rows if row["assessment_status"]=="evaluable"]
+        complete = len(known)==len(rows)
+        worst_known = max(known,key=lambda row:row["score_decisionnel_modele"]) if known else {}
+        worst = worst_known if complete else {}
+        observed = [r for r in rows if r.get("impact_metier_score") is not None]
+        physical = max(observed,key=lambda r:r["impact_metier_score"]) if observed else {}
+        result = dict(supplier_id=supplier,assessment_status="evaluable" if complete else "donnees_insuffisantes",
+            missing_components=sorted({key for r in rows for key in r["missing_components"]}),tested_family_count=len(rows),
+            evaluable_family_count=len(known),rank=None,worst_risk_family=worst.get("risk_family"),
+            worst_risk_family_label=worst.get("risk_family_label"),worst_risk_type=worst.get("risk_type"),
+            worst_known_risk_family=worst_known.get("risk_family"),worst_known_score_decisionnel_modele=worst_known.get("score_decisionnel_modele"),
+            known_impact_metier_family=physical.get("risk_family"),known_impact_metier_score=physical.get("impact_metier_score"),
+            known_impact_metier_kpi=physical.get("impact_metier_kpi"),known_impact_metier_lecture=physical.get("impact_metier_lecture"))
+        for key in ("impact_score","impact_pct","impact_explanation","score_decisionnel_modele","score_decisionnel_pct",
+                    "impact_metier_score","impact_metier_pct","impact_metier_kpi","impact_metier_delta","impact_metier_lecture","cout_interpretation"):
+            result['worst_'+key]=worst.get(key)
+        for family in ("capacity","stock","lead","reliability","quality","upstream","cost"):
+            cases=[r for r in rows if r['risk_family']==family]
+            scores=[r['score_decisionnel_modele'] for r in cases if r['score_decisionnel_modele'] is not None]
+            result[family+'_impact_pct']=optional_round(max(scores),4,100) if cases and len(scores)==len(cases) else None
+        output.append(result)
+    # A supplier with missing families cannot be ranked against complete ones.
+    if output and all(r['assessment_status']=='evaluable' for r in output):
+        output.sort(key=lambda r:(-r['worst_score_decisionnel_modele'],r['supplier_id']))
+        for rank,row in enumerate(output,1):row['rank']=rank
+    return output
 
 
 def write_report(output_dir: Path, summary_rows: list[dict[str, Any]], case_rows: list[dict[str, Any]], metadata: dict[str, Any]) -> None:
@@ -710,13 +659,13 @@ def write_report(output_dir: Path, summary_rows: list[dict[str, Any]], case_rows
     ]
     for row in summary_rows[:20]:
         lines.append(
-            "| {rank} | {supplier_id} | {risk} | {score:.1f}% | {kpi} | {why} |".format(
+            "| {rank} | {supplier_id} | {risk} | {score} | {kpi} | {why} |".format(
                 rank=row.get("rank"),
                 supplier_id=row.get("supplier_id"),
                 risk=row.get("worst_risk_family_label"),
-                score=to_float(row.get("worst_score_decisionnel_pct"), to_float(row.get("worst_impact_pct"), 0.0)),
-                kpi=str(row.get("worst_impact_metier_kpi") or "n/a").replace("|", "/"),
-                why=str(row.get("worst_impact_metier_lecture") or row.get("worst_impact_explanation") or "").replace("|", "/"),
+                score=(f"{row['worst_score_decisionnel_pct']:.1f}%" if optional_number(row.get("worst_score_decisionnel_pct")) is not None else "non évaluable"),
+                kpi=str(row.get("worst_impact_metier_kpi") or row.get("known_impact_metier_kpi") or "n/a").replace("|", "/"),
+                why=str(row.get("worst_impact_metier_lecture") or row.get("known_impact_metier_lecture") or row.get("worst_impact_explanation") or "non évaluable").replace("|", "/"),
             )
         )
     lines.extend(

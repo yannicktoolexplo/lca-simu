@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Priorités et résultats — 3 novembre 2026</title>
+<style>body{font:17px system-ui;max-width:960px;margin:35px auto;padding:0 22px;color:#19364a;line-height:1.5}a{color:#075985}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd9df;padding:10px;text-align:left}th{background:#eef5f6}.note{background:#eef7f4;padding:15px;border-left:4px solid #167b68}small{color:#526575}details{margin:20px 0}h2{font-size:23px}</style>
+<h1>Des diagnostics plus fiables ; le service reste inchangé</h1>
+<p class="note">Les priorités ont été mises en œuvre : supprimer les doubles comptes de programme,
+préserver les données inconnues et réunir la lecture des creux. Le calendrier d’avril révèle deux attentes
+successives à vérifier avant toute correction physique.</p>
+<p><a href="../../resultats/priorites_20261103/interface/diagnostic_fusion.html"><strong>Ouvrir le graphique et cliquer sur un creux → remonter de Muret à l’usine puis à Gaillac</strong></a></p>
+<h2>Ce qui s’améliore</h2>
+<table><thead><tr><th>Mesure</th><th>Avant</th><th>Après</th></tr></thead><tbody>
+<tr><td>Programme de 693055, scénario D, plusieurs passes le même jour</td><td>6 000 kg comptés</td><td>2 400 kg ; 2 400 kg réellement exécutés</td></tr>
+<tr><td>Maximum de programme de 773474, nominal</td><td>89 600 kg comptés</td><td>22 400 kg ; quantités fabriquées conservées</td></tr>
+<tr><td>Exemple de programme entièrement exécuté en quatre passes</td><td>40 % de concordance apparente</td><td>100 % sur la même journée</td></tr>
+<tr><td>Révisions de programme sans identité et versions datées</td><td>Les variations des restes pouvaient être interprétées comme des révisions</td><td>Inconnues, exclues du score ; classement global non évaluable si incomplet</td></tr>
+<tr><td>Rapports mêlant grammes et unités</td><td>Pondération dépendante de l’unité choisie</td><td>Rapports calculés par site/article puis moyenne sans pondération</td></tr>
+<tr><td>Livraisons, stocks, jours d’exécution et lots des quatre calculs conservés</td><td>Référence précédente</td><td>Identiques : aucun gain de service revendiqué</td></tr>
+</tbody></table>
+<p>Sans identifiant de programme dans les anciennes traces, le maximum des états restants d’une journée
+est une <strong>enveloppe de diagnostic</strong>. Il ne certifie pas le volume d’ordres indépendants.
+Un reste répété sur dix jours n’est pas dix nouvelles commandes.</p>
+<h2>Le graphique permet de remonter le problème</h2>
+<p>Cliquer sur un point bas ouvre une explication courte, les stocks et disponibilités de Muret,
+puis l’usine et l’amont. Les détails sont repliés. Les 56 creux restent des creux du rapport entre
+<strong>l’amplitude du mouvement net de stock et la demande</strong>, pas 56 ruptures clients démontrées.
+Le périmètre observé couvre 51 semaines par produit, du 6 janvier au 28 décembre 2025.</p>
+<p>Les montants financiers livrés ou perdus restent séparés des quantités physiques.
+Les produits sont désignés par leurs références. La carte sur cinq ans reste une livraison historique datée,
+avec ses comparaisons d’origine.</p>
+<h2>Avril : une piste précise, encore à départager</h2>
+<p>Pour 86 400 unités de 268091, les traces des mêmes lots montrent deux attentes de dix jours du lundi au vendredi.</p>
+<table><thead><tr><th>Étape simulée</th><th>Dates de 2025</th></tr></thead><tbody>
+<tr><td>Quantités matérialisées à l’usine</td><td>20 et 21 mars</td></tr>
+<tr><td>Disponibles à l’usine après la première attente</td><td>3 et 4 avril</td></tr>
+<tr><td>Réception physique à Muret</td><td>5 et 6 avril</td></tr>
+<tr><td>Disponibles à Muret après la deuxième attente</td><td>18 avril</td></tr>
+<tr><td>Réception simulée chez le client</td><td>20 avril</td></tr>
+</tbody></table>
+<p>Le contrat du contrôle des produits finis situe celui-ci à Muret, après transport. Mais les engagements
+initiaux conservent aussi l’écart entre la « Date de livraison » et la « Date entrée » de la source.
+<strong>Deux attentes sont prouvées ; leur identité industrielle reste inconnue.</strong>
+La source ne précise pas si ces dates décrivent une autre étape.</p>
+<p>Un calcul court de calendrier, avec un seul contrôle à Muret et un départ immédiat après production,
+donne une disponibilité le <strong>4 avril au lieu du 18 avril</strong>. C’est une hypothèse discriminante,
+pas une simulation complète ni un gain client démontré : transport disponible, décisions MRP et autres
+flux ne sont pas recalculés. Aucun contrôle n’a été retiré du moteur.</p>
+<p><strong>Prochaine priorité :</strong> établir à quel site et à quelle étape correspondent le « Temps de réception »
+et la « Date entrée » des ordres de production initiaux. Si c’est le contrôle de Muret, tester une règle commune
+de localisation unique sur un cas court. Si c’est une autre étape, conserver les deux délais et examiner
+la couverture datée des engagements avant la pénurie. Aucun réglage propre à une référence n’est justifié.</p>
+<details><summary>Preuves et limites</summary>
+<p><a href="../../artifacts/testing/priorites_20261103/final_manifest.json">Manifeste de cette livraison</a> ·
+<a href="../../artifacts/testing/priorites_20261103/tickets.json">Questions suivies et prochain essai</a> ·
+<a href="REVUE_ENSEMBLE_20261103.html">Revue précédente conservée</a></p>
+<p>Tests de calcul ciblés en mémoire, oracles indépendants, comparaison des quatre jeux de résultats conservés
+et exécution du JavaScript de navigation avec un substitut de document. Aucun navigateur réel, aucune
+validation du rendu CSS, aucune simulation longue nouvelle. Les qualifications historiques globales restent
+partielles ; ces contrôles ne certifient pas la calibration industrielle. Le contrôle documentaire global
+a été exécuté : il reste en échec sur cinq domaines et sept références à revoir.</p>
+<p>Référence conservée : coherent-MRP-20261014. État de départ : dev_yannick,
+5cc6d73150d41996e190a929032b114ffaba1d07. Sources industrielles et comparaisons historiques préservées.
+Les données de départs et livraisons clients bruts, dates de libération réelles et capacités industrielles
+de Gaillac restent nécessaires pour conclure sur les causes et le chiffre d’affaires perdu.</p>
+</details><p><small>Livraison du 3 novembre 2026 — amélioration de mesure et de lecture, sans promotion d’une nouvelle référence.</small></p>
+</html>

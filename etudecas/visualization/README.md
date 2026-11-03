@@ -48,36 +48,40 @@ résultats nominal/A/D/E de `comparaison_arrets_693055.html`. Les originaux
 restent conservés. Il nécessite ces preuves locales et n'exécute aucun moteur.
 
 ```powershell
-python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --output-dir etudecas/resultats/diagnostic_reprise_20261102/interface --proof-dir etudecas/artifacts/testing/diagnostic_reprise_20261102/ui
+python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --output-dir etudecas/resultats/priorites_20261103/interface --proof-dir etudecas/artifacts/testing/priorites_20261103/ui/BUILD_UNIQUE
 ```
 
-Livrable : `etudecas/resultats/diagnostic_reprise_20261102/interface/diagnostic_fusion.html`,
+Livrable : `etudecas/resultats/priorites_20261103/interface/diagnostic_fusion.html`,
 accessible aussi depuis `etudecas/index.html`. Le manifeste de construction
-est dans `etudecas/artifacts/testing/diagnostic_reprise_20261102/ui`. Les vues
+est dans `etudecas/artifacts/testing/priorites_20261103/ui/BUILD_UNIQUE`. Les vues
 précédentes restent dans `resultats/diagnostic_fusion_20261022` et
 `resultats/diagnostic_suite_20261022`.
 L'écran principal montre les creux cliquables et une seule fiche courte.
 Les produits sont désignés par leur référence article, y compris dans les
 détails et les données embarquées. Les sources industrielles restent intactes.
-Les raccourcis classent les mouvements `abs(I)` par rapport à la demande
+Les raccourcis classent la quantité des mouvements de stock, sans leur signe, par rapport à la demande
 (ratio croissant, puis quantité et date ; demande nulle exclue).
 La remontée Muret → usine → Gaillac utilise les photos à la date exacte ;
 une absence reste inconnue. Les analyses longues sont repliées par défaut.
-« Après le creux » distingue le retour du proxy d'un rattrapage client.
-Les détails comparent 1, 2 et 4 semaines : crédits I positifs, débits I négatifs,
+« Après le creux » distingue le retour du mouvement de stock d'un rattrapage client.
+Les détails comparent 1, 2 et 4 semaines : hausses et baisses par mouvements de stock,
 demande et bilan de stock. Une fenêtre incomplète n'est pas extrapolée.
 Deux décompositions comptables hypothétiques peuvent montrer que le même
 stock final reste compatible avec des sorties différentes ; elles ne
 reconstituent ni des livraisons observées ni une simulation native.
 Un clic sur une semaine aligne les stocks en KG/UN, le bilan signé de Muret,
-les sources et les hypothèses. `abs(I)` reste un indicateur de rapprochement,
+les sources et les hypothèses. Le mouvement de stock sans son signe reste un indicateur de rapprochement,
 pas un taux de service mesuré. Les rejeux locaux conservent les arrivées
 simulées et ne recalculent pas le MRP amont ; ils sont distincts des scénarios
 annuels. Six fiches distinguent faits, hypothèses, données discriminantes et
 verdict. Quatre épisodes ont cinq cas de rejeu avec livraisons à l'échéance
-conventionnelle J+2, délais pondérés par UN, comparaison appariée au nominal et
+conventionnelle demande + 2 jours, délais pondérés par UN, comparaison appariée au nominal et
 rattrapage. Le backlog total sur 28 jours reste séparé du retard des cohortes
 de la semaine ; les éventuelles observations censurées sont affichées.
 Ces délais simulés ne sont pas un OTIF industriel observé.
 Les détails numériques et les contrôles d'interaction ne remplacent
 pas une validation industrielle ni un rendu navigateur.
+
+La couverture industrielle est de 51 semaines observées par article (6 janvier–28 décembre 2025), séparée des scénarios annuels. Les finances ne sont jamais converties en unités physiques. La carte sur cinq ans du 14 octobre reste une livraison datée ; ses comparaisons ne sont pas actualisées par le diagnostic.
+
+L’arbre KPI utilise `simulation.analysis.production_daily_metrics` : flux exécutés additionnés, enveloppes restantes dédupliquées par programme, déficit calculé après la dernière passe quotidienne. Sans versions datées identifiables, les révisions sont inconnues (`null`) et exclues du score, déclaré partiel. Les enveloppes journalières ne sont pas assimilées à des nouveaux besoins.
