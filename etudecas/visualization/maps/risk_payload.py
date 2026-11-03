@@ -44,12 +44,35 @@ RISK_LEGACY_KEYS = (
 
 def to_float(x: Any) -> float | None:
     try:
-        return float(x)
+        value = float(x)
+        return value if math.isfinite(value) else None
     except (TypeError, ValueError):
         return None
 
 
-def supplier_risk_campaign_status(score: float) -> tuple[str, str, str]:
+def campaign_score(row: dict[str, Any], *, summary: bool = False) -> float | None:
+    """An explicit unknown score cannot fall back to an old reassuring zero."""
+    if row.get("assessment_status") == "donnees_insuffisantes":
+        return None
+    prefix = "worst_" if summary else ""
+    field = prefix + "score_decisionnel_modele"
+    value = to_float(row.get(field if field in row else prefix + "impact_score"))
+    return max(0.0, value) if value is not None else None
+
+
+def optional_pct(value: Any, digits: int = 1, *, scale: float = 1.0) -> str:
+    number = to_float(value)
+    return "inconnu" if number is None else fmt_pct(number * scale, digits)
+
+
+def optional_qty(value: Any, digits: int = 0) -> str:
+    number = to_float(value)
+    return "inconnu" if number is None else fmt_qty(number, digits)
+
+
+def supplier_risk_campaign_status(score: float | None) -> tuple[str, str, str]:
+    if score is None:
+        return "unknown", "Donnees insuffisantes", "businessInfo"
     if score >= 0.06:
         return "sensitive", "Impact fort", "businessAlert"
     if score >= 0.02:
@@ -66,19 +89,17 @@ def render_supplier_risk_campaign_html(
     case_rows: list[dict[str, str]],
     metadata: dict[str, Any],
 ) -> str:
-    score = max(
-        0.0,
-        to_float(summary_row.get("worst_score_decisionnel_modele"))
-        or to_float(summary_row.get("worst_impact_score"))
-        or 0.0,
-    )
-    observed_score = max(0.0, to_float(summary_row.get("worst_impact_metier_score")) or 0.0)
-    observed_kpi = str(summary_row.get("worst_impact_metier_kpi") or "n/a")
+    score = campaign_score(summary_row, summary=True)
+    observed_score = to_float(summary_row.get("worst_impact_metier_score"))
+    if observed_score is None:
+        observed_score = to_float(summary_row.get("known_impact_metier_score"))
+    observed_kpi = str(summary_row.get("worst_impact_metier_kpi") or summary_row.get("known_impact_metier_kpi") or "inconnu")
     observed_delta = str(summary_row.get("worst_impact_metier_delta") or "n/a")
     observed_reading = str(
         summary_row.get("worst_impact_metier_lecture")
         or summary_row.get("worst_impact_explanation")
-        or "aucune degradation KPI visible"
+        or summary_row.get("known_impact_metier_lecture")
+        or "Donnees insuffisantes pour conclure."
     )
     cost_reading = str(summary_row.get("worst_cout_interpretation") or "")
     status, status_label, _cls = supplier_risk_campaign_status(score)
@@ -87,17 +108,12 @@ def render_supplier_risk_campaign_html(
         summary_row.get("worst_risk_family_label")
         or SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])["label"]
     )
+    if score is None:
+        family_label = "Classement global inconnu"
     info = SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])
     horizon = metadata.get("days", "n/a")
     family_count = int(to_float(summary_row.get("tested_family_count")) or len(case_rows))
-    worst = max(
-        case_rows,
-        key=lambda row: (
-            to_float(row.get("score_decisionnel_modele"))
-            or to_float(row.get("impact_score"))
-            or 0.0
-        ),
-    ) if case_rows else {}
+    worst = max(case_rows, key=lambda row: campaign_score(row)) if case_rows and all(campaign_score(row) is not None for row in case_rows) else {}
 
     def pct_value(field: str, digits: int = 1, *, delta: bool = False) -> str:
         value = to_float(worst.get(field))
@@ -111,32 +127,28 @@ def render_supplier_risk_campaign_html(
     family_rows = []
     for row in sorted(
         case_rows,
-        key=lambda r: -(
-            to_float(r.get("score_decisionnel_modele"))
-            or to_float(r.get("impact_score"))
-            or 0.0
-        ),
+        key=lambda r: (campaign_score(r) is not None, -(campaign_score(r) or 0.0)),
     ):
-        row_score = to_float(row.get("score_decisionnel_modele")) or to_float(row.get("impact_score")) or 0.0
-        row_observed = to_float(row.get("impact_metier_score")) or 0.0
+        row_score = campaign_score(row)
+        row_observed = to_float(row.get("impact_metier_score"))
         family_rows.append(
             [
                 row.get("risk_family_label") or row.get("risk_family") or "n/a",
                 str(row.get("multiplier") or ""),
-                fmt_pct(row_score * 100.0, 1),
+                optional_pct(row_score, scale=100.0),
                 str(row.get("impact_metier_kpi") or "n/a"),
                 str(row.get("impact_metier_delta") or "n/a"),
-                fmt_pct(row_observed * 100.0, 1),
-                fmt_pct((to_float(row.get("fill_rate")) or 0.0) * 100.0, 1),
-                fmt_pct((to_float(row.get("product_availability")) or 0.0) * 100.0, 1),
-                fmt_pct((to_float(row.get("line_adherence")) or 0.0) * 100.0, 1),
-                fmt_qty(to_float(row.get("ending_backlog")) or 0.0, 0),
-                fmt_qty(to_float(row.get("production_replanning_delta")) or 0.0, 0),
-                fmt_qty(to_float(row.get("line_nervousness_delta")) or 0.0, 0),
-                fmt_qty(to_float(row.get("material_delay_days_delta")) or 0.0, 1),
-                f"{fmt_pct(to_float(row.get('total_cost_delta_pct')) or 0.0, 1)}",
+                optional_pct(row_observed, scale=100.0),
+                optional_pct(row.get("fill_rate"), scale=100.0),
+                optional_pct(row.get("product_availability"), scale=100.0),
+                optional_pct(row.get("line_adherence"), scale=100.0),
+                optional_qty(row.get("ending_backlog")),
+                optional_qty(row.get("production_replanning_delta")),
+                optional_qty(row.get("line_nervousness_delta")),
+                optional_qty(row.get("material_delay_days_delta"), 1),
+                optional_pct(row.get('total_cost_delta_pct')),
                 str(row.get("cout_interpretation") or ""),
-                str(row.get("impact_metier_lecture") or row.get("impact_explanation") or "aucune degradation KPI visible"),
+                str(row.get("impact_metier_lecture") or row.get("impact_explanation") or "Donnees insuffisantes pour conclure."),
             ]
         )
 
@@ -152,23 +164,24 @@ def render_supplier_risk_campaign_html(
             f"<div class=\"orderLedgerTextHeader\">{html.escape(supplier_id)} - stress tests fournisseurs</div>",
             "<div class=\"orderLedgerStatus\">Question metier: si l'on degrade ce fournisseur dans un scenario contrefactuel, quelle famille de risque impacte le plus les KPI ? Chaque ligne est un run separe, compare a une reference sans evenement.</div>",
             "<div class=\"orderLedgerStatus\">Lecture separee: l'impact metier observe montre les KPI qui bougent vraiment; le score decisionnel est une synthese ponderee provisoire a calibrer. Ce n'est pas une probabilite terrain.</div>",
+            ("<div class=\"orderLedgerStatus\">Classement global inconnu : composantes manquantes " + html.escape(str(summary_row.get("missing_components") or "non precisees")) + ". Les impacts connus restent partiels et distincts du score global.</div>") if score is None else "",
             f"<div class=\"sensitivityHero sensitivityStatus-{html.escape(status)}\" style=\"border-left-color:{html.escape(info['color'])}\">",
             "<div class=\"sensitivityHeroLeft\">",
             f"<div class=\"sensitivityPill\">{html.escape(status_label)}</div>",
             f"<div class=\"sensitivityHeroTitle\">{html.escape(supplier_id)} - pire risque teste: {html.escape(family_label)}</div>",
-            f"<div class=\"sensitivityHeroText\">Impact metier principal: {html.escape(observed_kpi)} {html.escape(observed_delta)}. Score decisionnel modele: {fmt_pct(score * 100.0, 1)} sur une campagne de {html.escape(str(horizon))} jours.</div>",
+            f"<div class=\"sensitivityHeroText\">Impact metier principal: {html.escape(observed_kpi)} {html.escape(observed_delta)}. Score decisionnel modele: {optional_pct(score, scale=100.0)} sur une campagne de {html.escape(str(horizon))} jours.</div>",
             f"<div class=\"sensitivityRecommendation\">Lecture metier: {html.escape(observed_reading)}</div>",
             cost_warning_html,
             "</div>",
             "<div class=\"sensitivityHeroMetrics\">",
             f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Familles testees</div><div class=\"sensitivityMetricValue\">{family_count}</div><div class=\"sensitivityMetricHint\">une famille par run</div></div>",
             f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Impact metier</div><div class=\"sensitivityMetricValue\">{html.escape(observed_kpi)}</div><div class=\"sensitivityMetricHint\">{html.escape(observed_delta)}</div></div>",
-            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Intensite metier</div><div class=\"sensitivityMetricValue\">{fmt_pct(observed_score * 100.0, 1)}</div><div class=\"sensitivityMetricHint\">KPI observe normalise</div></div>",
-            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Score decisionnel</div><div class=\"sensitivityMetricValue\">{fmt_pct(score * 100.0, 1)}</div><div class=\"sensitivityMetricHint\">synthese ponderee provisoire</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Intensite metier</div><div class=\"sensitivityMetricValue\">{optional_pct(observed_score, scale=100.0)}</div><div class=\"sensitivityMetricHint\">KPI observe normalise</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Score decisionnel</div><div class=\"sensitivityMetricValue\">{optional_pct(score, scale=100.0)}</div><div class=\"sensitivityMetricHint\">synthese ponderee provisoire</div></div>",
             f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Fill rate</div><div class=\"sensitivityMetricValue\">{pct_value('fill_rate')}</div><div class=\"sensitivityMetricHint\">cas le plus dur</div></div>",
             f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Disponibilite</div><div class=\"sensitivityMetricValue\">{pct_value('product_availability')}</div><div class=\"sensitivityMetricHint\">lignes client servies</div></div>",
             f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Adherence</div><div class=\"sensitivityMetricValue\">{pct_value('line_adherence')}</div><div class=\"sensitivityMetricHint\">plan vs reel</div></div>",
-            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Delta cout</div><div class=\"sensitivityMetricValue\">{fmt_pct(to_float(worst.get('total_cost_delta_pct')) or 0.0, 1)}</div><div class=\"sensitivityMetricHint\">vs reference</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Delta cout</div><div class=\"sensitivityMetricValue\">{optional_pct(worst.get('total_cost_delta_pct'))}</div><div class=\"sensitivityMetricHint\">vs reference</div></div>",
             "</div>",
             "</div>",
             "<div class=\"orderLedgerTextHeader orderLedgerSubHeader\">Tous les risques testes sur ce fournisseur</div>",
@@ -229,34 +242,34 @@ def build_supplier_risk_campaign_payload(
         supplier_id = str(row.get("supplier_id") or "")
         if not supplier_id:
             continue
-        score = max(
-            0.0,
-            to_float(row.get("worst_score_decisionnel_modele"))
-            or to_float(row.get("worst_impact_score"))
-            or 0.0,
-        )
-        observed_score = max(0.0, to_float(row.get("worst_impact_metier_score")) or 0.0)
+        score = campaign_score(row, summary=True)
+        observed_score = to_float(row.get("worst_impact_metier_score"))
+        if observed_score is None:
+            observed_score = to_float(row.get("known_impact_metier_score"))
         status, status_label, _business_class = supplier_risk_campaign_status(score)
         family = str(row.get("worst_risk_family") or "other")
         info = SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])
-        family_label = str(row.get("worst_risk_family_label") or info["label"])
+        family_label = str(row.get("worst_risk_family_label") or info["label"]) if score is not None else "Classement global inconnu"
         family_cases = case_by_supplier.get(supplier_id, [])
         horizon = metadata.get("days", "n/a")
         nodes[supplier_id] = {
             "source": "supplier_risk_campaign",
+            "assessment_status": row.get("assessment_status") or ("evaluable" if score is not None else "donnees_insuffisantes"),
+            "missing_components": row.get("missing_components") or [],
+            "known_impact_metier_score": observed_score,
             "status": status,
             "status_label": status_label,
-            "driver_family": family,
+            "driver_family": family if score is not None else None,
             "driver_label": family_label,
             "driver_color": info["color"],
-            "score": round(score, 9),
-            "score_decisionnel_pct": round(score * 100.0, 4),
-            "impact_metier_pct": round(observed_score * 100.0, 4),
-            "impact_metier_kpi": str(row.get("worst_impact_metier_kpi") or "n/a"),
+            "score": round(score, 9) if score is not None else None,
+            "score_decisionnel_pct": round(score * 100.0, 4) if score is not None else None,
+            "impact_metier_pct": round(observed_score * 100.0, 4) if observed_score is not None else None,
+            "impact_metier_kpi": str(row.get("worst_impact_metier_kpi") or row.get("known_impact_metier_kpi") or "inconnu"),
             "impact_metier_delta": str(row.get("worst_impact_metier_delta") or "n/a"),
-            "impact_metier_lecture": str(row.get("worst_impact_metier_lecture") or row.get("worst_impact_explanation") or ""),
+            "impact_metier_lecture": str(row.get("worst_impact_metier_lecture") or row.get("known_impact_metier_lecture") or row.get("worst_impact_explanation") or "inconnu"),
             "cout_interpretation": str(row.get("worst_cout_interpretation") or ""),
-            "impact_pct": round(score * 100.0, 4),
+            "impact_pct": round(score * 100.0, 4) if score is not None else None,
             "tested_family_count": int(to_float(row.get("tested_family_count")) or len(family_cases)),
             "configured_event_count": int(to_float(row.get("tested_family_count")) or len(family_cases)),
             "applied_event_count": int(to_float(row.get("tested_family_count")) or len(family_cases)),
@@ -274,33 +287,35 @@ def build_supplier_risk_campaign_payload(
             "summary_lines": [
                 {"label": "Lecture", "value": "campagne de stress tests fournisseur"},
                 {"label": "Statut", "value": status_label},
-                {"label": "Pire famille testee", "value": family_label},
-                {"label": "Impact metier principal", "value": str(row.get("worst_impact_metier_kpi") or "n/a")},
+                {"label": "Famille dominante si classement complet", "value": family_label},
+                {"label": "Impact metier connu (partiel si score inconnu)", "value": str(row.get("worst_impact_metier_kpi") or row.get("known_impact_metier_kpi") or "inconnu")},
                 {"label": "Delta metier principal", "value": str(row.get("worst_impact_metier_delta") or "n/a")},
-                {"label": "Intensite metier", "value": fmt_pct(observed_score * 100.0, 1)},
-                {"label": "Score decisionnel", "value": fmt_pct(score * 100.0, 1)},
+                {"label": "Intensite metier", "value": optional_pct(observed_score, scale=100.0)},
+                {"label": "Score decisionnel", "value": optional_pct(score, scale=100.0)},
                 {"label": "Familles testees", "value": str(int(to_float(row.get("tested_family_count")) or len(family_cases)))},
                 {"label": "Horizon", "value": f"{horizon} jours"},
-                {"label": "Pourquoi", "value": str(row.get("worst_impact_metier_lecture") or row.get("worst_impact_explanation") or "aucune degradation KPI visible")},
+                {"label": "Pourquoi", "value": str(row.get("worst_impact_metier_lecture") or row.get("known_impact_metier_lecture") or row.get("worst_impact_explanation") or "Donnees insuffisantes pour conclure.")},
             ],
         }
 
-    strongest = max(nodes.values(), key=lambda row: to_float(row.get("score")) or 0.0) if nodes else {}
+    complete = bool(nodes) and all(row["score"] is not None for row in nodes.values())
+    strongest = max(nodes.values(), key=lambda row: row["score"]) if complete else {}
     return {
         "available": bool(nodes),
         "nodes": nodes,
         "global": {
             "source": "supplier_risk_campaign",
+            "assessment_status": "evaluable" if complete else "donnees_insuffisantes",
             "supplier_count": len(nodes),
             "case_count": int(to_float(metadata.get("case_count")) or len(case_rows)),
             "stress_case_count": max(0, len(case_rows) - 1),
             "horizon_days": metadata.get("days"),
             "families": metadata.get("families") or [],
-            "dominant_family": strongest.get("driver_family") if strongest else "other",
-            "dominant_label": strongest.get("driver_label") if strongest else "n/a",
-            "max_score_decisionnel_pct": strongest.get("score_decisionnel_pct") if strongest else 0.0,
-            "max_impact_metier_pct": strongest.get("impact_metier_pct") if strongest else 0.0,
-            "max_impact_pct": strongest.get("score_decisionnel_pct") if strongest else 0.0,
+            "dominant_family": strongest.get("driver_family") if strongest else None,
+            "dominant_label": strongest.get("driver_label") if strongest else "Classement global inconnu",
+            "max_score_decisionnel_pct": strongest.get("score_decisionnel_pct") if strongest else None,
+            "max_impact_metier_pct": strongest.get("impact_metier_pct") if strongest else None,
+            "max_impact_pct": strongest.get("score_decisionnel_pct") if strongest else None,
         },
     }
 

@@ -42,6 +42,31 @@ def article_labels(value, products):
     return value
 
 
+def business_labels(value):
+    """Expand historical column shorthand in narrative values; preserve keys/data."""
+    if isinstance(value, dict):
+        return {key: business_labels(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [business_labels(item) for item in value]
+    if isinstance(value, str):
+        for short, full in [
+            ('MRP I', 'besoin prévu MRP'),
+            ('abs(I)', 'mouvement de stock sans son signe'),
+            ('I signé', 'mouvement de stock avec signe'),
+            ('crédits I', 'hausses par mouvements de stock'),
+            ('débits I', 'baisses par mouvements de stock'),
+            ('Entrées H', 'Entrées de stock'),
+            ('J courant prévu', 'Stock disponible prévu'),
+            ('Scan3', 'mouvements divers'),
+            ('H + I signé + G', 'entrées + mouvement de stock avec signe + divers'),
+            ('H + I + G', 'entrées + mouvement de stock avec signe + divers'),
+        ]:
+            value = value.replace(short, full)
+        value = re.sub(r'\bI\b', 'mouvement de stock', value)
+        value = re.sub(r'\bJ\b(?![+\d])', 'stock disponible prévu', value)
+    return value
+
+
 def photo_stage(episode, comparison, key, label, site):
     """Exact-date industrial photos, with no inferred availability or causality."""
     start = episode['week_start']
@@ -178,6 +203,8 @@ def main():
             inputs.append(path)
     add_drilldown(data)
     add_recovery(data)
+    data['observed_coverage'] = dict(weeks_per_product=51, start='2025-01-06', end='2025-12-28',
+                                    missing_weeks='unknown', simulated_period='2025-01-01/2025-12-31')
     out.mkdir(parents=True,exist_ok=True)
     proof.mkdir(parents=True,exist_ok=True)
     links = [{'label':'Ancienne navigation conservée · 102 semaines','href':str(OLD.relative_to(ROOT))},
@@ -197,7 +224,7 @@ def main():
         preserved += [PREVIOUS_SUITE/'diagnostic_fusion.html',PREVIOUS_SUITE/'payload.json']
     data['links'] = [{'label':x['label'],'href':os.path.relpath(ROOT / x['href'],out).replace('\\','/')} for x in links]
     data['provenance'] = [{'path':str(p.relative_to(ROOT)).replace('\\','/'),'sha256':sha(p)} for p in inputs]
-    data = article_labels(data, old['products'])
+    data = business_labels(article_labels(data, old['products']))
     encoded = json.dumps(data,ensure_ascii=False,separators=(',',':')).replace('<','\\u003c').replace('\u2028','\\u2028').replace('\u2029','\\u2029')
     html = Path(__file__).with_name('view.html').read_text(encoding='utf-8').replace('__PAYLOAD__',encoded)
     target = out / 'diagnostic_fusion.html'

@@ -27,6 +27,8 @@ if str(REPO_ROOT) not in sys.path:
 
 from etudecas.simulation.initial_state_policy import merge_living_initial_state_args  # noqa: E402
 
+from etudecas.simulation.analysis.production_daily_metrics import daily_plan_metrics
+
 SERVICE_KPI_TOLERANCE = 0.001
 COUNT_KPI_TOLERANCE = 1.0
 RATE_KPI_TOLERANCE = 0.001
@@ -550,7 +552,7 @@ def inventory_holding_costs_by_node(data_dir: Path, case_input: Path | None) -> 
     return {node_id: round(value, 6) for node_id, value in cost_by_node.items()}
 
 
-def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[str, float]:
+def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[str, Any]:
     data_dir = output_dir / "data"
     out: dict[str, float] = {}
 
@@ -569,43 +571,9 @@ def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[
         round(available_line_count / demand_line_count, 9) if demand_line_count else 1.0
     )
 
-    planned_qty_total = 0.0
-    adhered_qty_total = 0.0
-    line_changes = 0
-    replanning_count = 0
-    production_planning_line_count = 0
-    previous_plan_by_line: dict[tuple[str, str], float] = {}
-    for row in read_csv_rows(data_dir / "production_constraint_daily.csv"):
-        node_id = str(row.get("node_id") or "")
-        item_id = str(row.get("output_item_id") or row.get("item_id") or "")
-        planned = max(0.0, to_float(row.get("planned_qty_after_lot_rule"), 0.0))
-        actual = max(0.0, to_float(row.get("actual_qty"), 0.0))
-        requested_lots = to_float(row.get("requested_lot_starts"), math.nan)
-        actual_lots = to_float(row.get("actual_lot_starts"), math.nan)
-        if planned > 1e-9 or actual > 1e-9 or (not math.isnan(requested_lots) and requested_lots > 1e-9):
-            production_planning_line_count += 1
-        planned_qty_total += planned
-        adhered_qty_total += min(actual, planned)
-        key = (node_id, item_id)
-        previous_plan = previous_plan_by_line.get(key)
-        if previous_plan is not None and abs(planned - previous_plan) > 1e-6:
-            line_changes += 1
-        previous_plan_by_line[key] = planned
-        lot_shortfall = max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty"), 0.0))
-        if (
-            (not math.isnan(requested_lots) and not math.isnan(actual_lots) and actual_lots + 1e-9 < requested_lots)
-            or lot_shortfall > 1e-6
-        ):
-            replanning_count += 1
-    out["line_adherence"] = round(adhered_qty_total / planned_qty_total, 9) if planned_qty_total > 1e-9 else 1.0
-    out["line_nervousness"] = float(line_changes)
-    out["production_replanning_count"] = float(replanning_count)
-    out["production_planning_line_count"] = float(production_planning_line_count)
-    out["production_replanning_rate"] = (
-        round(replanning_count / production_planning_line_count, 9)
-        if production_planning_line_count > 0
-        else 0.0
-    )
+    # Plans are remaining states, not independent quantities per physical pass.
+    # Unknown proposal revisions remain None, never a zero-change score.
+    out.update(daily_plan_metrics(read_csv_rows(data_dir / "production_constraint_daily.csv")))
 
     stock_by_key: dict[tuple[int, str, str], float] = {}
     for row in read_csv_rows(data_dir / "production_input_stocks_daily.csv"):
@@ -1081,7 +1049,15 @@ def read_csv(path: Path) -> list[dict[str, Any]]:
         return list(csv.DictReader(f))
 
 
+def planning_metrics_known(row: dict[str, Any]) -> bool:
+    """Unknown proposal revisions cannot certify an acceptable recommendation."""
+    keys = ("kpi::line_nervousness", "kpi::production_replanning_count", "kpi::production_replanning_rate")
+    return all(math.isfinite(to_float(row.get(key), math.nan)) for key in keys)
+
+
 def is_case_acceptable(row: dict[str, Any], baseline: dict[str, Any], service_threshold: float) -> bool:
+    if not planning_metrics_known(row) or not planning_metrics_known(baseline):
+        return False
     fill = to_float(row.get("kpi::fill_rate"), math.nan)
     ending_backlog = to_float(row.get("kpi::ending_backlog"), math.nan)
     baseline_ending_backlog = to_float(baseline.get("kpi::ending_backlog"), 0.0)
@@ -1165,6 +1141,8 @@ def baseline_safe_range(ranges: list[list[float]], baseline_level: float = 1.0) 
 
 
 def safe_range_label(row: dict[str, Any]) -> str:
+    if row.get("assessment_status") == "donnees_insuffisantes":
+        return "non évaluable : versions de programme inconnues"
     contiguous = str(row.get("acceptable_is_contiguous") or "").lower() == "true"
     low = row.get("baseline_contiguous_safe_low")
     high = row.get("baseline_contiguous_safe_high")
@@ -1215,6 +1193,7 @@ def summarize_parameter(
     cost_increase_pct: float,
 ) -> dict[str, Any]:
     rows = sorted(rows, key=lambda row: to_float(row.get("level"), 0.0))
+    planning_known = planning_metrics_known(baseline) and all(planning_metrics_known(row) for row in rows)
     acceptable = [row for row in rows if is_case_acceptable(row, baseline, service_threshold)]
     levels = [to_float(row.get("level"), math.nan) for row in rows]
     safe_levels = [to_float(row.get("level"), math.nan) for row in acceptable]
@@ -1380,7 +1359,9 @@ def summarize_parameter(
     parameter_group = str(spec["parameter_group"])
     parameter_key = str(spec["parameter_key"])
 
-    return {
+    result = {
+        "assessment_status": "evaluable" if planning_known else "donnees_insuffisantes",
+        "assessment_reason": "versions de programme comparables" if planning_known else "révisions de programme inconnues ; aucune plage acceptable certifiée",
         "parameter_key": spec["parameter_key"],
         "parameter_group": spec["parameter_group"],
         "parameter_label": spec["parameter_label"],
@@ -1393,7 +1374,7 @@ def summarize_parameter(
         "safe_band_high": safe_high,
         "baseline_contiguous_safe_low": baseline_safe_low,
         "baseline_contiguous_safe_high": baseline_safe_high,
-        "first_unacceptable_level": first_bad,
+        "first_unacceptable_level": first_bad if planning_known else None,
         "fill_rate_cross_service_threshold_at": fill_cross_level,
         "ending_backlog_cross_threshold_at": backlog_cross_level,
         "total_cost_cross_threshold_at": cost_warn_level,
@@ -1454,6 +1435,9 @@ def summarize_parameter(
         "baseline_production_replanning_rate": baseline_replanning_rate,
         "baseline_inventory_cost": baseline_inventory_cost,
     }
+    # Public results use JSON null / empty CSV, not nonstandard NaN.
+    return {key: None if isinstance(value, float) and not math.isfinite(value) else value
+            for key, value in result.items()}
 
 
 def monotonicity(values: list[float]) -> str:
