@@ -160,6 +160,8 @@ def main():
     parser.add_argument('--replays', type=Path)
     parser.add_argument('--source-notes', type=Path)
     parser.add_argument('--timeliness', type=Path)
+    parser.add_argument('--receipt-stages', type=Path,
+                        help='Revue sourcée des deux attentes ; encart optionnel limité aux semaines autorisées.')
     parser.add_argument('--output-dir', type=Path, default=OUT)
     parser.add_argument('--proof-dir', type=Path, default=PROOF)
     args = parser.parse_args()
@@ -188,7 +190,7 @@ def main():
     data = dict(schema_version='diagnostic_fusion.v1', period={'start':'2025-01-01','end':'2025-12-31'},
         products=old['products'], episodes=sorted(episodes,key=lambda e:(e['product'],e['week_start'])),
         focus=[{'id':'w-'+str(p['product'])+'-'+p['week'],'label':'Proxy abs(I) sous demande · bilan et réserves','historical':True} for p in focused],
-        comparison=comp, episode_replays=None, source_notes=None, episode_timeliness=None,
+        comparison=comp, episode_replays=None, source_notes=None, episode_timeliness=None, receipt_stages=None,
         conventions={
             'I':'I est conservé signé. abs(I) est un proxy de comparaison, pas une livraison client mesurée.',
             'balance':'Résidu = photo finale − photo initiale − (H + I signé + G). Un résidu nul ne prouve pas la signification métier de I.',
@@ -196,7 +198,7 @@ def main():
             'service':'UN simulées servies / demande de la semaine. Un rattrapage de backlog peut dépasser 100 % ; ce n’est pas un taux à l’heure.',
             'finance':'CA livré / (CA livré + CA perdu), calcul financier séparé : aucune conversion en UN.',
             'scope':'A/D/E : résultats historiques 2025 conservés, qualification globale partielle. Les hypothèses de rejeu aval restent distinctes du MRP autonome.'})
-    for name, path in [('episode_replays', args.replays), ('source_notes', args.source_notes), ('episode_timeliness', args.timeliness)]:
+    for name, path in [('episode_replays', args.replays), ('source_notes', args.source_notes), ('episode_timeliness', args.timeliness), ('receipt_stages', args.receipt_stages)]:
         if path:
             path = path.resolve()
             data[name] = json.loads(path.read_text(encoding='utf-8'))
@@ -207,6 +209,19 @@ def main():
                                     missing_weeks='unknown', simulated_period='2025-01-01/2025-12-31')
     out.mkdir(parents=True,exist_ok=True)
     proof.mkdir(parents=True,exist_ok=True)
+    if data['receipt_stages'] is not None:
+        ui = data['receipt_stages'].get('ui')
+        if not isinstance(ui, dict) or not isinstance(ui.get('summary'), str) or not isinstance(ui.get('details'), list):
+            raise ValueError('La revue des attentes doit fournir ui.summary et ui.details pour être visible.')
+        allowed = {'2025-04-07', '2025-04-14', '2025-04-21'}
+        if str(ui.get('article')) != '268091' or set(ui.get('weeks', [])) != allowed:
+            raise ValueError('L’encart des attentes doit rester limité à PF 268091, semaines des 7, 14 et 21 avril 2025.')
+        report = (ROOT / ui['report_path']).resolve()
+        report.relative_to(ROOT)
+        if not report.is_file():
+            raise ValueError('Le rapport lié aux attentes doit exister avant la construction.')
+        inputs.append(report)
+        ui['report_href'] = os.path.relpath(report, out).replace(os.sep, '/')
     links = [{'label':'Ancienne navigation conservée · 102 semaines','href':str(OLD.relative_to(ROOT))},
              {'label':'Comparaison A/D/E conservée · chronologies de lots','href':str(OLD_COMPARISON.relative_to(ROOT))}] + comp['proof_links']
     previous = OUT/'diagnostic_fusion.html'

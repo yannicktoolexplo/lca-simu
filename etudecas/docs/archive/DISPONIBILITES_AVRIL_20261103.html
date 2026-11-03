@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Disponibilités et départs — avril 2025</title>
+<style>body{font:17px system-ui;max-width:940px;margin:35px auto;padding:0 22px;line-height:1.5;color:#19364a}a{color:#075985}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd9df;padding:10px;text-align:left}th{background:#eef5f6}.note{background:#eef7f4;padding:14px;border-left:4px solid #167b68}small{color:#526575}h2{font-size:23px}details{margin:20px 0}</style>
+<h1>Un produit disponible plus tôt peut encore partir trop tard</h1>
+<p class="note">La piste des deux attentes est reproduite sur un cas court avec les composants du moteur.
+Le résultat dépend aussi du départ de l’usine : garder le même départ maintient le retard client.
+La référence industrielle reste conservée.</p>
+<p><a href="../../resultats/disponibilites_20261103/interface/diagnostic_fusion.html"><strong>Ouvrir le graphique → « Retard simulé d’avril » → examiner les deux attentes</strong></a></p>
+<h2>Dans le calcul de 2025 conservé</h2>
+<p>Pour <strong>86 400 unités de 268091</strong>, les mêmes lots suivent cette chronologie :</p>
+<table><thead><tr><th>Étape</th><th>Dates de 2025</th></tr></thead><tbody>
+<tr><td>Quantités matérialisées à l’usine</td><td>20 et 21 mars</td></tr>
+<tr><td>Disponibilité puis départ de l’usine</td><td>3 et 4 avril</td></tr>
+<tr><td>Réception physique à Muret</td><td>5 et 6 avril</td></tr>
+<tr><td>Disponibilité à Muret, puis départ client</td><td>18 avril</td></tr>
+<tr><td>Réception chez le client</td><td>20 avril</td></tr>
+</tbody></table>
+<p>Les deux attentes sont exécutées. Leur identité industrielle n’est pas établie.
+Ce sont des événements <strong>simulés</strong>, pas des livraisons industrielles appariées.</p>
+<h2>L’incohérence localisée</h2>
+<p>Le fichier des engagements initiaux contient <strong>20 ordres de production de 268091,
+soit 1 945 715 unités</strong>, avec un temps de réception de dix jours et une division usine.
+Le flux MRP situe le délai des produits finis à Muret : dix jours pour 268091, quinze pour 268967.
+Les règles confirmées placent ce contrôle après le transport.</p>
+<p>Le moteur interdit déjà de combiner un contrôle usine et un contrôle dépôt pour la production courante.
+Mais l’attente issue des dates des <strong>ordres initiaux passe par un autre mécanisme</strong> et peut s’ajouter.
+Ce décalage entre contrats est démontré ; il ne prouve pas que l’attente source est le même contrôle physique.</p>
+<p>Les vingt ordres sont exposés à ce mécanisme, sans être vingt retards clients prouvés.
+Cinq dates d’entrée sources diffèrent d’un calcul simple lundi–vendredi : elles sont conservées, sans remplacement par dix jours recalculés.
+Aucun ordre initial de 268967 n’est présent dans cet extrait ; sa règle dépôt reste un témoin distinct.</p>
+<h2>Essai court : effet sur le client et rôle du départ</h2>
+<p><strong>Cas synthétique de douze jours</strong>, exécuté avec les classes de lots, disponibilités,
+transits et demandes connues du moteur. Un lot de 100 unités est physique le 24 mars 2025.
+Deux commandes de 40 unités sont révélées les 27 et 28 mars ; l’échéance est fixée, pour ce test uniquement,
+au lendemain de chaque commande. Transport usine–dépôt : un jour ; contrôle dépôt : deux jours lundi–vendredi ;
+transport client : un jour. Aucune demande future n’est utilisée.</p>
+<table><thead><tr><th>Hypothèse</th><th>Disponible au dépôt</th><th>Unités livrées en retard</th><th>Retard cumulé</th></tr></thead><tbody>
+<tr><td>Deux attentes, première étape non identifiée</td><td>31 mars</td><td>80</td><td>280 unités-jours</td></tr>
+<tr><td>Deux étapes explicitement distinctes</td><td>31 mars</td><td>80</td><td>280 unités-jours</td></tr>
+<tr><td>Contrôle uniquement au dépôt, départ usine avancé</td><td>27 mars</td><td>0</td><td>0</td></tr>
+<tr><td>Même contrôle unique, mais départ usine maintenu au 26 mars</td><td>31 mars</td><td>80</td><td>280 unités-jours</td></tr>
+</tbody></table>
+<p>Dans les quatre cas : <strong>80 unités livrées et 20 en stock final</strong>, sans création de quantité.
+Les liens de lots sont conservés. Le stock initial du cas est une frontière synthétique : son historique matière
+antérieur reste non tracé. Une unité-jour de retard est une unité livrée un jour après l’échéance ; ce n’est pas un montant financier.</p>
+<p><strong>Ce que le test départage :</strong> disponibilité et calendrier de départ sont deux leviers distincts.
+Le contrôle unique améliore ce petit cas seulement si le départ peut avancer.
+Les deux premiers cas ont exactement les mêmes sorties : le service seul ne permet pas d’identifier
+si les deux attentes représentent une duplication ou deux étapes légitimes.</p>
+<h2>Décision et prochaine priorité</h2>
+<p><strong>Aucun délai industriel n’est supprimé et aucun nouveau nominal n’est promu.</strong>
+Les sources accessibles ne permettent pas de qualifier l’attente initiale de contrôle distinct.
+Le gain du petit cas ne doit pas être extrapolé aux clients réels ni au chiffre d’affaires.</p>
+<p>La prochaine vérification utile porte sur deux informations précises : le lieu et la fonction du « Temps de réception »
+et de la « Date entrée » des ordres initiaux ; puis la règle qui autorise les départs usine–Muret
+(date de libération, fréquence, regroupement et disponibilité du transport).
+Un contrôle unique confirmé conduirait à tester une règle commune de localisation, avec ces départs,
+avant toute simulation longue. Deux étapes distinctes devraient être nommées et planifiées séparément.</p>
+<details><summary>Preuves, fichiers et limites</summary>
+<p><a href="../../artifacts/testing/disponibilites_20261103/final_manifest.json">Manifeste et fichiers de cette livraison</a> ·
+<a href="../../artifacts/testing/disponibilites_20261103/tickets.json">Suivi et hypothèses</a> ·
+<a href="PRIORITES_ET_RESULTATS_20261103.html">Livraison précédente conservée</a></p>
+<p>Sources : Extract_En_cours.xlsx, Sheet1, lignes 72–91 ; exemple ligne 90 : livraison 19 février,
+temps de réception dix jours, entrée 5 mars, division 1810. Flux MRP : Feuille1, D545:E545 et D593:E593,
+division 1920. Dates particulières préservées : lignes 74, 76, 83, 86, 87.</p>
+<p>Contrats : <a href="../REGLES_MRP.md">règles MRP, tableau des conventions, ligne 7</a> ;
+moteur, protection contre une seconde politique usine autour de la ligne 13769 ;
+ordres initiaux, calcul de disponibilité et matérialisation autour des lignes 3199 et 3348.</p>
+<p>Le cas court n’est ni un MRP autonome ni un rejeu industriel : il conserve des hypothèses explicites,
+des composants natifs et un oracle indépendant. Les résultats historiques, la référence et les sources restent intacts.
+Le diagnostic matières premières et emballages n’est pas rouvert. Aucun navigateur réel ni rendu CSS vérifié ;
+le JavaScript est contrôlé avec un substitut de document. Le contrôle documentaire global reste distinct des preuves métier.</p>
+</details><p><small>3 novembre 2026 — référence coherent-MRP-20261014 conservée ; départ du travail : commit ded67b860.</small></p>
+</html>

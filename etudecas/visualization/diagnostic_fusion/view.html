@@ -6,6 +6,7 @@
 </style></head><body><main>
 <div class="compact-head"><div><div class="eyebrow">Muret · 2025</div><h1>Comprendre les creux</h1><p class="compact-intro">Cliquez sur un point bas, puis remontez vers l’amont.</p></div><label class="product-choice">Produit<select id="product"></select></label></div>
 <section class="panel compact-chart"><div class="legend"><span class="black"><i class="swatch"></i>Demande · UN</span><span class="orange"><i class="swatch"></i><span id="movement-label">Mouvement de stock · UN</span></span></div><div id="main-chart"></div><p class="quiet-note">51 semaines observées par article, du 6 janvier au 28 décembre 2025. Les scénarios simulés couvrent l’année entière.</p><p id="proxy-note" class="quiet-note">L’orange représente les mouvements de stock en valeur absolue, pas des livraisons client mesurées.</p><div class="small">Creux par rapport à la demande · mouvement de stock / demande, pas un taux de service</div><div id="low-points" class="low-points"></div></section>
+<p><button id="receipt-shortcut" hidden>Retard simulé d’avril</button></p>
 <section id="drilldown-panel" class="panel" hidden><div class="row"><h2 id="drilldown-title">Le creux sélectionné</h2><span id="selected-date" class="date-chip"></span></div><div id="drilldown-path" class="drill-path" aria-label="Remonter dans la chaîne"></div><div id="drilldown-detail" class="drill-detail" tabindex="-1" aria-live="polite"></div></section>
 <details id="analysis-details" class="analysis-details"><summary>Analyse détaillée</summary>
 <div class="controls"><label>Scénario annuel<select id="scenario"></select></label><label>Courbe orange<select id="movement"><option value="proxy">Mouvement de stock · comparaison</option><option value="signed">Mouvement de stock avec signe · mouvement source</option></select></label><label>Fenêtre de la chaîne<select id="window"><option value="local">Autour de la semaine · ± 6 semaines</option><option value="year">Année 2025 entière</option></select></label><label>Semaine<select id="week"></select></label><button id="previous">← Semaine précédente</button><button id="next">Semaine suivante →</button></div>
@@ -53,6 +54,16 @@ function renderRecovery(host,r){
  if(r.witness&&r.witness.status==='ambiguous'){details.appendChild(el('p',r.witness.summary||'Les observations ne départagent pas les explications.'));details.appendChild(el('p','Reconstruction hypothétique, pas une mesure industrielle.','small'))}
  box.appendChild(details);host.appendChild(box)
 }
+function renderReceiptShortcut(){const ui=D.receipt_stages&&D.receipt_stages.ui;$('receipt-shortcut').hidden=!ui||String(ui.article)!==state.product}
+function renderReceiptStages(host,e){
+ const ui=D.receipt_stages&&D.receipt_stages.ui;
+ if(!ui||String(ui.article)!==e.product||!(ui.weeks||[]).includes(e.week_start))return;
+ const box=el('section');box.id='receipt-stages';box.appendChild(el('h3',ui.title||'Deux attentes simulées à vérifier'));box.appendChild(el('p',ui.summary));
+ const details=el('details');details.id='receipt-stages-details';details.appendChild(el('summary','Voir l’essai et ses limites'));
+ (ui.details||[]).forEach(text=>details.appendChild(el('p',text,'small')));
+ if(ui.report_href){const link=el('a','Analyse et preuves des deux attentes');link.setAttribute('href',ui.report_href);details.appendChild(link)}
+ box.appendChild(details);host.appendChild(box)
+}
 function renderDrilldown(){
  const e=selected(),d=e.drilldown||{},stages=Array.isArray(d.stages)&&d.stages.length?d.stages:[{id:'muret',label:'Muret'},{id:'factory',label:state.product==='268091'?'Avène':'Gien'},{id:'gaillac',label:'Gaillac'}];
  $('drilldown-panel').hidden=!state.selectedByUser;$('drilldown-title').textContent=(e.abs_I_proxy_UN<e.demand_UN?'Le creux du ':'La semaine du ')+short(e.week_start);
@@ -69,7 +80,7 @@ function renderDrilldown(){
   host.appendChild(el('p',d.summary||'Le mouvement de stock est à rapprocher des stocks et des flux. Son origine reste inconnue.'));
   host.appendChild(el('p',`Mouvement de stock ${fmt(e.abs_I_proxy_UN)} UN · demande ${fmt(e.demand_UN)} UN · ${fmt(d.ratio_pct??(e.demand_UN?100*e.abs_I_proxy_UN/e.demand_UN:null),1)} %`,'small'));
   if(d.gap_UN!==null&&d.gap_UN!==undefined)host.appendChild(el('p','Écart demande − mouvement : '+fmt(d.gap_UN)+' UN, sans mesure des unités client non livrées.','small'));
-  renderRecovery(host,e.recovery)
+  renderReceiptStages(host,e);renderRecovery(host,e.recovery)
  }else{
   const s=stages.find(s=>s.id===state.stage);host.appendChild(el('h3',s.label));
   const row=el('div');row.appendChild(el('span',s.value===null||s.value===undefined?'Valeur inconnue':fmt(s.value,2)+' '+(s.unit||'unité inconnue'),'value'));row.appendChild(el('span',s.status||'Niveau de preuve non documenté','status'));host.appendChild(row);
@@ -114,10 +125,11 @@ function renderTimeliness(rp,cs,baseline,start,end){const host=$('replays'),m=cs
  const chartHost=el('div');chartHost.id='timeliness-overdue';box.appendChild(el('p','Gris : référence · orange : hypothèse sélectionnée. Quantités non encore servies après demande + 2 jours, en fin de jour.','small'));box.appendChild(chartHost);host.appendChild(box);chart(chartHost,[{label:'Retard référence · cohortes épisode',color:'#738180',dash:true,values:baseline.daily.map(v=>({date:v.date,value:v.focused_overdue_qty}))},{label:'Retard hypothèse · cohortes épisode',color:'#cb6a24',values:cs.daily.map(v=>({date:v.date,value:v.focused_overdue_qty}))}],{start,end,unit:'UN après échéance'});
 }
 function renderTimeline(){const c=current(),[start,end]=range(),all=c.chain_timeline||[],rows=state.product==='268091'?all.filter(x=>x.date>=start&&x.date<=end):[];table($('timeline'),['Date','Étape','Fait / événement','Quantité','Nature de preuve','Lot / source'],rows.map(v=>[v.date,v.stage,v.label,v.quantity===undefined?'inconnue':fmt(v.quantity,2)+' '+(v.unit||'unité inconnue'),v.status,[v.lot_id,v.event_id,v.shipment_id,v.source_cell].filter(Boolean).join(' · ')]));$('timeline-note').textContent=state.product==='268967'?'Les chronologies détaillées A/D/E portent sur 693055 et Avène ; aucun événement n’est attribué au PF 268967 par analogie.':`${rows.length} événements dans la fenêtre ; ${all.length} dans la chronologie annuelle. Sélectionnez « Année entière » pour suivre toute la reprise et les libérations. Le rapport d’origine complet reste accessible dans les preuves.`}
-function render(){renderMain();renderEpisode();renderDrilldown();renderCard();renderChain();renderHypotheses();renderTimeline();$('product').value=state.product;$('scenario').value=state.scenario}
+function render(){renderMain();renderReceiptShortcut();renderEpisode();renderDrilldown();renderCard();renderChain();renderHypotheses();renderTimeline();$('product').value=state.product;$('scenario').value=state.scenario}
 function rebuildWeeks(){clear($('week'));weekSeries().forEach(e=>option($('week'),e.id,e.week_start+(e.abs_I_proxy_UN<e.demand_UN?' · proxy sous demande':'')))}
 function selectEpisode(id){const e=D.episodes.find(x=>x.id===id);if(!e)return;const changed=state.product!==e.product;state.product=e.product;state.episode=id;state.stage='problem';state.selectedByUser=true;if(changed)rebuildWeeks();render()}
 Object.entries(D.products).forEach(([k,v])=>option($('product'),k,v));D.comparison.cases.forEach(c=>option($('scenario'),c.id,c.label));D.focus.forEach(f=>{const e=D.episodes.find(x=>x.id===f.id),b=el('button',`${D.products[e.product]} · ${short(e.week_start)} · ${f.label}`);b.setAttribute('data-focus',f.id);b.addEventListener('click',()=>selectEpisode(f.id));$('focus').appendChild(b)});
+$('receipt-shortcut').addEventListener('click',()=>selectEpisode('w-268091-2025-04-07'));
 $('product').addEventListener('change',()=>{state.product=$('product').value;const previous=selected();state.episode=(weekSeries().find(e=>e.week_start===previous.week_start)||weekSeries()[0]).id;state.stage='problem';state.selectedByUser=false;rebuildWeeks();render()});$('scenario').addEventListener('change',()=>{state.scenario=$('scenario').value;render()});$('movement').addEventListener('change',()=>{state.movement=$('movement').value;renderMain()});$('window').addEventListener('change',()=>{state.window=$('window').value;renderChain();renderTimeline()});$('week').addEventListener('change',()=>selectEpisode($('week').value));['previous','next'].forEach((id,k)=>$(id).addEventListener('click',()=>{const rows=weekSeries(),i=rows.findIndex(e=>e.id===state.episode);selectEpisode(rows[Math.max(0,Math.min(rows.length-1,i+(k?1:-1)))].id)}));
 list('findings',D.comparison.findings);list('limits',[...Object.values(D.conventions),...D.comparison.limits]);D.links.forEach(v=>{const li=el('li'),a=el('a',v.label);a.setAttribute('href',v.href);li.appendChild(a);$('links').appendChild(li)});list('provenance',D.provenance.map(v=>v.path+' · SHA-256 '+v.sha256));rebuildWeeks();render();window.diagnosticFusion={state,data:D,selectEpisode,render,range,selected};
 })();
