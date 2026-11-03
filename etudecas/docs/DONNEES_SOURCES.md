@@ -1307,14 +1307,23 @@ Divers G restent visibles séparément dans le rapprochement physique. Sorties I
 est un mouvement hebdomadaire agrégé et non un journal d'expéditions unitaires ;
 ses cumuls ne prouvent pas un appariement commande–livraison semaine par semaine.
 
-Cette confirmation ne supprime pas le rapport arithmétique 4,552493 ci-dessous.
-Elle invalide en revanche son ancienne interprétation comme consommation
-« d'autres formats » ou « d'autres références ». Ces autres consommations sont
-déjà enregistrées séparément en colonne I. Le résiduel
-`max(0, Scan3 J - consommation BOM simulée)` ne doit donc ni être ajouté à I,
-ni être publié comme `external_component_consume`, ni être prolongé après 2025.
-Il reste un **écart de raccordement de nos références** entre prélèvement
-matière, OF/en-cours, nomenclature et conditionnement.
+**Clarification métier consignée le 3 novembre 2026 :** l'utilisateur rapporte
+que l'industriel a confirmé les différents formats comme explication du rapport
+matières/packaging de 4,55 à 5. Cette explication générale est désormais un
+acquis métier ; la date et le document de la confirmation industrielle ne sont
+pas fournis. Elle complète la convention du 16 octobre : les différents
+formats ne sont pas automatiquement les autres références déjà comptées dans
+la colonne « Sorties » du fichier des mouvements.
+
+Le rapport arithmétique 4,552493 ci-dessous reste inchangé. La ventilation des
+quantités et dates par format reste absente des exports. Le résiduel calculé
+entre consommation Scan3 et consommation BOM simulée ne devient donc pas une
+consommation indépendante identifiée ; l'ajouter à un format déjà représenté
+peut compter ce format deux fois. La référence historique conserve son
+adaptateur `legacy_residual`, distinct de la règle cible de besoins par format.
+`audit_only` retire cette publication physique, mais pas la réconciliation de
+planification de la référence. Aucun de ces modes ne prouve une ventilation
+industrielle autonome ou une reconduction légitime des volumes après 2025.
 
 Le « facteur cinq » parfois cité venait d'un calcul moins rigoureux sur toutes
 les lignes disponibles : 497 943,443 kg de matières contre 102 450,044 kg de
@@ -1866,7 +1875,11 @@ l'équivalent devient 4 835 604 boîtes : l'écart reste proche de cinq.
 Le détail du nombre de plaquettes par boîte ne résout donc pas l'écart
 matières/conditionnement constaté. Aucune nomenclature ni simulation modifiée.
 
-**Hypothèse distincte : matières communes à plusieurs présentations Permixon.**
+**Formats multiples : cause générale désormais confirmée, ventilation à établir.**
+La confirmation industrielle relayée par l'utilisateur le 3 novembre 2026
+remplace le statut d'hypothèse de cette explication générale. Les vérifications
+documentaires du 9 octobre ci-dessous restent conservées ; elles ne donnent
+toujours pas les volumes industriels par présentation.
 Le [RCP ANSM R0437036](https://agence-prd.ansm.sante.fr/php/ecodex/rcp/R0437036.htm),
 mis à jour le 14 août 2025 et consulté le 9 octobre 2026, liste des boîtes
 sous PVC/Alu de 30, 56, 60, 100 et 180 gélules, avec des codes CIP distincts
@@ -1882,10 +1895,10 @@ format ou OF permettant d'attribuer J aux autres présentations.
 Si les sorties des matières communes couvrent plusieurs présentations alors
 que 333362 représente uniquement l'étui du 268967 en boîte de 60, le
 rapprochement actuel oppose un périmètre matière plus large à une seule
-référence conditionnée. C'est une explication plausible de l'écart, mais pas
-une affectation industrielle prouvée. La BOM de la boîte de 60 peut rester
-correcte dans ce cas. L'hypothèse doit être distinguée du sens utilisateur
-initial « Scan3 concerne uniquement 268091 et 268967 ».
+référence conditionnée. La cause multi-format est confirmée ; l'affectation
+chiffrée reste à établir. La BOM de la boîte de 60 peut rester correcte.
+Cette distinction de formats ne reclasse pas automatiquement les consommations
+dans les autres références du fichier de mouvements.
 
 Sur les 30 semaines communes, la BOM des 1 000 180 étuis représente
 60 352 861,56 gélules, contre 291 790 000 en Scan3. Le résiduel à expliquer
@@ -1893,9 +1906,9 @@ vaut 231 437 138,44 gélules. Son attribution à d'autres formats, rebuts ou
 en-cours ne peut pas être déduite de la seule liste des CIP. Cinq formats
 ne donnent pas automatiquement un facteur cinq ; les volumes de chaque
 présentation et leur contenu en gélules déterminent le besoin total.
-Si le périmètre partagé est confirmé, conserver le stock matière total et
-distinguer les besoins du 268967 et les autres besoins, sans multiplier
-sa BOM, diviser arbitrairement le stock ou compter deux fois les usages.
+Le périmètre multi-format étant confirmé, conserver le stock matière total et
+distinguer les besoins par format et les autres usages, sans multiplier
+la BOM du format suivi, diviser arbitrairement le stock ou compter deux fois les usages.
 
 ### Colonne Sorties seule : équivalents BOM et parallèle avec le CA perdu
 
@@ -2042,8 +2055,10 @@ oppose les stocks et mouvements sources à E4C (référence conservée) et F2.
 F2 est un essai explicatif rétrospectif du 1er janvier au 28 décembre, avec
 les 52 photos de stocks jusqu'au 29 décembre. Il ne remplace pas le nominal.
 
-**Essai historique invalidé le 16 octobre 2026 :** cet essai supposait qu'une partie de Scan3 correspondait à d'autres formats
-utilisant les mêmes matières. La part supplémentaire est constante par famille :
+**Essai historique invalidé le 16 octobre 2026, non réhabilité par la confirmation
+multi-format du 3 novembre :** la cause générale est désormais confirmée, mais
+cet essai ne fournit pas une ventilation industrielle datée. Il estimait une
+part supplémentaire constante par famille à partir de l'année achevée :
 `1 − étuis × coefficient BOM du composant pivot / sorties Scan3 du pivot`.
 Gien : 79,31634 %, d'après 1 000 180 étuis et 291 790 000 gélules sur les
 30 semaines communes. Avène : 78,03522 %, d'après 4 901 500 étuis et 9 060 kg
@@ -2059,8 +2074,10 @@ jours de janvier appartenant à la première semaine source sont conservés.
 La prévision des neuf couples devient `max(besoin BOM propre, besoin I MRP
 déjà connu)`, avec les protections séparées. Le futur J n'alimente pas le MRP.
 
-Cette hypothèse contredit la sémantique désormais confirmée de I et J et ne doit
-plus être utilisée dans le nominal ni dans une projection. Les six autres
+La confirmation de plusieurs formats ne valide ni cette part annuelle calculée
+après coup, ni l'ajout de volumes à des usages déjà représentés, ni le changement
+simultané de prévision. Cette méthode ne doit pas être promue comme nouvelle
+règle nominale ou projection autonome. Les six autres
 couples (042342/Gien ; 001893, 016332, 029313, 039668,
 099439/Avène) conservent leurs usages estimés existants : ajouter encore une
 part de J pouvait les compter deux fois. Le premier calcul F1 a été interrompu

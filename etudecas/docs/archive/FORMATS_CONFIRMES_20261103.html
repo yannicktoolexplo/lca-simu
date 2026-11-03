@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Formats confirmés : intégrer les besoins une seule fois</title>
+<style>body{font:17px system-ui;max-width:930px;margin:35px auto;padding:0 22px;line-height:1.5;color:#19364a}a{color:#075985}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd9df;padding:10px;text-align:left}th{background:#eef5f6}.note{background:#eef7f4;padding:14px;border-left:4px solid #167b68}small{color:#526575}h2{font-size:23px}details{margin:20px 0}</style>
+<h1>Plusieurs formats confirmés ; volumes par format encore inconnus</h1>
+<p class="note">L’explication industrielle du rapport matières/emballages de <strong>4,55 à 5</strong>
+est désormais consignée : il vient des différents formats. La prochaine difficulté est de représenter
+leurs besoins <strong>une seule fois</strong>, avec leurs quantités et leurs dates.</p>
+<p><a href="../../resultats/formats_confirmes_20261103/interface/diagnostic_fusion.html"><strong>Ouvrir le graphique des creux et le diagnostic d’avril</strong></a></p>
+<h2>Ce qui est confirmé et ce qui manque</h2>
+<p>La confirmation a été relayée par l’utilisateur et consignée le 3 novembre 2026.
+La date du retour industriel et son document d’origine ne sont pas fournis. Le constat n’est plus
+présenté comme une anomalie inexpliquée ni, à lui seul, comme un défaut du simulateur.</p>
+<p>Les exports locaux décrivent deux références conditionnées et leurs nomenclatures. Les mouvements
+restent agrégés par article, site et semaine ; ils ne relient pas chaque consommation à un format,
+un ordre de fabrication et un lot. <strong>Une cause générale confirmée n’est pas encore une ventilation chiffrée.</strong>
+Les formats supplémentaires ne sont pas automatiquement les autres références déjà suivies séparément.</p>
+<h2>Petit contrôle : éviter un double compte</h2>
+<p>Cas synthétique, sans modification du moteur : 100 unités d’un format consomment 2 grammes chacune ;
+20 unités d’un autre format consomment 5 grammes chacune ; 30 grammes sont destinés à d’autres usages distincts.
+Le besoin total est <strong>330 grammes</strong>. Avec 400 grammes disponibles et tous ces besoins satisfaits,
+il resterait 70 grammes.</p>
+<table><thead><tr><th>Représentation testée avec les fonctions existantes</th><th>Besoin calculé</th><th>Conclusion</th></tr></thead><tbody>
+<tr><td>Les deux formats et les autres usages sont identifiés séparément</td><td>330 grammes</td><td>Chaque besoin est compté une fois</td></tr>
+<tr><td>Les deux formats sont comptés dans la production ; le total observé couvre ces mêmes formats</td><td>330 grammes ; résidu nul</td><td>Le rapprochement n’ajoute rien</td></tr>
+<tr><td>Le second format est ajouté comme usage externe, et son volume reste aussi dans le résidu historique</td><td>430 grammes</td><td>100 grammes comptés deux fois</td></tr>
+</tbody></table>
+<p>Le troisième cas montre une <strong>erreur d’intégration possible</strong> ; il ne prouve pas que la référence
+actuelle compte déjà ces volumes deux fois. Les 430 grammes sont un besoin demandé, pas une consommation
+physique exécutée ni un stock négatif. Les résultats sont identiques après conversion en kilogrammes.</p>
+<p>Le contrôle respecte aussi la date de connaissance : le total observé n’intervient qu’en clôture de sa période.
+Sans quantité d’un format, son besoin reste inconnu ; il n’est pas remplacé par zéro.</p>
+<h2>Décision pour la simulation et pour avril</h2>
+<p><strong>La confirmation est intégrée aux règles, au registre des sources et au graphique.</strong>
+La nomenclature, les stocks, les demandes et la référence sont conservés. Aucun facteur global n’est appliqué.
+Les anciens essais restent historiques : la confirmation n’approuve ni leurs parts annuelles calculées après coup,
+ni les ajouts de besoins redondants, ni leurs changements simultanés de planification.</p>
+<p>Cette clarification ne change pas à elle seule les libérations et départs des lots d’avril.
+Le <a href="DISPONIBILITES_AVRIL_20261103.html">test sur les disponibilités et les départs</a> reste valable :
+une disponibilité anticipée n’améliore le service que si le départ peut aussi avancer.</p>
+<p><strong>Prochaine donnée discriminante :</strong> pour une semaine d’avril, relier le format ou la référence,
+la quantité conditionnée, sa nomenclature, l’ordre ou le lot, la disponibilité à Muret et le départ.
+La correspondance avec les références de demande permettrait alors un essai court commun,
+avec quantités connues à la date de décision. Aucun gain de livraison ou de chiffre d’affaires réel
+n’est déduit de ces contrôles synthétiques.</p>
+<details><summary>Preuves et limites techniques</summary>
+<p><a href="../../artifacts/testing/formats_confirmes_20261103/final_manifest.json">Manifeste et fichiers modifiés</a> ·
+<a href="../../artifacts/testing/formats_confirmes_20261103/tickets.json">Suivi des questions</a> ·
+<a href="../REGLES_MRP.md">Règles MRP</a> · <a href="../reference/source_knowledge.json">Confirmation consignée</a></p>
+<p>Le mode historique <code>legacy_residual</code> de la référence peut ajouter un besoin résiduel à la clôture
+de semaine. <code>audit_only</code> retire cette publication physique, mais conserve l’adaptation historique
+de planification. Aucun de ces modes n’est une ventilation industrielle prouvée des formats.
+Les fonctions existantes de rapprochement et de suivi hebdomadaire ont été exercées en mémoire,
+avec oracle indépendant ; aucune simulation longue ni promotion de référence.</p>
+<p>Les données industrielles et comparaisons antérieures sont préservées. Les anciens rapports décrivent
+la connaissance disponible à leur date. Le contrôle documentaire global reste distinct de la validation métier ;
+le rendu navigateur et CSS n’est pas vérifié après le refus Windows antérieur.</p>
+</details><p><small>3 novembre 2026 — départ du travail : commit 3547fb66b ; référence coherent-MRP-20261014 conservée.</small></p>
+</html>

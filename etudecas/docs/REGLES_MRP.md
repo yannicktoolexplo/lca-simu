@@ -1276,8 +1276,13 @@ consommation_autres_références[t]
   = sortie_J_Scan3_observée[t] - consommation_propre_composant[t]
 ```
 
-`écart_raccordement_Scan3` sert à l'audit. Il ne génère ni besoin, ni commande,
-ni prélèvement physique et il n'est pas reconduit dans le scénario cinq ans.
+La convention métier cible est que `écart_raccordement_Scan3` serve à l'audit,
+sans devenir automatiquement un besoin, une commande ou un prélèvement.
+La référence historique conservée possède toutefois un adaptateur distinct :
+son mode par défaut `legacy_residual` peut publier un besoin résiduel observé
+en clôture de semaine. Le mode `audit_only` retire cette publication physique,
+mais conserve la réconciliation de planification propre à la référence.
+Ces mécanismes ne constituent pas une ventilation industrielle par format.
 
 | Périmètre contrôlé | Référence packaging | Matières ou vrac Scan3 | Théorie BOM pour le packaging | Écart constaté |
 |---|---:|---:|---:|---:|
@@ -1306,12 +1311,29 @@ Les bilans physiques ferment par ailleurs :
   − 350 539 997 Scan3 = 77 900 000 finaux. Deux résidus hebdomadaires opposés
   de 1 625 000 UN se compensent ; toutes les semaines ne ferment donc pas.
 
-La conclusion démontrée est limitée : **les matières ou le vrac et le packaging
-n’ont pas le même périmètre ou la même étape d’enregistrement**. Les formats
-Permixon 30/56/60/100/180 et les usages partagés sont des explications
-plausibles, mais les exports ne relient pas chaque prélèvement à un OF, un lot et
-un format. Il est donc interdit de transformer ces rapports en règles : pas de
-`BOM × 4,55`, pas de `stock ÷ 4,55`, pas de « cinq formats donc facteur cinq ».
+**Cause générale confirmée industriellement, relayée par l'utilisateur le
+3 novembre 2026 : les différents formats expliquent le rapport d'environ
+4,55 à 5 entre matières et packaging.** Ce rapport n'est donc plus traité
+comme une anomalie inexpliquée ou, à lui seul, comme une erreur du simulateur.
+La date de la confirmation industrielle et son document d'origine ne sont pas
+fournis ; la date ci-dessus est celle de sa consignation.
+
+La ventilation reste inconnue : les exports ne relient pas chaque quantité à
+un format, un OF et un lot. Les formats supplémentaires ne sont pas assimilés
+automatiquement aux autres références déjà enregistrées dans la colonne
+« Sorties » du fichier de mouvements. Pour une ventilation documentée :
+
+```text
+besoin_composant_total
+  = somme(quantité_par_format * coefficient_BOM_du_format)
+    + besoins_des_autres_usages_distincts
+```
+
+Un format identifié par sa BOM et ses quantités ne doit pas être compté aussi
+dans un résiduel ajouté. La confirmation de la cause ne fournit ni les volumes
+par format ni leur calendrier : pas de `BOM × 4,55`, de `stock ÷ 4,55` ou de
+« cinq formats donc facteur cinq ». La référence reste conservée tant qu'une
+ventilation datée n'a pas été comparée et contre-validée.
 
 Les preuves détaillées et cellules sources sont recensées dans
 [DONNEES_SOURCES.md](DONNEES_SOURCES.md), sections « Sorties », « Scan3 » et

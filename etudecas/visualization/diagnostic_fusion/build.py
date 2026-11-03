@@ -23,10 +23,20 @@ FOCUS = ROOT / 'etudecas/resultats/aleas_boucle_20261021/source_audit/episodes_s
 OUT = ROOT / 'etudecas/resultats/diagnostic_fusion_20261022/interface'
 PROOF = ROOT / 'etudecas/artifacts/testing/diagnostic_fusion_20261022/ui'
 PREVIOUS_SUITE = ROOT / 'etudecas/resultats/diagnostic_suite_20261022/interface'
+FORMAT_KNOWLEDGE = ROOT / 'etudecas/docs/reference/source_knowledge.json'
+FORMAT_REPORT = ROOT / 'etudecas/docs/archive/FORMATS_CONFIRMES_20261103.html'
 
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def confirmed_formats_note(path):
+    """Read only this documentary rule; old copies without it remain valid."""
+    if not path.is_file():
+        return None
+    rule = json.loads(path.read_text(encoding='utf-8')).get('user_confirmed_rules', {}).get('material_packaging_ratio_due_to_formats')
+    return dict(rule) if isinstance(rule, dict) and rule else None
 
 
 def article_labels(value, products):
@@ -209,6 +219,14 @@ def main():
                                     missing_weeks='unknown', simulated_period='2025-01-01/2025-12-31')
     out.mkdir(parents=True,exist_ok=True)
     proof.mkdir(parents=True,exist_ok=True)
+    data['confirmed_formats'] = confirmed_formats_note(FORMAT_KNOWLEDGE)
+    if data['confirmed_formats'] is not None:
+        inputs.append(FORMAT_KNOWLEDGE)
+        format_report = (ROOT / data['confirmed_formats'].get('report_path', FORMAT_REPORT)).resolve()
+        format_report.relative_to(ROOT)
+        if format_report.is_file():
+            inputs.append(format_report)
+            data['confirmed_formats']['report_href'] = os.path.relpath(format_report, out).replace(os.sep, '/')
     if data['receipt_stages'] is not None:
         ui = data['receipt_stages'].get('ui')
         if not isinstance(ui, dict) or not isinstance(ui.get('summary'), str) or not isinstance(ui.get('details'), list):

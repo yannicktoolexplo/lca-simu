@@ -58,6 +58,9 @@ programmes quotidiens sans doubles comptes, inconnues préservées, graphique de
 [Disponibilités et départs d’avril](archive/DISPONIBILITES_AVRIL_20261103.html) :
 deux attentes localisées, quatre cas courts et effet du calendrier d’expédition sur le retard client.
 
+[Formats confirmés et besoins sans double compte](archive/FORMATS_CONFIRMES_20261103.html) :
+confirmation industrielle du périmètre, ventilation encore inconnue et contrôles courts sur les besoins.
+
 L'[accueil des résultats](../index.html) donne accès aux quatre présentations
 conservées ; le [guide de reconstruction](REGENERER_RESULTATS.md) précise leurs
 entrées et leurs limites. Les audits, bilans de livraison et anciennes notes de

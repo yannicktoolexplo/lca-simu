@@ -21,6 +21,33 @@
       "actual_dispatch_cadence": null,
       "cadence_limit": "Weekly snapshots and aggregates do not distinguish one from several departures per week.",
       "no_engine_change_in_this_note": true
+    },
+    "material_packaging_ratio_due_to_formats": {
+      "recorded_date": "2026-11-03",
+      "industrial_confirmation_date": null,
+      "status": "confirmed_industrial_explanation_reported_by_user",
+      "basis": "Confirmation industrielle relayée explicitement par l’utilisateur dans cette conversation.",
+      "user_statement": "l'industriel avait confirmé les raisons du rapport de 4,55 à 5 entre packaging et matière première [...] c'est bien à cause de différents formats",
+      "industrial_source_document": null,
+      "statement": "Les différents formats expliquent le rapport matières/packaging observé, sans définir les quantités de chaque format.",
+      "ratio_range": {
+        "lower": 4.55,
+        "upper": 5,
+        "meaning": "rapport de périmètres observés, jamais multiplicateur de nomenclature ou de stock"
+      },
+      "allocation_status": "unknown",
+      "format_quantities": null,
+      "format_calendar": null,
+      "format_to_customer_sku_mapping": null,
+      "not_execution_parameter": true,
+      "ui_label": "Plusieurs formats confirmés ; répartition des volumes inconnue.",
+      "report_path": "etudecas/docs/archive/FORMATS_CONFIRMES_20261103.html",
+      "limits": [
+        "La cause générale est confirmée ; la ventilation chiffrée et datée ne l’est pas.",
+        "Les différents formats ne sont pas automatiquement les autres références déjà enregistrées en Sorties.",
+        "Aucun changement de BOM, stock, demande, délai, mode de réconciliation ou référence active.",
+        "La confirmation ne réhabilite pas les anciennes parts annuelles calculées après coup ni les doubles comptes."
+      ]
     }
   },
   "reading_contract": {
