@@ -94,4 +94,14 @@ rupture réelle. L’essai synthétique et les disponibilités simulées restent
 séparés du service annuel et de l’identité industrielle inconnue des étapes.
 Le fichier de revue et son rapport sont inclus dans la provenance.
 
+La copie `resultats/formats_confirmes_20261103/interface` conserve cette option
+et ajoute une seule annotation documentaire sur l’audit annuel matière/emballages.
+Le builder lit uniquement la clé
+`user_confirmed_rules.material_packaging_ratio_due_to_formats` de
+`docs/reference/source_knowledge.json`, avec son empreinte et le bilan lié.
+Plusieurs formats sont confirmés, leur répartition de volumes reste inconnue.
+Cette information ne modifie ni nomenclature, ni calcul physique, ni diagnostic
+client. Sans fichier ou sans cette clé, l’annotation est absente et la voie
+précédente reste utilisable. Aucun nouveau paramètre de commande n’est ajouté.
+
 L’arbre KPI utilise `simulation.analysis.production_daily_metrics` : flux exécutés additionnés, enveloppes restantes dédupliquées par programme, déficit calculé après la dernière passe quotidienne. Sans versions datées identifiables, les révisions sont inconnues (`null`) et exclues du score, déclaré partiel. Les enveloppes journalières ne sont pas assimilées à des nouveaux besoins.
