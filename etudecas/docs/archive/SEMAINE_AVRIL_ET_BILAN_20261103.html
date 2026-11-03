@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Semaine d’avril et bilan des 2 et 3 novembre</title>
+<style>body{font:17px system-ui;max-width:970px;margin:35px auto;padding:0 22px;line-height:1.5;color:#19364a}a{color:#075985}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd9df;padding:10px;text-align:left}th{background:#eef5f6}.note{background:#eef7f4;padding:14px;border-left:4px solid #167b68}small{color:#526575}h2{font-size:23px}details{margin:20px 0}.scroll{overflow-x:auto}</style>
+<h1>Le rapprochement d’avril est préparé ; le bilan des deux jours est vérifié</h1>
+<p class="note">Dans le calcul conservé, <strong>37 615 unités de 268091 demandées du 7 au 13 avril</strong>
+sont servies en retard selon l’échéance conventionnelle retenue. Les réceptions alimentent le stock de Muret,
+mais celui-ci reste bloqué. Le service industriel réel ne peut pas encore être mesuré par lot avec les fichiers disponibles.</p>
+<p><a href="../../resultats/semaine_avril_bilan_20261103/interface/diagnostic_fusion.html"><strong>Ouvrir le graphique → « Retard simulé d’avril » → dossier de la semaine</strong></a></p>
+<h2>Ce que le nouveau rapprochement établit</h2>
+<p>La semaine du <strong>7 au 13 avril 2025</strong> a été fixée avant extraction. Les observations industrielles
+ont été relues dans les cellules Excel ; les événements simulés viennent des CSV conservés, sans nouveau scénario.</p>
+<div class="scroll"><table><thead><tr><th>Référence</th><th>Demande source de la semaine</th><th>Photos de stock industrielles, 7 → 14 avril</th><th>Stock Muret simulé à fin du 13 avril</th><th>Demandes de la semaine servies tardivement en simulation</th></tr></thead><tbody>
+<tr><td>268091</td><td>47 257 unités</td><td>607 576 → 637 193 unités</td><td>445 600 unités retenues ; zéro utilisable</td><td>37 615 unités ; dernier service le 20 avril</td></tr>
+<tr><td>268967</td><td>38 412 unités</td><td>747 609 → 709 197 unités</td><td>593 872 unités utilisables ; zéro retenue</td><td>Zéro ; dernier service le 15 avril</td></tr>
+</tbody></table></div>
+<p>Pour 268091, le bilan physique simulé de Muret est : <strong>96 042 au départ + 359 200 reçues − 9 642 expédiées = 445 600 unités finales</strong>.
+Il reste encore 2 891 unités utilisables à la clôture du 7 avril ; le disponible est nul du 8 au 13.
+La disponibilité est donc le blocage immédiat dans ce calcul. La fonction industrielle des deux attentes
+et le calendrier réel des départs restent à qualifier.</p>
+<p>La source industrielle de 268091 contient un mouvement net de stock <strong>positif de 29 623 unités</strong>
+et un ajustement de −6 : ils expliquent la hausse de 29 617 unités entre les photos.
+Ce mouvement ne constitue pas une quantité de livraisons clients identifiée. Les lots libres et retenus réels ne sont pas fournis.</p>
+<h2>Demandes de la semaine et livraisons de la semaine sont distinguées</h2>
+<p>Une reconstruction rétrospective affecte les services simulés aux demandes les plus anciennes.
+L’échéance choisie est <strong>date de demande + deux jours calendaires</strong>, une convention de comparaison,
+pas une promesse industrielle observée.</p>
+<ul><li><strong>268091 :</strong> sur les 47 257 unités demandées du 7 au 13, 9 642 sont servies avant la fin du 13
+et à temps ; 37 615 sont servies ensuite, tardivement, avec un maximum de dix jours de retard. Toute cette demande est finalement servie.</li>
+<li><strong>268967 :</strong> 27 437 unités sont servies avant la fin du 13 ; 10 975 ensuite, mais toutes dans l’échéance conventionnelle.</li></ul>
+<p>Les 27 436 unités reçues et servies aux clients pendant la semaine pour 268091 comprennent aussi des demandes antérieures.
+Ce flux hebdomadaire n’est donc pas le nombre de demandes de cette semaine satisfaites.
+Aucune de ces reconstructions n’identifie une commande industrielle ni un chiffre d’affaires définitivement perdu.</p>
+<h2>Du format jusqu’au lot : les liens disponibles et les manquants</h2>
+<p>Les formats documentés sont 40 ml pour 268091 et 60 unités pour 268967. Leurs nomenclatures sont bien identifiées.
+Les formats supplémentaires expliquent le rapport matières/emballages confirmé, mais leurs quantités restent inconnues.</p>
+<p>Dans les CSV simulés, les identifiants permettent de suivre les deux réceptions repères de 86 400 unités :
+réception à Muret les 5 et 6 avril, disponibilité le 18, client le 20. Elles sont présentes comme stock retenu au dépôt au début de la semaine,
+et leurs étapes hors fenêtre sont signalées. Elles ne sont pas comptées parmi les 359 200 unités reçues du 7 au 13.</p>
+<p>Les exports industriels n’apportent pas les identifiants correspondants. Le dossier juxtapose donc les observations
+et les trajectoires simulées, sans inventer de jointure entre lots réels et simulés.</p>
+<p><a href="../../artifacts/testing/semaine_avril_bilan_20261103/source-6c08475db5104045ba1d1467fe64df10/rapprochement_industriel_a_completer.csv"><strong>Fichier de collecte prérempli à compléter</strong></a> :
+deux lignes de référence, treize champs industriels encore vides par ligne, notamment quantité réellement conditionnée,
+ordre, lot, disponibilité et départ. Des lignes documentées peuvent être ajoutées pour chaque format ou lot.
+Les blancs signifient « inconnu ». La demande préremplie ne remplace pas une quantité fabriquée.</p>
+<h2>Bilan : hier 2 novembre, aujourd’hui 3 novembre 2026</h2>
+<div class="scroll"><table><thead><tr><th>Date</th><th>Ce qui a été fait</th><th>Résultat obtenu</th></tr></thead><tbody>
+<tr><td>Hier, 2 novembre</td><td>Graphique des creux, références article et vocabulaire clarifiés ; retour des mouvements distingué du rattrapage client.</td><td>Une lecture plus directe, sans transformer les 56 creux en ruptures prouvées.</td></tr>
+<tr><td>Hier, 2 novembre</td><td>Agrégation des fabrications quotidiennes corrigée.</td><td>Quatre passes de 600 kg donnent bien 2 400 kg sur la journée ; sept tests ciblés sur cette correction.</td></tr>
+<tr><td>Aujourd’hui, 3 novembre</td><td>États de programme dédupliqués ; inconnues conservées dans les scores.</td><td>Le programme recompté à 6 000 kg revient à 2 400 ; les faux classements rassurants sont évités. Seize tests ciblés.</td></tr>
+<tr><td>Aujourd’hui, 3 novembre</td><td>Deux attentes d’avril localisées ; quatre petits cas testent disponibilité et départ.</td><td>Le gain synthétique dépend d’un départ avancé. À départ inchangé, le retard reste ; quatre tests ciblés.</td></tr>
+<tr><td>Aujourd’hui, 3 novembre</td><td>Confirmation industrielle sur les formats consignée et risque de double compte contrôlé.</td><td>Cause générale acquise ; volumes par format inconnus. Trois tests ciblés ; aucun facteur global appliqué.</td></tr>
+<tr><td>Aujourd’hui, nouveau travail</td><td>Semaine du 7 au 13 avril rapprochée et demandes suivies jusqu’à leur service ; fichier industriel prérempli.</td><td>37 615 unités tardives identifiées dans la cohorte simulée, et liens industriels manquants précisément désignés.</td></tr>
+</tbody></table></div>
+<p><strong>Le progrès porte sur la fiabilité des mesures, la lecture et la localisation des mécanismes.</strong>
+La référence reste conservée. Aucun gain réel de livraison ou de chiffre d’affaires n’est démontré ; aucun nouvel arrêt industriel n’est identifié.</p>
+<details><summary>Preuves, fichiers et limites</summary>
+<p><a href="../../artifacts/testing/semaine_avril_bilan_20261103/final_manifest.json">Manifeste de cette livraison</a> ·
+<a href="../../artifacts/testing/semaine_avril_bilan_20261103/tickets.json">Suivi des questions</a> ·
+<a href="../../artifacts/testing/semaine_avril_bilan_20261103/source-6c08475db5104045ba1d1467fe64df10/observed_week.csv">Observations industrielles</a> ·
+<a href="../../artifacts/testing/semaine_avril_bilan_20261103/model/8f9b7176078a4d87bbb7b4b93ff23898/stocks_daily.csv">Stocks simulés quotidiens</a> ·
+<a href="../../artifacts/testing/semaine_avril_bilan_20261103/model/8f9b7176078a4d87bbb7b4b93ff23898/transfers.csv">Transferts simulés</a> ·
+<a href="../../artifacts/testing/semaine_avril_bilan_20261103/model/8f9b7176078a4d87bbb7b4b93ff23898/landmark_paths.csv">Lots repères simulés</a></p>
+<p>Les photos industrielles ne donnent pas l’heure : les dates 7 et 14 avril sont comparées par convention aux clôtures simulées
+des 6 et 13 avril. Le marqueur de semaine des mouvements source est le dimanche 6 avril, rapproché de la semaine du lundi 7 au dimanche 13.
+Le stock physique observé ne prouve pas le stock utilisable. Le stock simulé d’ouverture diffère fortement de la photo source :
+ce dossier n’est pas une calibration des niveaux de stock.</p>
+<p>Nomenclatures : 268091.xlsx, BOM, B12:F12, 406 grammes de 693055 pour 1 000 unités ;
+268967.xlsx, BOM, B4:F4, 9 654,718 grammes de 773474 pour 1 000 unités. Ce sont des coefficients théoriques,
+pas des consommations réelles attribuées aux lots initiaux. L’historique matière antérieur de ces lots n’est pas reconstruit.</p>
+<p>Bilan daté depuis les commits 9aebed771, c43a037a4, d8114831d, 7a1120292, 369a8e7dd du 2 novembre,
+puis 5cc6d7315, ded67b860, 3547fb66b et d8830fc39 du 3 novembre, en heure de Paris.
+<a href="CORRECTION_CAPACITE_JOURNALIERE_20261102.html">Correction quotidienne</a> ·
+<a href="PRIORITES_ET_RESULTATS_20261103.html">Programmes et scores</a> ·
+<a href="DISPONIBILITES_AVRIL_20261103.html">Attentes et départs</a> ·
+<a href="FORMATS_CONFIRMES_20261103.html">Formats</a>.</p>
+<p>Les nombres de tests, assertions JavaScript et empreintes ne s’additionnent pas en une qualification globale.
+Le contrôle documentaire reste en échec ; le navigateur et le rendu CSS n’ont pas été relancés après le refus Windows.
+Les sources et anciens résultats sont préservés. Aucun nouveau scénario moteur ni nouvelle donnée industrielle n’est créé.</p>
+</details><p><small>Livraison du 3 novembre 2026 — état initial d8830fc39 ; référence coherent-MRP-20261014 conservée.</small></p>
+</html>

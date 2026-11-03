@@ -104,4 +104,14 @@ Cette information ne modifie ni nomenclature, ni calcul physique, ni diagnostic
 client. Sans fichier ou sans cette clé, l’annotation est absente et la voie
 précédente reste utilisable. Aucun nouveau paramètre de commande n’est ajouté.
 
+La copie `resultats/semaine_avril_bilan_20261103/interface` conserve les formats
+confirmés et la navigation des 102 semaines-articles. Son encart d’avril utilise
+le dossier de la semaine du 7 au 13 avril et le bilan des 2 et 3 novembre ;
+les observations réelles restent séparées des événements et essais simulés.
+Les copies précédentes sont conservées, sans modification de la vue ni du builder.
+
+```powershell
+python -B -m etudecas.visualization.diagnostic_fusion.build --source-notes etudecas/artifacts/testing/diagnostic_suite_20261022/source/episode_source_notes.json --replays etudecas/artifacts/testing/diagnostic_fusion_20261022/simulation/episode_replays.json --timeliness etudecas/artifacts/testing/diagnostic_suite_20261022/simulation/timeliness.json --receipt-stages etudecas/artifacts/testing/semaine_avril_bilan_20261103/receipt_stage_review.json --output-dir etudecas/resultats/semaine_avril_bilan_20261103/interface --proof-dir etudecas/artifacts/testing/semaine_avril_bilan_20261103/ui/BUILD_UNIQUE
+```
+
 L’arbre KPI utilise `simulation.analysis.production_daily_metrics` : flux exécutés additionnés, enveloppes restantes dédupliquées par programme, déficit calculé après la dernière passe quotidienne. Sans versions datées identifiables, les révisions sont inconnues (`null`) et exclues du score, déclaré partiel. Les enveloppes journalières ne sont pas assimilées à des nouveaux besoins.
