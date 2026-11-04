@@ -43,8 +43,16 @@ python etudecas/visualization/maps/build_supplychain_worldmap.py
 
 ## Diagnostic des épisodes 2025
 
+Le rapport `docs/archive/AMONT_AVAL_693055_20261104.html` distingue observations
+industrielles, plans MRP et deux calculs natifs de 56 jours Gaillac → Avène.
+Seul le transport de 693055 varie de 7 à 1 jour ; les stocks, engagements,
+sécurités et délais de disponibilité sont conservés. Les points et semaines
+ouvrent leurs sources. Le printemps reste une comparaison documentaire ;
+aucune courbe simulée n’y est extrapolée et aucun aléa industriel n’est identifié.
+Les preuves sont dans `artifacts/testing/amont_aval_693055_20261104`.
+
 Le rapport autonome `docs/archive/ALEAS_LOCALISES_20261104.html` compare quatre
-épisodes et sept cas aval, à partir des preuves locales du 4 novembre. Trois
+épisodes et neuf cas aval, à partir des preuves locales du 4 novembre. Trois
 graphiques distinguent demande répartie/réponse client simulée, stocks de clôture
 avec photos industrielles datées, puis flux et transit client sur axes distincts.
 Les durées de libération sont lundi–vendredi ; départs et transit restent en

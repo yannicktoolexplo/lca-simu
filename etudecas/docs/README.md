@@ -52,6 +52,11 @@ validation industrielle.
 
 ## Consulter les livraisons et l'historique
 
+[Gaillac → Avène : réel, prévu et simulé](archive/AMONT_AVAL_693055_20261104.html) :
+deux calculs natifs de 56 jours pour 693055 ; raccourcir le transport ne corrige
+pas les stocks de Gaillac et dégrade ceux d’Avène. Les réceptions de mai sont
+rapprochées des plans connus en avril, sans les assimiler à une reprise de fabrication.
+
 [Priorités mises en œuvre et résultats du 3 novembre 2026](archive/PRIORITES_ET_RESULTATS_20261103.html) :
 programmes quotidiens sans doubles comptes, inconnues préservées, graphique des creux et calendrier d’avril.
 
