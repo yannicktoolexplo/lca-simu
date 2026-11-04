@@ -64,6 +64,11 @@ confirmation industrielle du périmètre, ventilation encore inconnue et contrô
 [Semaine d’avril et bilan des 2 et 3 novembre](archive/SEMAINE_AVRIL_ET_BILAN_20261103.html) :
 observations industrielles, lots simulés, service des demandes de la semaine et fichier de rapprochement à compléter.
 
+[Aléas localisés et réponse client](archive/ALEAS_LOCALISES_20261104.html) :
+36 comparaisons datées sur libération, départ et transport ; demande historique conservée, service industriel à rapprocher.
+Un [fichier de collecte journalier](../artifacts/testing/aleas_localises_20261104/service_client_reel_a_completer.csv)
+prépare la comparaison des départs et réceptions clients bruts, séparés des mouvements nets de stock.
+
 L'[accueil des résultats](../index.html) donne accès aux quatre présentations
 conservées ; le [guide de reconstruction](REGENERER_RESULTATS.md) précise leurs
 entrées et leurs limites. Les audits, bilans de livraison et anciennes notes de
