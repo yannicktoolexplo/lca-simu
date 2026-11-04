@@ -43,6 +43,18 @@ python etudecas/visualization/maps/build_supplychain_worldmap.py
 
 ## Diagnostic des épisodes 2025
 
+Le rapport autonome `docs/archive/ALEAS_LOCALISES_20261104.html` compare quatre
+épisodes et sept cas aval, à partir des preuves locales du 4 novembre. Trois
+graphiques distinguent demande répartie/réponse client simulée, stocks de clôture
+avec photos industrielles datées, puis flux et transit client sur axes distincts.
+Les durées de libération sont lundi–vendredi ; départs et transit restent en
+jours calendaires. Activation, volume témoin, exposition en unités-jours,
+rattrapage et censure restent distincts, sans classement ni score de service réel.
+Les arrivées amont sont figées : ces rejeux conditionnels ne sont pas un MRP
+autonome. Le lien vers les creux précédents est conservé. Le générateur daté
+et les preuves ciblées sont dans `artifacts/testing/aleas_localises_20261104/ui` ;
+les CSV complets restent locaux. Aucun nouveau module générique ni calcul cinq ans.
+
 Le générateur fusionne les épisodes de `remontee_chaine_reelle.html` et les
 résultats nominal/A/D/E de `comparaison_arrets_693055.html`. Les originaux
 restent conservés. Il nécessite ces preuves locales et n'exécute aucun moteur.
