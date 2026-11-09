@@ -28,6 +28,8 @@ Clients : « combien allez-vous demander ? »
   → Fournisseurs : « quoi commander et à quelle date ? »
 ```
 
+**Lecture de ce schéma.** Sens des questions de planification, du client vers les fournisseurs, pour les articles et les dates à couvrir avec les informations déjà connues.
+
 **Les produits se déplacent dans le sens inverse :**
 
 ```text
@@ -35,6 +37,8 @@ Fournisseurs → matières utilisables → fabrication
   → transport → contrôle à réception → Muret
   → transport → client → demande servie
 ```
+
+**Lecture de ce schéma.** Sens des mouvements physiques : fournisseurs, fabrication, Muret puis client. Chaque étape garde sa propre date ; une flèche ne signifie pas un déplacement instantané.
 
 | Lieu dans ce guide | Identifiant dans les données | Fonction |
 |---|---|---|
@@ -60,6 +64,15 @@ La règle est appelée `push_released_available_v1`.
 Quantité à envoyer à Muret = tout le stock utilisable de PF à l’usine
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un PF à son usine, le jour du départ vers Muret : 268091 à Avène ou 268967 à Gien. Cette quantité est encore soumise aux contraintes physiques du départ.
+
+- `Quantité à envoyer à Muret` : Quantité du produit fini que la règle propose d'expédier de l'usine vers Muret aujourd'hui. **Unité :** UN du PF.
+- `tout le stock utilisable de PF à l’usine` : Quantité du même produit fini présente à l'usine, libérée et non réservée ; elle exclut l'encours et le stock bloqué. **Unité :** UN du PF.
+
+**Opérateurs et signes :** `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives.
+
 Cela exclut les produits encore en fabrication, bloqués ou déjà réservés.
 Les deux routes usine–Muret ont une revue quotidienne, une fiabilité nominale
 de 1 et aucun multiple physique de chargement imposé. Un lot terminé dans la
@@ -76,6 +89,15 @@ Ce départ n’est pas conditionné par un seuil de stock à Muret.
 Les routes portent une valeur de 2,5 jours dans le graphe. L’arrondi Python
 utilisé ici donne `round(2.5) = 2`, pas 3. Le nominal désactive le tirage
 aléatoire des délais. Il faut conserver cette convention pour refaire ce calcul.
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Transport d’un produit fini de son usine vers Muret, dans l’exécution quotidienne nominale.
+
+- `2.5` : Durée moyenne de transport inscrite dans le graphe avant arrondi. **Unité :** jours calendaires.
+- `2` : Durée entière retenue pour ce transport par le calcul. **Unité :** jours calendaires.
+
+**Opérateurs et signes :** `round` : Arrondir à l’entier le plus proche ; à mi-chemin exact, choisir l’entier pair : 2 pour 2,5 ; `=` : Le résultat est égal à la quantité calculée.
 
 Le contrôle est à **Muret**, après le transport. On ne rajoute pas ces 10 ou
 15 jours à l’usine. À la libération, le même lot devient utilisable : aucun
@@ -104,6 +126,17 @@ Le mercredi de réception n’est pas compté parmi les 10 jours.
 Physique = Libre + Bloqué + Réservé
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Photo du stock d'un même article sur un même site au même instant. Le transit et l'encours sont suivis séparément.
+
+- `Physique` : Quantité totale de l'article physiquement présente sur le site. **Unité :** unité de stock de l'article au site : UN, G, KG ou M.
+- `Libre` : Part présente, libérée et non réservée, utilisable immédiatement. **Unité :** même unité de stock que Physique.
+- `Bloqué` : Part présente qui n'est pas encore utilisable. **Unité :** même unité de stock que Physique.
+- `Réservé` : Part présente déjà affectée à un mouvement futur et indisponible pour une autre décision. **Unité :** même unité de stock que Physique.
+
+**Opérateurs et signes :** `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité.
+
 `Transit` et `Encours` ne sont pas ajoutés à cette égalité de stock sur site.
 Les quantités réservées ne sont pas soustraites une deuxième fois d’une valeur
 `Libre` qui les exclut déjà. Chaque quantité possède un seul état physique.
@@ -118,6 +151,18 @@ Une unité de produit fini n’est ni un kilogramme ni une palette.
 quantité_en_KG = quantité_en_G / 1 000
 quantité_en_G = quantité_en_KG × 1 000
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Conversion de la même masse d'un article, au même site et au même instant ; la conversion ne crée aucun mouvement de stock.
+
+- `quantité_en_KG` : Valeur de la masse exprimée en kilogrammes. **Unité :** KG.
+- `quantité_en_G` : Valeur de la même masse exprimée en grammes. **Unité :** G.
+- `KG` : Symbole du kilogramme, unité de masse. **Unité :** kilogramme.
+- `G` : Symbole du gramme, unité de masse. **Unité :** gramme.
+- `1 000` : Facteur de conversion : un kilogramme contient mille grammes. **Unité :** G par KG.
+
+**Opérateurs et signes :** `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `×` : multiplier les valeurs en conservant les unités indiquées ; `/` : diviser la première valeur par la seconde.
 
 Le moteur ne déduit pas une conversion entre masse et volume sans donnée de
 densité. Les coefficients de recette sont convertis dans l’unité du stock
@@ -191,6 +236,17 @@ RetirerOuvrés(date, nombre)
   = reculer avant cette date en ne comptant que lundi–vendredi
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Calcul d'une date pour le calendrier lundi–vendredi, sans ajout de jours fériés. Le jour de départ du décompte est exclu ; avec zéro jour à compter, la date reste inchangée.
+
+- `date` : Date de départ du calcul, avant l'avance ou le recul. **Unité :** date, exprimable en numéro de jour du modèle.
+- `nombre` : Nombre de jours lundi–vendredi à compter après ou avant la date de départ. **Unité :** jours lundi–vendredi.
+- `AjouterOuvrés(date, nombre)` : Date obtenue après avoir avancé du nombre demandé de jours lundi–vendredi. **Unité :** date, exprimable en numéro de jour du modèle.
+- `RetirerOuvrés(date, nombre)` : Date obtenue après avoir reculé du nombre demandé de jours lundi–vendredi. **Unité :** date, exprimable en numéro de jour du modèle.
+
+**Opérateurs et signes :** `AjouterOuvrés` : Avance en ne comptant que lundi à vendredi, après la date initiale ; `RetirerOuvrés` : Recule en ne comptant que lundi à vendredi, avant la date initiale ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives.
+
 Le jour de réception est exclu du décompte du traitement. Avec un délai nul,
 la disponibilité reste le jour de réception. Exemple : reçu vendredi,
 traitement 2 jours ouvrés → disponible mardi.
@@ -256,6 +312,15 @@ entiers non positifs, puis le moteur change le signe :
 DemandeSemaine = − valeur_source_Actual_Demand
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un produit fini, son client et une semaine civile lundi–dimanche du classeur client. La valeur source est un entier non positif ; le calcul en inverse le signe.
+
+- `DemandeSemaine` : Quantité totale positive ou nulle demandée au cours de la semaine. **Unité :** UN du PF pour la semaine.
+- `valeur_source_Actual_Demand` : Valeur signée lue dans Actual Demand de la feuille Historique, pour le même PF, le même client et la même semaine. **Unité :** UN du PF pour la semaine, valeur non positive.
+
+**Opérateurs et signes :** `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `−` : soustraire la valeur de même unité.
+
 Une valeur positive, fractionnaire, absente ou non finie est refusée, pas
 transformée silencieusement en zéro.
 
@@ -266,6 +331,17 @@ sept jours calendaires. Pour le jour `k` de la semaine, numéroté de 0 à 6 :
 DemandeJour[k] = floor(DemandeSemaine × (k + 1) / 7)
                 − floor(DemandeSemaine × k / 7)
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Répartition reconstruite d'une demande hebdomadaire entière, pour un PF et son client, sur les sept jours calendaires de la même semaine lundi–dimanche.
+
+- `DemandeJour[k]` : Quantité de la demande hebdomadaire attribuée au jour k. **Unité :** UN du PF pour ce jour.
+- `DemandeSemaine` : Quantité totale à répartir sur la semaine. **Unité :** UN du PF pour la semaine.
+- `k` : Position du jour dans la semaine : 0 pour lundi, jusqu'à 6 pour dimanche ; k + 1 est la borne de cumul après ce jour. **Unité :** indice entier sans unité, de 0 à 6.
+- `7` : Nombre de jours calendaires de la semaine utilisée pour la répartition. **Unité :** nombre de jours de la semaine.
+
+**Opérateurs et signes :** `floor` : Prend l'entier inférieur de chaque cumul ; leur différence donne des UN entières et conserve le total hebdomadaire ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité ; `−` : soustraire la valeur de même unité ; `×` : multiplier les valeurs en conservant les unités indiquées ; `/` : diviser la première valeur par la seconde.
 
 Exemple : 10 UN par semaine donnent `1, 1, 2, 1, 2, 1, 2`, total 10.
 **Le total hebdomadaire vient du réel ; les dates quotidiennes sont reconstruites.**
@@ -283,6 +359,20 @@ Servi = floor(min(LibreClient, ÀServir))
 RetardAprès = ÀServir − Servi
 LibreClientAprès = LibreClient − Servi
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un PF chez un client, au moment du service du jour. Seul le stock libre déjà reçu chez ce client peut servir la demande.
+
+- `ÀServir` : Demande arrivée totale à servir aujourd'hui, y compris le retard antérieur. **Unité :** UN du PF.
+- `RetardAvant` : Demande arrivée les jours précédents qui reste non servie avant le service du jour. **Unité :** UN du PF.
+- `DemandeJour` : Nouvelle demande physique arrivée aujourd'hui. **Unité :** UN du PF pour ce jour.
+- `Servi` : Quantité effectivement servie depuis le stock libre du client aujourd'hui. **Unité :** UN entières du PF.
+- `LibreClient` : Quantité du PF déjà présente, libérée et non réservée chez le client avant le service. **Unité :** UN du PF.
+- `RetardAprès` : Demande arrivée qui reste non servie après le service du jour. **Unité :** UN du PF.
+- `LibreClientAprès` : Stock libre restant chez le client après le service du jour. **Unité :** UN du PF.
+
+**Opérateurs et signes :** `min` : Retient la plus petite quantité entre stock libre et demande à servir ; `floor` : Arrondit la quantité servie à l'entier inférieur pour conserver des UN physiques entières ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité ; `−` : soustraire la valeur de même unité.
 
 Exemple : retard 30, nouvelle demande 10, stock client 15 → il faut 40,
 on sert 15 et il reste 25 en retard. Un camion encore entre Muret et le client
@@ -304,6 +394,20 @@ BesoinEnvoiClient = max(0,
 
 DépartClient = floor(min(LibreMuret, BesoinEnvoiClient, autres limites physiques))
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un PF et un client, après le service du jour puis juste avant un départ de Muret. Le calcul utilise uniquement la demande déjà arrivée et les engagements client encore ouverts.
+
+- `BesoinEnvoiClient` : Quantité de nouvel envoi nécessaire pour couvrir la demande connue encore non couverte. **Unité :** UN du PF.
+- `RetardAprès` : Demande arrivée restant non servie après le service du jour chez le client. **Unité :** UN du PF.
+- `LibreClientAprès` : Stock libre restant chez ce client après le service du jour. **Unité :** UN du PF.
+- `quantités des envois client déjà engagés et encore ouverts` : Quantités restantes des envois du même PF vers ce client déjà engagés, comptées une seule fois même si leur arrivée est tardive. **Unité :** UN du PF par engagement.
+- `DépartClient` : Quantité effectivement expédiée aujourd'hui de Muret vers ce client. **Unité :** UN entières du PF.
+- `LibreMuret` : Stock du même PF présent, libéré et non réservé à Muret au moment du départ. **Unité :** UN du PF.
+- `autres limites physiques` : Plafonds physiques applicables au départ, exprimés en quantité expédiable du même PF. **Unité :** UN du PF.
+
+**Opérateurs et signes :** `max` : Retient zéro si les ressources déjà présentes ou engagées couvrent le retard ; sinon retient le manque ; `somme` : Additionne les quantités restantes de tous les engagements client ouverts concernés ; `min` : Retient la plus petite quantité entre stock Muret, besoin d'envoi et limites physiques ; `floor` : Arrondit la quantité expédiée à l'entier inférieur pour conserver des UN physiques entières ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `−` : soustraire la valeur de même unité.
 
 Un engagement ouvert est soustrait une seule fois, même s’il est tardif.
 Le besoin est recalculé immédiatement avant le départ pour éviter un surplus.
@@ -343,6 +447,18 @@ PrévisionRestante = max(0, PrévisionSemaine − CommandesDéjàArrivées)
 PrévisionJourFutur = PrévisionRestante / JoursRestants
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un PF, son client et la semaine civile courante, avec la dernière prévision connue aujourd'hui. La répartition ne porte que sur les jours futurs de cette semaine ; si aucun jour ne reste, le reliquat expire.
+
+- `PrévisionRestante` : Part de la prévision hebdomadaire que les commandes déjà arrivées n'ont pas encore remplacée. **Unité :** UN prévues du PF pour le reste de la semaine.
+- `PrévisionSemaine` : Quantité prévue pour toute la semaine, dans la version connue aujourd'hui. **Unité :** UN prévues du PF pour la semaine.
+- `CommandesDéjàArrivées` : Cumul de la demande physique arrivée depuis le début de cette semaine jusqu'à aujourd'hui inclus, qu'elle soit déjà servie ou encore en retard. **Unité :** UN du PF.
+- `PrévisionJourFutur` : Quantité prévisionnelle affectée à chacun des jours restants de la semaine ; les fractions sont autorisées. **Unité :** UN prévues du PF par jour.
+- `JoursRestants` : Nombre de jours calendaires strictement après aujourd'hui et jusqu'au dimanche de la semaine inclus ; le quotient s'applique si ce nombre est positif. **Unité :** jours calendaires.
+
+**Opérateurs et signes :** `max` : Empêche une prévision restante négative lorsque les commandes arrivées dépassent la prévision ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `−` : soustraire la valeur de même unité ; `/` : diviser la première valeur par la seconde.
+
 Exemple : prévu 700, reçu en commandes 360 lundi–mercredi → restant 340,
 réparti jeudi–dimanche à 85 par jour. Si les commandes ont déjà atteint 750,
 la prévision restante est zéro. On retire les commandes arrivées, **pas les
@@ -359,6 +475,22 @@ semaine partielle, le moteur ne reconstruit pas une demande antérieure inconnue
 BesoinClient[d] = PrévisionJourFutur[d | t]
 BesoinClient[t+1] = BesoinClient[t+1] + RetardAprès
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Plan d'un PF pour un client établi à la fin du jour t, pour les dates d de t+1 à t+364. Les besoins sont des quantités datées ; ils ne sont pas du service physique déjà réalisé.
+
+- `BesoinClient[d]` : Quantité du PF à couvrir chez le client à la date future d. **Unité :** UN prévues du PF pour la date d.
+- `PrévisionJourFutur[d | t]` : Prévision pour le jour d calculée avec les seules informations connues au jour t, après consommation de prévision par les commandes arrivées. **Unité :** UN prévues du PF pour le jour d.
+- `BesoinClient[t+1]` : Besoin du premier jour futur ; la deuxième ligne lui ajoute une seule fois le retard connu en fin de jour t. **Unité :** UN du PF pour le jour t+1.
+- `RetardAprès` : Demande arrivée restant non servie après le service au jour t. **Unité :** UN du PF.
+- `t` : Jour de décision où les informations disponibles sont arrêtées. **Unité :** numéro entier de jour du modèle.
+- `d` : Date future du besoin, entre le lendemain de t et la fin de l'horizon de 364 jours. **Unité :** numéro entier de jour du modèle.
+- `t+1` : Lendemain du jour de décision, premier jour de l'horizon futur. **Unité :** numéro entier de jour du modèle.
+
+**Opérateurs et signes :** `[d | t]` : Distingue la date cible d de la date de connaissance t ; une information connue après t est exclue du calcul ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité.
+
+La seconde ligne met à jour le besoin déjà calculé à la première ligne : elle ajoute le retard une seule fois. Ce n’est pas une équation à résoudre pour retrouver le même symbole des deux côtés.
 
 Le retard est ajouté **une seule fois**, au premier jour futur. Le plan remonte
 ensuite client → Muret → usine. Une nouvelle proposition aval crée un besoin
@@ -398,6 +530,24 @@ RetardAllocation = max(0, DateDisponibleRessource − DateBesoin)
 UnitésJoursRetard = somme(QuantitéAllouée × RetardAllocation)
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un même article au même site dans un plan daté, besoins traités dans l'ordre des dates. Une ressource ferme tardive peut couvrir un besoin avec retard sans devenir utilisable plus tôt.
+
+- `ResteAprèsFermes[d]` : Quantité du besoin protégé à la date d qui reste à couvrir après allocation du stock libre et des ressources fermes admises au plan. **Unité :** unité de stock de l'article au site, UN pour un PF.
+- `BesoinProtégé[d]` : Quantité à couvrir à la date d, protection de stock comprise selon la politique locale. **Unité :** même unité de stock de l'article au site.
+- `QuantitéAllouéeDepuisFermes[d]` : Part du besoin daté d couverte par les ressources fermes admises, y compris le stock libre initial du plan. **Unité :** même unité de stock de l'article au site.
+- `BesoinNet[d]` : Quantité restant à couvrir par de nouvelles propositions après les ressources fermes et les surplus déjà calculés. **Unité :** même unité de stock de l'article au site.
+- `SurplusEncoreDisponible[d]` : Quantité non encore affectée des propositions précédentes du même plan, réutilisable pour le besoin d. **Unité :** même unité de stock de l'article au site.
+- `RetardAllocation` : Nombre de jours entre le besoin et la disponibilité de la ressource qui le couvre, sans valeur négative. **Unité :** jours calendaires.
+- `DateDisponibleRessource` : Date où la ressource allouée devient utilisable sur le site du besoin. **Unité :** numéro de jour du modèle.
+- `DateBesoin` : Date où la quantité allouée aurait dû être utilisable. **Unité :** numéro de jour du modèle.
+- `UnitésJoursRetard` : Total des quantités allouées multipliées par leurs jours de retard, sur les allocations considérées. **Unité :** unité de l'article × jour ; UN·jour pour un PF.
+- `QuantitéAllouée` : Quantité couverte par une allocation particulière à une ressource. **Unité :** unité de stock de l'article au site.
+- `d` : Date du besoin traité dans le plan. **Unité :** numéro entier de jour du modèle.
+
+**Opérateurs et signes :** `max` : Retient la plus grande valeur et ramène les restes ou retards négatifs à zéro ; `somme` : Additionne le produit quantité × retard de chacune des allocations considérées pour le même article/site ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `−` : soustraire la valeur de même unité ; `×` : multiplier les valeurs en conservant les unités indiquées.
+
 Exemple : besoin 10 mardi, 5 en stock, 5 déjà commandées pour vendredi →
 aucune nouvelle commande. Les 5 reçues vendredi couvrent avec 3 jours de retard,
 soit 15 unités-jours. Cette couverture de plan ne les rend pas utilisables mardi.
@@ -431,6 +581,20 @@ Plancher[d] = max(Fixe,
     somme(BesoinBrut[j] pour d < j ≤ FinSécurité(d,N)))
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Réserve de sécurité d'un PF à Muret, calculée pour une date d dans le plan connu aujourd'hui. Les besoins calendaires du week-end compris dans la fenêtre restent inclus.
+
+- `Plancher[d]` : Réserve cible à préserver après les besoins du jour d. **Unité :** UN du PF.
+- `Fixe` : Quantité de réserve fixe configurée pour ce PF à Muret, nulle pour les deux PF de la référence active. **Unité :** UN du PF.
+- `BesoinBrut[j]` : Quantité de besoin datée du jour j avant ajout de cette réserve. **Unité :** UN du PF pour le jour j.
+- `d` : Date après laquelle la fenêtre de sécurité commence ; son besoin propre est exclu de cette réserve. **Unité :** numéro entier de jour du modèle.
+- `j` : Jour calendaire parcouru dans la somme, strictement après d et jusqu'à la borne de sécurité incluse. **Unité :** numéro entier de jour du modèle.
+- `N` : Nombre de jours de sécurité source : 20 pour 268091 à Muret, 25 pour 268967, utilisés à 100 % dans le nominal. **Unité :** jours lundi–vendredi.
+- `FinSécurité(d,N)` : Date obtenue en avançant de N jours lundi–vendredi après d ; elle ferme la fenêtre des besoins à additionner. **Unité :** numéro de jour du modèle.
+
+**Opérateurs et signes :** `max` : Retient la plus grande quantité entre la réserve fixe et le total des besoins de la fenêtre ; `somme` : Additionne les besoins de tous les jours calendaires j satisfaisant d < j ≤ FinSécurité(d,N) ; `FinSécurité` : Cherche la borne future en ne comptant que lundi à vendredi, après d ; ce calendrier ne supprime aucun besoin du week-end à l'intérieur de la fenêtre ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `≤` : inférieur ou égal ; `<` : strictement inférieur.
+
 Les besoins du samedi et du dimanche compris entre les deux bornes sont inclus.
 Le calendrier ouvré sert à trouver la borne de fin, pas à effacer les demandes
 du week-end. Le besoin du jour `d` n’est pas ajouté dans sa propre réserve.
@@ -447,6 +611,22 @@ Cumul[d] = somme(BesoinBrut[j] pour j ≤ d)
 Enveloppe[d] = max(Enveloppe[point précédent], Cumul[d] + Plancher[d])
 BesoinProtégé[d] = Enveloppe[d] − Enveloppe[point précédent]
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un PF à Muret dans un même plan daté, aux points successifs classés par date. L'enveloppe avant le premier point vaut zéro ; la protection est une exigence de planification, sans consommation physique.
+
+- `Cumul[d]` : Total des besoins bruts du plan jusqu'à la date d incluse. **Unité :** UN du PF.
+- `BesoinBrut[j]` : Quantité de besoin du jour j avant ajout de la réserve de sécurité. **Unité :** UN du PF pour le jour j.
+- `Enveloppe[d]` : Total cumulé à couvrir, suffisant pour les besoins et le plancher de sécurité ; il ne descend jamais. **Unité :** UN du PF.
+- `Enveloppe[point précédent]` : Valeur de l'enveloppe au point daté immédiatement précédent ; zéro avant le premier point. **Unité :** UN du PF.
+- `Plancher[d]` : Réserve cible calculée pour la date d, distincte de la demande physique. **Unité :** UN du PF.
+- `BesoinProtégé[d]` : Nouvelle tranche de l'enveloppe à couvrir à la date d, sans rajouter la même réserve à chaque point. **Unité :** UN du PF pour la date d.
+- `d` : Date du point courant du plan. **Unité :** numéro entier de jour du modèle.
+- `j` : Date parcourue dans la somme des besoins du plan, jusqu'à d inclus. **Unité :** numéro entier de jour du modèle.
+- `point précédent` : Point du plan immédiatement avant le point d dans l'ordre chronologique. **Unité :** repère daté du même plan.
+
+**Opérateurs et signes :** `somme` : Additionne les besoins bruts du plan aux jours j ne dépassant pas d ; `max` : Retient la plus grande valeur entre l'enveloppe précédente et les besoins cumulés augmentés du plancher ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité ; `−` : soustraire la valeur de même unité ; `≤` : inférieur ou égal.
 
 Exemple inventé : besoins 10 puis 10 ; planchers 20 puis 10.
 Les enveloppes sont 30 puis 30. Les tranches à couvrir sont 30 puis 0,
@@ -465,12 +645,38 @@ W = ceil(DuréeSécuritéCalendaire)
 Repli = max(Fixe, somme(BesoinBrut[j] pour t < j ≤ t + W))
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Repli de sécurité d'un PF à Muret, recalculé au jour de décision t puis constant dans ce plan. La fenêtre commence strictement après t ; tous ses jours calendaires sont pris en compte.
+
+- `DuréeSécuritéCalendaire` : Temps calendaire écoulé après t pour compter N jours lundi–vendredi ; un éventuel dernier jour ouvré fractionnaire contribue sa fraction. **Unité :** jours calendaires, éventuellement fractionnaires.
+- `t` : Jour où l'on calcule le plan et son repli de sécurité. **Unité :** numéro entier de jour du modèle.
+- `N` : Nombre de jours de sécurité source du PF à Muret : 20 pour 268091 ou 25 pour 268967 dans le nominal. **Unité :** jours lundi–vendredi.
+- `W` : Durée calendaire arrondie au jour entier supérieur, utilisée pour borner la somme. **Unité :** jours calendaires entiers.
+- `Repli` : Plancher constant de remplacement utilisé dans ce plan lorsque la fenêtre future dépasse les prévisions connues. **Unité :** UN du PF.
+- `Fixe` : Réserve fixe du PF à Muret, nulle pour les deux PF de la référence active. **Unité :** UN du PF.
+- `BesoinBrut[j]` : Quantité de besoin du jour j avant ajout de la réserve. **Unité :** UN du PF pour le jour j.
+- `j` : Jour calendaire parcouru, strictement après t et jusqu'à t + W inclus. **Unité :** numéro entier de jour du modèle.
+
+**Opérateurs et signes :** `ceil` : Arrondit la durée calendaire à l'entier supérieur pour obtenir la borne de la fenêtre ; `max` : Retient la plus grande quantité entre réserve fixe et somme des besoins de la fenêtre ; `somme` : Additionne les besoins de tous les jours calendaires j tels que t < j ≤ t + W, week-ends inclus ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité ; `≤` : inférieur ou égal ; `<` : strictement inférieur.
+
 Le jour de semaine de `t` vaut `(2 + t) % 7`, avec lundi = 0 et mercredi = 2.
 On avance après `t` ; un samedi ou dimanche ajoute un jour écoulé sans consommer
 un jour de sécurité. Si N est fractionnaire, le dernier jour ouvré contribue
 sa fraction, puis `ceil` borne la fenêtre. Les paramètres source du tableau
 sont entiers. Exemple : vendredi, N = 1 → durée calendaire 3, jusqu’au lundi.
 L’implémentation est `simulation/engine/model_semantics.py:safety_calendar_days`.
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Repérer le jour de semaine du jour de calcul, avec lundi numéroté 0 et dimanche 6.
+
+- `t` : Nombre de jours calendaires écoulés depuis le 1er janvier 2025, qui est le jour0. **Unité :** numéro de jour du modèle.
+- `2` : Numéro du mercredi initial dans la convention lundi 0, mardi 1, mercredi 2. **Unité :** indice de jour de semaine sans unité.
+- `7` : Nombre de jours du cycle lundi–dimanche. **Unité :** jours calendaires.
+- `N` : Nombre de jours lundi–vendredi de sécurité cité dans l’exemple voisin N=1. **Unité :** jours ouvrés lundi–vendredi.
+
+**Opérateurs et signes :** `+` : Avancer le numéro de jour de semaine à partir du mercredi initial ; `%` : Garder le reste de la division par 7 pour obtenir un indice de 0 à 6.
 
 ## 10. L’usine : planifier un OF, puis réellement fabriquer
 
@@ -485,6 +691,17 @@ quantités réellement disponibles pour autoriser un lancement.
                            dont DateLancement ≤ aujourd’hui)
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour un article fabriqué à son usine, au début du jour de lancement : le plan calculé la veille est réexaminé avec la disponibilité réelle du jour. Les campagnes déjà actives conservent leur identité.
+
+- `ÀLancerAujourd’hui` : Quantité totale portée par les nouvelles propositions admissibles dont le lancement est dû au plus tard aujourd'hui. **Unité :** unité de l'article fabriqué au site ; UN pour un PF, G dans les données brutes des deux semi-finis ; KG après conversion cohérente.
+- `propositions admissibles` : Quantités des propositions du même article/site dont les conditions de lancement sont satisfaites après réexamen du plan. **Unité :** même unité de l'article fabriqué au site, par proposition.
+- `DateLancement` : Date de lancement prévue pour la proposition considérée. **Unité :** numéro de jour du modèle.
+- `aujourd’hui` : Jour courant où le programme examine l'autorisation de lancer. **Unité :** numéro entier de jour du modèle.
+
+**Opérateurs et signes :** `somme` : Additionne les quantités des seules propositions admissibles dont la date de lancement ne dépasse pas aujourd'hui ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `≤` : inférieur ou égal.
+
 Une campagne active poursuit d’abord son exécution. On ne crée pas simplement
 une autre campagne parce qu’une première est bloquée. Au jour 0, il n’existe
 pas de snapshot de la veille : pas de nouvelle campagne normale ; les ordres
@@ -496,6 +713,22 @@ Un signal préparatoire lissé existe aussi :
 IntentionBrute = SignalAval + 0,25 × (CibleLocale − StockLocalReconnu)
 IntentionLissée = 0,20 × IntentionLisséePrécédente + 0,80 × IntentionBrute
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Signal préparatoire pour un même article fabriqué au même site, sur un pas de calcul quotidien d'un jour. Les intentions sont des quantités demandées pour ce pas, équivalentes à des débits en unité/jour ; elles ne donnent pas directement l'autorisation d'un OF, qui relève du plan daté.
+
+- `IntentionBrute` : Quantité de production demandée pour le pas quotidien avant lissage, issue du signal aval et de l'écart à la cible locale. **Unité :** unité de l'article pour ce pas d'un jour ; équivalent UN/jour pour un PF.
+- `SignalAval` : Plus grand des deux signaux de quantité pour ce pas reçus par le contrôleur : signal aval propagé et signal prévisionnel multiniveau. **Unité :** même unité de quantité pour le pas quotidien que IntentionBrute.
+- `CibleLocale` : Plus grande des protections locales configurées, exprimée en quantité de l'article au site. **Unité :** unité de l'article fabriqué au site ; UN pour un PF.
+- `StockLocalReconnu` : Quantité de sortie reconnue par le contrôleur pour ce même article et ce même site ; ce signal de calcul n'est pas une mesure du stock libre immédiatement expédiable. **Unité :** même unité de quantité que CibleLocale.
+- `IntentionLissée` : Quantité préparatoire demandée pour le pas quotidien après combinaison de l'intention précédente et de l'intention brute. **Unité :** unité de l'article pour ce pas d'un jour ; équivalent UN/jour pour un PF.
+- `IntentionLisséePrécédente` : Quantité lissée conservée du calcul journalier précédent pour le même article/site. **Unité :** même unité de quantité pour un pas quotidien que IntentionLissée.
+- `0,25` : Coefficient de commande qui reprend 25 % de l'écart de stock sur le pas d'un jour ; son équivalent en débit est un gain de 0,25 par jour, sans constituer un taux physique industriel. **Unité :** sans unité pour la quantité par pas ; équivalent par jour pour le débit.
+- `0,20` : Poids de l'intention lissée précédente dans le nouveau lissage. **Unité :** sans unité.
+- `0,80` : Poids de l'intention brute actuelle dans le nouveau lissage. **Unité :** sans unité.
+
+**Opérateurs et signes :** `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité ; `−` : soustraire la valeur de même unité ; `×` : multiplier les valeurs en conservant les unités indiquées.
 
 `SignalAval` est le maximum du signal aval propagé et du signal prévisionnel
 multiniveau. `CibleLocale` est le maximum des protections locales configurées.
@@ -517,12 +750,37 @@ Lot = ceil(Lot)                                         si unité UN
 Lot = min(Lot, MaximumEffectif)                         si Maximum défini
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Dimensionnement d'un lot pour un même article fabriqué à un même site, pour un besoin net strictement positif et un multiple strictement positif. Les lignes conditionnelles ne s'appliquent que si le maximum est défini ou si l'unité est UN.
+
+- `MinimumEffectif` : Plus petite quantité multiple de Multiple qui atteint le minimum configuré. **Unité :** unité de l'article fabriqué au site ; UN pour un PF, G dans les données brutes des deux semi-finis ; KG après conversion cohérente.
+- `Minimum` : Quantité minimale de lot configurée pour cet article/site. **Unité :** même unité de l'article fabriqué au site.
+- `Multiple` : Pas de quantité strictement positif auquel le lot doit se conformer. **Unité :** même unité de l'article fabriqué au site.
+- `MaximumEffectif` : Plus grande quantité multiple de Multiple qui ne dépasse pas le maximum configuré, lorsque ce maximum existe. **Unité :** même unité de l'article fabriqué au site.
+- `Maximum` : Plafond configuré pour le lot ou la campagne selon la couche, s'il est renseigné ; il ne borne pas le besoin total de la journée. **Unité :** même unité de l'article fabriqué au site.
+- `Lot` : Quantité proposée pour le lot, successivement calculée au multiple, arrondie en UN si nécessaire, puis limitée au maximum effectif lorsqu'il existe. **Unité :** même unité de l'article fabriqué au site ; UN entières si unité UN.
+- `BesoinNet` : Quantité encore à couvrir après allocation des ressources et surplus du plan. **Unité :** même unité de l'article fabriqué au site.
+
+**Opérateurs et signes :** `ceil` : Prend l'entier supérieur du nombre de multiples ; appliqué directement à Lot en UN, garantit une quantité entière supérieure ou égale ; `floor` : Prend l'entier inférieur du nombre de multiples autorisé par le maximum ; `max` : Retient la plus grande quantité entre besoin net et minimum effectif ; `min` : Retient la plus petite quantité entre le lot calculé et le maximum effectif ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `×` : multiplier les valeurs en conservant les unités indiquées ; `/` : diviser la première valeur par la seconde.
+
 Sans multiple, omettre les opérations de multiple. Pour un lot fixe :
 
 ```text
 NombreLots = ceil(BesoinNet / LotFixe)
 QuantitéCampagne = NombreLots × LotFixe
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Dimensionnement d'une campagne à lots fixes pour un même article fabriqué au même site et son besoin net. Le lot fixe est strictement positif ; un besoin nul ne crée aucun lot.
+
+- `NombreLots` : Nombre entier de lots fixes nécessaire pour couvrir le besoin net. **Unité :** nombre de lots.
+- `BesoinNet` : Quantité de l'article encore à couvrir après allocation des ressources et surplus du plan. **Unité :** unité de l'article fabriqué au site ; UN pour un PF, G dans les données brutes des deux semi-finis ; KG après conversion cohérente.
+- `LotFixe` : Quantité produite par chaque lot fixe de cet article/site. **Unité :** même unité de l'article fabriqué au site, par lot.
+- `QuantitéCampagne` : Quantité totale de la campagne formée par ces lots fixes. **Unité :** même unité de l'article fabriqué au site.
+
+**Opérateurs et signes :** `ceil` : Arrondit le nombre de lots à l'entier supérieur pour couvrir le besoin net ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `×` : multiplier les valeurs en conservant les unités indiquées ; `/` : diviser la première valeur par la seconde.
 
 Un maximum borne un lot ou une campagne selon la couche, **pas tout le besoin
 de la journée**. Le plan daté crée plusieurs propositions si nécessaire et
@@ -541,8 +799,27 @@ Exemple : besoin net 130 000 UN de `268091`. Le maximum réalisable est
 puis au moins 28 800 pour couvrir le reliquat. Il ne coupe pas le besoin total
 à 129 600. Une nouvelle campagne variable reste plafonnée à 129 600.
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Maximum de lot réalisable du produit fini 268091 à Avène, dans le calcul du nombre de multiples admissibles.
+
+- `142485` : Maximum déclaré d’un lot de cet article. **Unité :** UN de produit fini.
+- `14400` : Multiple de quantité auquel le lot doit se conformer. **Unité :** UN par multiple.
+- `129600` : Plus grand lot composé de multiples entiers qui ne dépasse pas le maximum déclaré. **Unité :** UN de produit fini.
+
+**Opérateurs et signes :** `/` : Calculer le nombre de multiples contenu dans le maximum ; `floor` : Garder le nombre entier inférieur de multiples ; `×` : Reconvertir ce nombre de multiples en UN ; `=` : Le résultat est égal à la quantité calculée.
+
 Le quota de 20 compte les lots engagés lors du lancement, pas uniquement les
 lots terminés. La tranche vaut `floor(jour / 7)` : elle ne commence pas le lundi.
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Numéro de la tranche servant au quota de lots pour un même article/site ; ce n’est pas une semaine civile.
+
+- `jour` : Numéro de jour reporté par le modèle, avec le 1er janvier 2025 numéroté 0. **Unité :** jours calendaires depuis l’origine.
+- `7` : Longueur d’une tranche de comptage du quota de fabrication. **Unité :** jours calendaires.
+
+**Opérateurs et signes :** `/` : Exprimer le jour en nombre de tranches de 7 jours ; `floor` : Retenir le numéro entier de tranche :0 pour les jours 0 à 6,1 pour7à13.
 
 ### 10.3 Le travail est limité par ce qui existe réellement
 
@@ -555,6 +832,25 @@ CapacitéRestante = CapacitéJour − TravailDéjàFait − ConditionnementIniti
 
 TravailExécuté = min(ResteDuLotPhysique, CapacitéRestante, PossibleParMatières)
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Exécution physique d'un parent p dans une usine pendant le jour courant. Toutes les quantités de travail portent sur ce parent et cette journée ; chaque composant c garde son unité de stock et n'est disponible qu'une fois.
+
+- `PossibleParComposant[c]` : Quantité du parent p théoriquement réalisable avec le seul stock libre du composant c. **Unité :** unité du parent p ; UN pour un PF, G dans les données brutes des deux semi-finis ; KG après conversion cohérente.
+- `LibreComposant[c]` : Quantité du composant c présente, libérée et non réservée au site au moment du travail. **Unité :** unité de stock du composant c au site : UN, G, KG ou M.
+- `Recette[c,p]` : Quantité du composant c nécessaire par unité du parent p, convertie dans l'unité du stock de c. **Unité :** unité du composant c par unité du parent p.
+- `PossibleParMatières` : Quantité maximale théorique de parent réalisable avec tous les composants requis, avant l'ajustement physique des arrondis UN. **Unité :** unité du parent p.
+- `CapacitéRestante` : Quantité de travail sur le parent encore réalisable pendant la journée après le travail déjà exécuté et le conditionnement initial. **Unité :** unité du parent p pour la journée.
+- `CapacitéJour` : Quantité maximale de travail configurée pour le parent et le site pendant cette journée ; une capacité absente à Gaillac est non limitante dans ce calcul, sans prouver une capacité industrielle infinie. **Unité :** unité du parent p pour la journée ; capacité journalière issue du débit en UN/jour pour un PF.
+- `TravailDéjàFait` : Quantité de travail déjà exécutée aujourd'hui et imputée à cette capacité journalière. **Unité :** unité du parent p pour la journée.
+- `ConditionnementInitialDuJour` : Quantité de travail de conditionnement des ordres d'ouverture qui utilise la capacité de cette même journée. **Unité :** unité du parent p pour la journée.
+- `TravailExécuté` : Quantité de travail retenue par les limites de lot, de capacité et de matières ; le moteur la réduit si nécessaire pour respecter les arrondis physiques des composants UN. **Unité :** unité du parent p pour la journée.
+- `ResteDuLotPhysique` : Quantité de parent qu'il reste à exécuter pour terminer le lot physique courant. **Unité :** unité du parent p.
+- `c` : Identifiant de chacun des composants requis pour fabriquer le parent p sur ce site. **Unité :** identifiant sans unité.
+- `p` : Identifiant de l'article parent fabriqué, produit fini ou semi-fini. **Unité :** identifiant sans unité.
+
+**Opérateurs et signes :** `min` : Retient la plus petite limite : d'abord parmi les composants requis, puis entre reste du lot, capacité encore disponible et possibilités matières ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `−` : soustraire la valeur de même unité ; `/` : diviser la première valeur par la seconde.
 
 Le moteur réduit si nécessaire le travail jusqu’à une quantité physiquement
 réalisable après arrondis des composants UN. Les fabrications se disputent un
@@ -598,6 +894,21 @@ BesoinRecette[c,d] = somme(QuantitéNouvellePropositionParent[p,d]
                            × Recette[c,p])
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Explosion des nouvelles propositions de fabrication, pour un composant et son site consommateur, à la date proposée de lancement des parents.
+
+- `c` : Indice de l'article composant requis au site de fabrication du parent. **Unité :** identifiant d'article.
+- `p` : Indice de l'article parent fabriqué à ce site ; plusieurs parents peuvent partager c. **Unité :** identifiant d'article.
+- `d` : Date proposée de lancement du parent, qui date ici le besoin du composant. **Unité :** date (indice de jour calendaire).
+- `QuantitéRecette[c,p]` : Quantité source du composant c requise pour la base de recette du parent p. **Unité :** unité source du composant (G, KG, M ou UN).
+- `QuantitéBaseParent[p]` : Quantité de parent p à laquelle se rapporte la quantité source de recette. **Unité :** unité du parent (UN ou unité de masse).
+- `Recette[c,p]` : Quantité de composant c par unité de parent p, après conversion dans l'unité de stock du composant. **Unité :** unité de stock du composant / unité du parent.
+- `QuantitéNouvellePropositionParent[p,d]` : Quantité de parent p portée par les nouvelles propositions dont le lancement est prévu à d au site considéré. **Unité :** unité du parent.
+- `BesoinRecette[c,d]` : Total de composant c nécessaire aux nouvelles propositions des parents lancés à d, au même site consommateur. **Unité :** unité de stock du composant.
+
+**Opérateurs et signes :** `convertir_dans_unité_du_stock_composant` : Convertir l'unité du numérateur composant en unité de stock, en conservant le dénominateur par unité de parent ; 1 KG vaut 1 000 G ; `/` : Diviser la quantité de composant par sa base de parent pour obtenir le coefficient par unité de parent ; `×` : Multiplier la quantité de parent par le coefficient de recette ; `somme` : Additionner les contributions de tous les parents et nouvelles propositions concernés, au même composant/site et à la même date ; `[c,p] et [c,d]` : Repérer respectivement le couple composant/parent et le couple composant/date ; le site est celui du périmètre indiqué ; `=` : Définir la valeur calculée à gauche à partir de l'expression à droite.
+
 La date de besoin du composant est la date de lancement proposée du parent.
 Pour une campagne déjà engagée, les composants du travail encore à faire sont
 demandés une fois au prochain jour ; les composants déjà incorporés à l’encours
@@ -607,6 +918,22 @@ ne sont pas demandés à nouveau.
 BesoinCampagneRestante[c,t+1] = ResteÀExécuterParent × Recette[c,p]
 RéceptionFermeSortieCampagne = ResteÀExécuterParent + EncoursDéjàExécuté
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Campagne déjà engagée d'un parent p à son site de fabrication ; le besoin de composants encore à incorporer est daté au prochain jour du plan.
+
+- `c` : Article composant requis par la campagne au site de fabrication. **Unité :** identifiant d'article.
+- `p` : Article parent de la campagne engagée. **Unité :** identifiant d'article.
+- `t` : Jour courant de calcul du plan ; le jour 0 est le 1er janvier 2025. **Unité :** indice de jour calendaire.
+- `t+1` : Jour suivant le calcul courant, auquel est demandé le composant du travail restant. **Unité :** indice de jour calendaire.
+- `ResteÀExécuterParent` : Quantité de parent de cette campagne qui reste à fabriquer et dont les composants ne sont pas encore incorporés. **Unité :** unité du parent.
+- `Recette[c,p]` : Quantité du composant c, dans son unité de stock, par unité de parent p. **Unité :** unité de stock du composant / unité du parent.
+- `BesoinCampagneRestante[c,t+1]` : Quantité de c encore requise par la campagne et demandée une seule fois au prochain jour, sans redemander la matière déjà incorporée. **Unité :** unité de stock du composant.
+- `EncoursDéjàExécuté` : Quantité de parent déjà travaillée dans la campagne, avec composants déjà incorporés, qui n'est pas encore une sortie physique achevée. **Unité :** unité du parent.
+- `RéceptionFermeSortieCampagne` : Quantité totale de sortie attendue de cette campagne engagée, retenue comme réception ferme du plan ; elle n'est pas encore du stock physique libre. **Unité :** unité du parent.
+
+**Opérateurs et signes :** `×` : Convertir le travail parent restant en quantité de composant par la recette ; `+` : Additionner les quantités de parent restant à faire et déjà exécutées ; dans t+1, avancer d'un jour calendaire ; `[c,t+1] et [c,p]` : Repérer la demande de composant du prochain jour et son coefficient pour le parent ; `=` : Définir le besoin restant ou la réception ferme attendue.
 
 Une passe amont→aval retarde ensuite la promesse de fin d’une campagne si ses
 composants alloués arrivent tard. Elle ne crée pas du stock et ne remplace pas
@@ -621,6 +948,21 @@ PrélèvementPhysique[c] = ceil(ConsommationThéorique[c])   si composant UN
 PrélèvementPhysique[c] = ConsommationThéorique[c]         si masse ou longueur
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Une opération physique de fabrication d'un parent p, au site consommateur et au jour de son exécution ; l'arrondi UN se fait par opération.
+
+- `c` : Article composant prélevé au site de fabrication. **Unité :** identifiant d'article.
+- `p` : Article parent réellement travaillé pendant cette opération. **Unité :** identifiant d'article.
+- `TravailExécutéParent` : Quantité de parent effectivement travaillée pendant l'opération considérée. **Unité :** unité du parent.
+- `Recette[c,p]` : Quantité de composant c par unité de parent p, exprimée dans l'unité du stock composant. **Unité :** unité de stock du composant / unité du parent.
+- `ConsommationThéorique[c]` : Quantité de c issue de la multiplication par la recette avant l'arrondi physique éventuel. **Unité :** unité de stock du composant ; UN éventuellement fractionnaires pour la théorie.
+- `PrélèvementPhysique[c]` : Quantité de c réellement retirée du stock lors de cette opération ; entière si le composant est compté en UN. **Unité :** UN entières, ou unité de masse ou de longueur du stock.
+- `UN` : Unité de comptage d'une pièce physique indivisible. **Unité :** unité physique.
+- `masse ou longueur` : Branche où la quantité conserve sa précision de masse ou de longueur au lieu d'être arrondie en pièces. **Unité :** G, KG ou M selon le composant.
+
+**Opérateurs et signes :** `×` : Multiplier le travail parent par le coefficient composant par unité de parent ; `ceil` : Prendre le plus petit entier supérieur ou égal à la consommation théorique, séparément pour chaque opération UN ; `si` : Choisir la branche selon l'unité physique du composant ; `[c] et [c,p]` : Identifier le composant prélevé et sa recette pour le parent ; `=` : Définir la théorie ou la quantité physique prélevée.
+
 Le plafond UN s’applique par opération. Un lot fractionné en plusieurs
 opérations peut donc consommer plus d’UN que l’arrondi d’une théorie globale.
 Les deux quantités doivent rester visibles.
@@ -633,6 +975,29 @@ Exemple réel de paramètres pour une campagne de 129 600 UN de `268091` :
 426331 : 129600 × 11 / 1000 UN = 1425,6 UN théoriques
          → 1426 UN prélevées si l’opération se fait en un seul passage
 ```
+
+**Nombres et unités de cet exemple.**
+
+**Périmètre :** Exemple des recettes actives pour une campagne de 268091 à Avène de 129 600 UN ; les prélèvements présentés correspondent à un seul passage physique.
+
+- `693055` : Article semi-fini consommé à Avène pour fabriquer 268091, même s'il est fabriqué à Gaillac. **Unité :** identifiant d'article.
+- `001757` : Article composant consommé à Avène pour fabriquer 268091. **Unité :** identifiant d'article.
+- `426331` : Article composant compté en pièces et consommé à Avène pour fabriquer 268091. **Unité :** identifiant d'article.
+- `129600` : Quantité de parent 268091 fabriquée dans l'exemple ; le même volume sert aux trois calculs. **Unité :** UN de parent 268091.
+- `406` : Quantité source de 693055 requise pour la base de recette de 1 000 UN de parent. **Unité :** G de 693055 pour 1 000 UN de 268091.
+- `1624` : Quantité source de 001757 requise pour la base de recette de 1 000 UN de parent. **Unité :** G de 001757 pour 1 000 UN de 268091.
+- `11` : Quantité source de 426331 requise pour la base de recette de 1 000 UN de parent. **Unité :** UN de 426331 pour 1 000 UN de 268091.
+- `1000` : Dénominateur de recette : chaque quantité source indiquée se rapporte à 1 000 unités du parent ; ce n'est pas ici une conversion de masse. **Unité :** UN de parent 268091.
+- `52617,6 G` : Consommation théorique de 693055 pour cette campagne, exprimée en grammes. **Unité :** G de 693055.
+- `52,6176 KG` : Même consommation de 693055 exprimée en kilogrammes après division des grammes par 1 000. **Unité :** KG de 693055.
+- `210,4704 KG` : Consommation théorique de 001757 pour cette campagne, soit 210 470,4 grammes convertis en kilogrammes. **Unité :** KG de 001757.
+- `1425,6 UN théoriques` : Résultat de recette avant arrondi pour 426331 ; ce nombre fractionnaire n'est pas un prélèvement physique de pièces. **Unité :** UN théoriques de 426331.
+- `1426 UN prélevées` : Quantité entière de 426331 retirée du stock par le plafond de 1 425,6 si toute l'opération se fait en un passage. **Unité :** UN physiques de 426331.
+- `G` : Gramme, unité de masse des quantités source utilisées dans les deux premiers calculs. **Unité :** gramme.
+- `KG` : Kilogramme ; un kilogramme équivaut à 1 000 grammes. **Unité :** kilogramme.
+- `UN` : Unité de comptage du parent ou du composant explicitement nommé. **Unité :** pièce.
+
+**Opérateurs et signes :** `× et /` : Multiplier les UN de parent par la quantité source de composant, puis diviser par la base de 1 000 UN de parent ; `=` : Exprimer la même masse calculée dans l'unité affichée ; la conversion G vers KG divise la valeur numérique par 1 000 ; `→ (ceil)` : Passer de la théorie à son plafond entier pour le prélèvement de pièces en une opération ; plusieurs passages ont chacun leur propre plafond ; `×` : multiplier les valeurs en conservant les unités indiquées ; `/` : diviser la première valeur par la seconde.
 
 Proposer un transfert de 600 KG de `693055` ne veut donc pas dire que cette
 campagne consomme 600 KG. Le surplus restera dans le stock commun.
@@ -681,6 +1046,16 @@ La règle de base est de sommer les besoins distincts au même article/site :
 BesoinComposantTotal = BesoinRecetteDesProduitsModélisés + AutresUsagesDistincts
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Un même article composant au même site et à la même échéance ; sommer seulement des usages distincts partageant son stock.
+
+- `BesoinRecetteDesProduitsModélisés` : Somme des besoins de recette des parents explicitement modélisés pour ce composant/site et cette échéance. **Unité :** unité de stock du composant.
+- `AutresUsagesDistincts` : Besoins datés des autres usages du même composant/site, identifiés séparément pour éviter de compter une recette deux fois. **Unité :** même unité de stock du composant.
+- `BesoinComposantTotal` : Total des deux catégories de besoins au composant/site et à l'échéance considérés. **Unité :** unité de stock du composant.
+
+**Opérateurs et signes :** `+` : Additionner des quantités distinctes dans la même unité, au même article/site et à la même échéance ; `=` : Définir le besoin total ; cette égalité ne constitue pas à elle seule une consommation physique.
+
 Ils partagent le même stock. La fabrication des produits modélisés est servie
 avant les autres usages. Les autres usages peuvent donc avoir leur propre
 retard sans que la recette des PF change.
@@ -707,6 +1082,20 @@ BesoinPlanifié = BesoinPropre + ComplémentPlanifié
                = max(BesoinPropre, BesoinIndustrielConnu)
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Adaptation historique E4 : calcul séparé pour chacun des neuf couples article/site du protocole et chacune de ses fenêtres hebdomadaires source couvertes, avec la dernière version connue au jour de décision. Le complément quotidien concerne seulement les jours futurs couverts de cette même fenêtre.
+
+- `BesoinPropre` : Quantité de besoin calculée par le modèle pour le couple article/site et la fenêtre hebdomadaire considérés, hors réserves. **Unité :** unité de stock de l'article sur la fenêtre.
+- `BesoinIndustrielConnu` : Quantité de besoin industriel de la dernière version déjà connue pour exactement le même article/site et la même fenêtre couverte. **Unité :** même unité de stock sur la même fenêtre.
+- `ComplémentPlanifié` : Quantité positive éventuelle ajoutée au plan pour atteindre le besoin industriel connu quand il dépasse le besoin propre ; elle ne constitue pas un prélèvement physique. **Unité :** unité de stock de l'article sur la fenêtre.
+- `BesoinPlanifié` : Besoin total retenu pour ce couple et cette fenêtre, égal au plus grand des besoins propre et industriel connu, avec les réserves conservées séparément. **Unité :** unité de stock de l'article sur la fenêtre.
+- `ComplémentJour` : Part du seul complément planifié répartie sur un jour futur couvert de la même fenêtre ; le total de ces parts conserve le complément hebdomadaire. **Unité :** quantité de l'article affectée à un pas journalier.
+- `NombreJoursCouverts` : Nombre de jours futurs couverts entre lesquels est réparti le complément de la fenêtre article/site considérée. **Unité :** nombre de jours.
+- `0` : Borne nulle empêchant un complément négatif. **Unité :** même unité de quantité que les besoins.
+
+**Opérateurs et signes :** `max` : Retenir la plus grande quantité parmi les arguments, sur cette fenêtre article/site ; ne pas prendre ce maximum séparément par jour ou sur l'année ; `− et +` : Calculer l'écart entre besoins comparables, puis ajouter le seul complément au besoin propre ; `/` : Dans la formule inline ComplémentJour, répartir le complément entre les jours futurs couverts, en conservant son total ; `=` : Définir le complément et le besoin planifié, ou exprimer deux écritures équivalentes du même total ; `+` : additionner les valeurs de même unité ; `−` : soustraire la valeur de même unité.
+
 Les réserves restent séparées. Ce complément de plan n’est pas une consommation
 physique ajoutée immédiatement au stock. Le maximum ne se calcule ni séparément
 chaque jour ni sur l’horizon annuel entier. Hors des fenêtres source couvertes,
@@ -715,6 +1104,16 @@ Le complément est réparti sur les jours futurs couverts de la fenêtre :
 `ComplémentJour = ComplémentPlanifié / NombreJoursCouverts`, avec conservation
 du total dans l’arithmétique utilisée. Les besoins propres existants gardent
 leurs dates ; ce sont les autres besoins prévisionnels remplacés qui changent.
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Répartition du complément de planification E4 pour le même article/site et la même fenêtre hebdomadaire couverte.
+
+- `ComplémentJour` : Part du complément à planifier sur un jour de cette fenêtre, pas un prélèvement physique immédiat. **Unité :** unité du composant par jour couvert.
+- `ComplémentPlanifié` : Quantité de la fenêtre restant à ajouter après comparaison des besoins propres et industriels connus. **Unité :** unité du composant.
+- `NombreJoursCouverts` : Nombre de jours futurs renseignés dans cette fenêtre et admis dans la répartition. **Unité :** nombre de jours calendaires couverts.
+
+**Opérateurs et signes :** `/` : Partager le total de la fenêtre entre ses jours couverts en conservant le total ; `=` : Le résultat est égal à la quantité calculée.
 
 ### 12.2 Réconciliation physique historique F3
 
@@ -730,12 +1129,35 @@ Pour un budget hebdomadaire non cumulatif :
 NouveauRésiduel = max(0, BudgetScan3Semaine − ConsommationPropreSemaine)
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Adaptation historique F3 non cumulative en mode legacy_residual : un seul article/site et sa semaine source, évalués à la clôture du dimanche. La première semaine partielle conserve sa convention source.
+
+- `BudgetScan3Semaine` : Consommation enregistrée dans Sorties_article_scan3 pour cet article/site et cette semaine source ; une valeur absente reste inconnue. **Unité :** unité de stock de l'article sur la semaine.
+- `ConsommationPropreSemaine` : Quantité du même article réellement consommée par les fabrications modélisées au même site pendant cette semaine, selon le registre physique. **Unité :** même unité de stock sur la même semaine.
+- `NouveauRésiduel` : Complément de consommation demandé à cette clôture pour rapprocher le budget de semaine et la consommation propre ; son exécution dépend du stock disponible. **Unité :** unité de stock de l'article.
+- `0` : Borne nulle empêchant de demander un résiduel négatif. **Unité :** même unité de quantité que le budget.
+
+**Opérateurs et signes :** `−` : Soustraire la consommation propre du budget du même article/site et de la même semaine ; `max` : Garder l'écart seulement s'il est positif, sinon zéro ; `=` : Définir une nouvelle demande résiduelle, distincte d'une consommation déjà exécutée.
+
 Pour les couples cumulatifs du protocole :
 
 ```text
 NouveauRésiduel = max(0,
     BudgetScan3Cumulé − ConsommationPropreCumulée − RésiduelsDéjàDemandés)
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Adaptation historique F3 pour un couple article/site déclaré cumulatif par le protocole ; tous les cumuls partagent le même début de cumul source et la même clôture hebdomadaire.
+
+- `BudgetScan3Cumulé` : Consommation enregistrée cumulée de l'article/site depuis l'origine fixée par le protocole jusqu'à cette clôture ; un budget absent n'est pas zéro. **Unité :** unité de stock de l'article sur la fenêtre cumulée.
+- `ConsommationPropreCumulée` : Consommation physique propre des fabrications modélisées, cumulée pour le même article/site sur exactement la même fenêtre. **Unité :** même unité de stock sur la même fenêtre cumulée.
+- `RésiduelsDéjàDemandés` : Total des demandes résiduelles déjà créées pour ce cumul article/site, y compris celles encore en attente de stock, pour éviter de les demander à nouveau. **Unité :** unité de stock de l'article.
+- `NouveauRésiduel` : Nouvelle quantité résiduelle à demander à cette clôture après déduction de la consommation propre et de tous les résiduels déjà demandés. **Unité :** unité de stock de l'article.
+- `0` : Borne nulle empêchant une nouvelle demande négative. **Unité :** même unité de quantité que les cumuls.
+
+**Opérateurs et signes :** `−` : Déduire les quantités propres et déjà demandées du même budget cumulé article/site ; `max` : Retenir l'écart positif restant, sinon zéro ; `=` : Définir le nouveau résiduel ; le retard des résiduels précédents conserve son identité.
 
 `RésiduelsDéjàDemandés` comprend aussi ceux qui attendent encore du stock.
 Sinon, le programme redemanderait plusieurs fois le même déficit.
@@ -759,6 +1181,19 @@ EngagéSemaine = somme(besoins composants déjà engagés de la semaine)
 ComplémentSemaine = max(0, ProgrammeIndustrielSemaine − EngagéSemaine)
 BesoinPlanifiéSemaine = max(EngagéSemaine, ProgrammeIndustrielSemaine)
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Pour 338929 à Avène, 333362 à Gien ou 042342 à Gien : une semaine source documentée d'un seul couple article/site, avec le programme déjà connu à la décision. Les besoins engagés gardent leurs dates.
+
+- `besoins composants déjà engagés de la semaine` : Quantités de l'article/site déjà requises par les campagnes engagées, dont les dates de besoin appartiennent à la semaine considérée. **Unité :** UN de l'article pour cette semaine.
+- `EngagéSemaine` : Total de ces besoins composants engagés pour le couple et la semaine considérés. **Unité :** UN de l'article sur la semaine.
+- `ProgrammeIndustrielSemaine` : Quantité du programme industriel connu de ce même article/site pour la même semaine documentée. **Unité :** UN du même article sur la même semaine.
+- `ComplémentSemaine` : Quantité prévisionnelle complémentaire au-delà des engagements, répartie de façon conservante sur la fenêtre sans déplacer les besoins engagés. **Unité :** UN de l'article sur la semaine.
+- `BesoinPlanifiéSemaine` : Total retenu pour la semaine, égal au plus grand des engagements et du programme industriel ; les réserves restent séparées. **Unité :** UN de l'article sur la semaine.
+- `0` : Borne nulle empêchant un complément hebdomadaire négatif. **Unité :** UN du même article.
+
+**Opérateurs et signes :** `somme` : Additionner les besoins composants engagés du même article/site dont les dates sont dans cette semaine ; `−` : Soustraire les besoins déjà engagés du programme de la même semaine ; `max` : Retenir le plus grand argument en quantité, sur cette seule semaine documentée ; `=` : Définir les totaux hebdomadaires ; une semaine absente ne devient pas une semaine de besoin nul.
 
 Les autres besoins prévisionnels couverts sont retirés ; les réserves restent.
 Hors semaine documentée, le modèle conserve ses besoins. Une semaine absente
@@ -794,6 +1229,21 @@ RéceptionDestination = DateDépart + TransportCalendaire
 DisponibleDestination = AjouterOuvrés(RéceptionDestination, TraitementDestination)
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Voyage d'un lot semi-fini de Gaillac vers Avène pour 693055 ou vers Gien pour 773474 ; dates et durées sont propres au lot et à sa liaison.
+
+- `DateFinLot` : Date de fin physique du lot fabriqué à Gaillac, avant son blocage de libération. **Unité :** date (indice de jour calendaire).
+- `BlocageGaillac` : Durée de blocage après fin à Gaillac : 28 pour 693055 ou 33 pour 773474, comptés du lundi au vendredi. **Unité :** jours lundi–vendredi.
+- `DisponibleGaillac` : Date à laquelle le lot est libéré et utilisable à Gaillac après le blocage ; ce n'est pas automatiquement son départ. **Unité :** date (indice de jour calendaire).
+- `DateDépart` : Date du départ physique du lot de Gaillac sur sa liaison vers la destination. **Unité :** date (indice de jour calendaire).
+- `TransportCalendaire` : Durée départ→réception : 7 jours pour 693055 vers Avène, hypothèse déclarée, ou 10 jours pour 773474 vers Gien. **Unité :** jours calendaires.
+- `RéceptionDestination` : Date d'arrivée physique à Avène ou Gien ; le lot peut encore être bloqué après cette réception. **Unité :** date (indice de jour calendaire).
+- `TraitementDestination` : Durée réception→disponibilité à destination : 7 pour 693055 à Avène ou 6 pour 773474 à Gien, comptés du lundi au vendredi. **Unité :** jours lundi–vendredi.
+- `DisponibleDestination` : Date à laquelle le lot reçu devient utilisable au site destinataire après son traitement. **Unité :** date (indice de jour calendaire).
+
+**Opérateurs et signes :** `AjouterOuvrés` : Avancer après la date de départ du calcul en ne comptant que les jours lundi–vendredi jusqu'à épuiser la durée indiquée ; `+` : Ajouter une durée de transport en jours calendaires à la date du départ physique ; `=` : Définir chacune des dates successives, sans confondre fin, départ, réception et disponibilité.
+
 Ces délais de libération source sont des conventions explicites du modèle,
 pas une identification certaine de toutes les étapes industrielles. Les
 70 jours de référence FIA de `693055` ne deviennent pas 70 jours de transport
@@ -802,6 +1252,16 @@ en plus des délais du tableau.
 Les deux liaisons sont revues lorsque `jour % 7 = 0`, donc les mercredis avec
 l’origine actuelle. Le besoin de transfert vient du netting de la destination.
 Il crée un besoin au site origine, daté à son départ prévu.
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Autorisation de revue des transferts Gaillac→Avène ou Gaillac→Gien, avec l’origine de temps de cette référence.
+
+- `jour` : Numéro de jour du modèle depuis le mercredi 1er janvier 2025 numéroté 0. **Unité :** jours calendaires depuis l’origine.
+- `7` : Période de revue de la liaison interne considérée. **Unité :** jours calendaires.
+- `0` : Reste exigé pour autoriser une revue : jours 0, 7, 14, etc. **Unité :** sans unité.
+
+**Opérateurs et signes :** `%` : Calculer le reste de la division entière ; `=` : Ici tester que le reste vaut zéro ; ce n’est pas une affectation.
 
 **Lot de fabrication, proposition de transfert et camion sont différents :**
 
@@ -829,6 +1289,24 @@ DateProtégée[d] = max(t, RetirerOuvrés(d, Sécurité))
 BesoinAnticipé[u] = somme(BesoinPhysique[d] dont DateProtégée[d] = u)
 BesoinAnticipé[t] = BesoinAnticipé[t] + Fixe
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Protection additive d'achat externe d'un seul article/site, dans le plan calculé au jour t ; avancer la date de planification conserve les dates de consommation physique.
+
+- `t` : Jour courant de décision, qui borne au présent les besoins avancés ; le jour 0 est le 1er janvier 2025. **Unité :** indice de jour calendaire.
+- `d` : Date originale du besoin physique de l'article au site destinataire. **Unité :** date (indice de jour calendaire).
+- `u` : Date de besoin anticipé qui regroupe les besoins physiques ayant la même date protégée. **Unité :** date (indice de jour calendaire).
+- `Sécurité` : Durée de protection source du couple article/site, retirée à la date physique en comptant seulement lundi–vendredi. **Unité :** jours lundi–vendredi.
+- `DateProtégée[d]` : Date avancée de planification du besoin physique daté d, sans jamais remonter avant t. **Unité :** date (indice de jour calendaire).
+- `BesoinPhysique[d]` : Quantité à consommer réellement à d au même article/site, conservée à cette date dans le bilan physique. **Unité :** unité de stock de l'article.
+- `BesoinAnticipé[u]` : Total des quantités de besoins physiques dont la date protégée est u, utilisé pour planifier les achats. **Unité :** unité de stock de l'article.
+- `BesoinAnticipé[t]` : Besoin anticipé regroupé au jour courant, auquel la réserve fixe est ajoutée une seule fois dans le plan. **Unité :** unité de stock de l'article.
+- `Fixe` : Réserve de sécurité en quantité du couple article/site, distincte d'une consommation physique. **Unité :** unité de stock de l'article.
+
+**Opérateurs et signes :** `RetirerOuvrés` : Reculer avant d en ne comptant que les jours lundi–vendredi jusqu'à retirer la durée de sécurité ; `max` : Retenir la plus tardive entre le jour courant et la date avancée ; `somme ... dont` : Additionner les seuls besoins physiques dont la date protégée correspond exactement à u ; `+` : Ajouter la réserve fixe une seule fois à la quantité anticipée au jour t ; `[d], [u] et [t]` : Repérer les valeurs par date de besoin physique, date de planification ou jour courant ; `=` : Définir une date protégée ou une quantité anticipée ; dans la dernière ligne, mettre à jour la valeur déjà regroupée à t.
+
+La dernière ligne met à jour le cumul déjà calculé pour aujourd’hui : elle y ajoute la réserve fixe une seule fois.
 
 La réserve fixe est ajoutée **une seule fois** dans le plan. La date du besoin
 de planification est avancée ; la consommation physique garde sa vraie date.
@@ -868,6 +1346,20 @@ DateCommande = dernière date r admissible telle que
               DisponibleCandidate[r] ≤ DateProtégée
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Recherche d'une commande nouvelle pour une offre fournisseur, un article et son site destinataire ; seules les dates de commande admissibles au calendrier et encore possibles sont examinées.
+
+- `r` : Date candidate de commande, autorisée par la revue et les calendriers, au plus tôt au jour courant. **Unité :** date (indice de jour calendaire).
+- `DélaiFournisseur` : Durée nominale entre commande et réception physique pour l'offre considérée, sans y ajouter à nouveau un transport déjà inclus. **Unité :** jours calendaires.
+- `RéceptionCandidate[r]` : Date de réception physique prévue si la commande est passée à r. **Unité :** date (indice de jour calendaire).
+- `Traitement` : Durée à compter après la réception physique pour rendre l'article utilisable au site destinataire. **Unité :** jours lundi–vendredi.
+- `DisponibleCandidate[r]` : Date de disponibilité utilisable résultant de la commande candidate r, après réception et traitement. **Unité :** date (indice de jour calendaire).
+- `DateProtégée` : Échéance anticipée du besoin d'achat pour cet article/site, déjà calculée avec sa protection. **Unité :** date (indice de jour calendaire).
+- `DateCommande` : Dernière date candidate admissible donnant une disponibilité au plus tard à l'échéance ; si aucune n'y parvient, le parcours décrit choisit la première date encore possible et trace le retard. **Unité :** date (indice de jour calendaire).
+
+**Opérateurs et signes :** `+` : Ajouter la durée commande→réception en jours calendaires à la date candidate ; `AjouterOuvrés` : Avancer après la réception en ne comptant que lundi–vendredi pour le traitement ; `dernière date ... telle que` : Choisir la date la plus tardive parmi les candidates qui satisfont le calendrier et l'échéance ; `≤` : Exiger une disponibilité avant ou à la date protégée ; `[r]` : Associer chaque date de réception ou disponibilité à la commande candidate r qui la produit ; `=` : Définir les dates candidates puis la date de commande retenue.
+
 Si aucun jour ne respecte l’échéance, choisir le premier jour encore possible
 et enregistrer le retard. Ne jamais créer une commande nouvelle dans le passé.
 Les délais fournisseur nominaux sont déterministes et lus une seule fois.
@@ -905,6 +1397,17 @@ et
 DateAllouéeActuelle > max(DateBesoinAnticipée, DisponibilitéSecours)
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Test expérimental de secours pour 001848 à Avène, sur une allocation non protégée dans la branche additive ; le besoin testé est déjà avancé par la sécurité.
+
+- `DateBesoinAnticipée` : Échéance protégée de l'allocation de 001848 à Avène, déjà anticipée ; ce n'est pas la date originale de consommation physique. **Unité :** date (indice de jour calendaire).
+- `PremièreDisponibilitéNouvelAchatPrincipal` : Première date utilisable qu'un nouvel achat au fournisseur principal VD0951020A pourrait atteindre depuis la décision actuelle. **Unité :** date (indice de jour calendaire).
+- `DateAllouéeActuelle` : Date utilisable actuellement affectée à cette allocation par le plan principal. **Unité :** date (indice de jour calendaire).
+- `DisponibilitéSecours` : Date utilisable que pourrait offrir un nouvel achat auprès du secours VD0519670A pour cette allocation. **Unité :** date (indice de jour calendaire).
+
+**Opérateurs et signes :** `<` : Vérifier que l'échéance anticipée précède strictement la première disponibilité d'un nouvel achat principal ; `max` : Retenir la plus tardive entre l'échéance anticipée et la disponibilité du secours ; `>` : Vérifier que l'allocation actuelle arrive strictement après cette borne, donc que le secours peut améliorer son service ; `et` : Exiger simultanément les deux conditions pour cette allocation non protégée.
+
 La quantité à couvrir est la somme des allocations améliorables. La réserve
 fixe seule ne déclenche pas le secours. Les engagements fermes sont protégés
 du rachat : même tardifs, ils ne sont pas automatiquement doublés par un secours.
@@ -914,6 +1417,18 @@ Le lot de secours et son surplus sont crédités avant de recalculer le principa
 Exemple inventé, après anticipation : stock 1 000 KG, besoin 3 000 puis 2 000 ;
 secours possible avant le premier besoin, lot de 4 000. On achète 4 000 :
 `1000 + 4000 − 3000 − 2000 = 0`. Pas besoin d’ajouter un lot principal de 6 000.
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Exemple inventé d’achat de secours, après anticipation des dates, pour un même composant au même site.
+
+- `1000` : Stock utilisable présent avant cet achat. **Unité :** KG.
+- `4000` : Quantité achetée au secours et disponible avant le premier besoin. **Unité :** KG.
+- `3000` : Premier besoin à couvrir. **Unité :** KG.
+- `2000` : Second besoin, couvert grâce au surplus du même lot de secours. **Unité :** KG.
+- `0` : Quantité restant après couverture des deux besoins. **Unité :** KG.
+
+**Opérateurs et signes :** `+` : Ajouter le lot de secours au stock utilisable ; `−` : Retirer successivement les quantités nécessaires pour les deux besoins ; `=` : Le résultat est égal à la quantité calculée.
 
 Avant libération, les propositions futures peuvent utiliser le plus petit
 standard admissible sans engager de fournisseur. À la libération, la quantité
@@ -944,6 +1459,18 @@ CibleFournisseur = min(ResteAprèsAchatsPrécédents,
                        BesoinNetGroupé × PartFournisseur / SommeParts)
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Branche des parts conventionnelles pour un article/site multi-source, au jour de décision et pour un même groupe de besoins nets ; le fournisseur est traité après ceux déjà examinés.
+
+- `ResteAprèsAchatsPrécédents` : Quantité du groupe de besoins restant à couvrir après les achats et surplus crédités des fournisseurs précédemment traités. **Unité :** unité de stock de l'article.
+- `BesoinNetGroupé` : Quantité nette initiale du groupe de besoins de cet article/site servant de base à la répartition. **Unité :** unité de stock de l'article.
+- `PartFournisseur` : Poids conventionnel attribué au fournisseur courant parmi les offres triées ; il ne constitue pas une part industrielle observée. **Unité :** sans unité, dans la même échelle que les autres parts.
+- `SommeParts` : Somme des poids conventionnels des offres incluses dans cette répartition. **Unité :** sans unité, même échelle que PartFournisseur.
+- `CibleFournisseur` : Quantité visée pour ce fournisseur avant sa lotification, bornée par ce qui reste à couvrir. **Unité :** unité de stock de l'article.
+
+**Opérateurs et signes :** `× et /` : Appliquer au besoin net groupé la fraction PartFournisseur/SommeParts ; `min` : Retenir la plus petite quantité entre ce partage théorique et le besoin encore découvert ; `=` : Définir une cible avant lotification ; les achats physiques finaux peuvent s'écarter des parts ; `×` : multiplier les valeurs en conservant les unités indiquées ; `/` : diviser la première valeur par la seconde.
+
 Chaque cible est lotifiée. Un premier gros lot peut couvrir tout le besoin :
 les quantités effectivement achetées ne respectent pas forcément les pourcentages.
 Le mode facultatif de score coût–risque existe, mais n’est pas actif ici.
@@ -958,6 +1485,8 @@ Proposition révisable
   → réception physique, stock bloqué
   → fin du traitement, stock utilisable
 ```
+
+**Lecture de ce schéma.** Cycle d'un nouvel achat pour un article, un fournisseur et un site destinataire ; les états sont successifs et conservent l'identité de l'engagement.
 
 Un achat agrégé ne fournit pas un départ camion industriel observé. Son statut
 peut être « commandé, départ inconnu ». Il ne faut pas inventer une étape
@@ -998,6 +1527,26 @@ Proposer une disponibilité à ce déficit protégé,
 ou à la borne de couverture continue connue si aucun déficit n’apparaît,
 sans passer avant la date contractuelle autorisée.
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Essai de report d'une seule réception dont l'engagement possède une permission explicite, pour son article/site, dans la fenêtre de besoins continûment connue du plan courant.
+
+- `cette réception` : Réception de l'ordre autorisé à être reporté ; elle est retirée seulement du plan d'essai, en gardant identité et quantité de l'engagement. **Unité :** événement daté et quantité dans l'unité de l'article.
+- `stock` : Stock reconnu de l'article au site à l'entrée du calcul d'essai, conservé quand on retire la réception étudiée. **Unité :** unité de stock de l'article.
+- `j` : Jour successif examiné dans la fenêtre de couverture connue du même article/site. **Unité :** indice de jour calendaire.
+- `j−1` : Jour immédiatement précédent dans cette projection journalière. **Unité :** indice de jour calendaire.
+- `Solde[j−1]` : Solde projeté après le jour précédent, initialisé avec le stock reconnu au début de la projection. **Unité :** unité de stock de l'article.
+- `AutresRéceptionsDisponibles[j]` : Quantités des réceptions autres que celle étudiée qui deviennent utilisables à j pour le même article/site. **Unité :** unité de stock de l'article.
+- `Besoins[j]` : Quantité de besoins datés à j conservée dans le plan d'essai du même article/site. **Unité :** unité de stock de l'article.
+- `Solde[j]` : Solde projeté après les disponibilités et besoins du jour j en l'absence de la réception étudiée. **Unité :** unité de stock de l'article.
+- `Plancher[j]` : Réserve minimale protégée à j pour cet article/site, à laquelle est comparé le solde. **Unité :** unité de stock de l'article.
+- `premier j où Solde[j] < Plancher[j]` : Première date où l'absence de la réception fait passer le solde sous la protection exigée. **Unité :** date (indice de jour calendaire).
+- `borne de couverture continue connue` : Fin de la fenêtre sans trou d'information utilisable pour borner le report lorsqu'aucun déficit protégé n'apparaît. **Unité :** date (indice de jour calendaire).
+- `date contractuelle autorisée` : Date limite la plus précoce permise par le contrat de report de cet engagement. **Unité :** date (indice de jour calendaire).
+- `disponibilité` : Nouvelle date utilisable proposée par le planificateur pour l'ordre étudié, sous les permissions de report ; le réseau est ensuite recalculé. **Unité :** date (indice de jour calendaire).
+
+**Opérateurs et signes :** `+ et −` : Ajouter au solde les seules autres réceptions utilisables, puis déduire les besoins du jour ; dans j−1, reculer d'un jour ; `<` : Détecter un solde strictement inférieur au plancher du même jour ; `[j] et [j−1]` : Repérer chaque quantité par sa date dans la projection journalière ; `Chercher le premier` : Parcourir les jours dans l'ordre chronologique et retenir le premier déficit protégé ; `ou ... si aucun ... sans passer avant` : Utiliser la borne de couverture connue en l'absence de déficit, puis respecter la limite contractuelle du report ; `=` : Définir le solde de chaque jour du plan d'essai, sans créer de mouvement physique ; `+` : additionner les valeurs de même unité ; `−` : soustraire la valeur de même unité.
 
 Un trou de prévision limite le report ; il n’est pas traité comme zéro.
 Une réception déjà physiquement détenue reste figée. Après modification des
@@ -1116,6 +1665,33 @@ QuantitéReçue = floor(QuantitéCommandée × RendementEffectif) si unité UN
 QuantitéReçue = QuantitéCommandée × RendementEffectif        si masse/longueur
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Dimensionnement d'un nouvel achat pour une offre fournisseur et un article au jour courant ; la capacité fournisseur/article est partagée entre sites servis. Nominal et scénarios de risque restent distincts. Le pas de calcul vaut un jour.
+
+- `FiabilitéNominale` : Fraction nominale de quantité attendue pour l'offre ; elle vaut 1 dans le bundle nominal décrit. **Unité :** sans unité.
+- `FacteurFiabilité` : Multiplicateur de fiabilité du scénario effectivement activé, neutre quand aucun risque correspondant n'est appliqué. **Unité :** sans unité.
+- `FacteurQualité` : Multiplicateur de qualité du scénario effectivement activé, neutre dans le nominal sans incident. **Unité :** sans unité.
+- `RendementEffectif` : Fraction de la quantité commandée effectivement reçue après composition et bornage de la fiabilité et de la qualité. **Unité :** sans unité.
+- `0,01 et 1` : Bornes inférieure et supérieure du rendement effectif. **Unité :** sans unité.
+- `CapacitéJour` : Capacité maximale journalière configurée du fournisseur pour cet article, avant multiplicateurs ; dans cette écriture elle désigne la quantité correspondant au pas d'un jour. **Unité :** unité de l'article sur le pas de 1 jour (débit configuré en unité de l'article / jour).
+- `Disponibilité` : Fraction de la capacité fournisseur disponible pour le jour courant dans le scénario activé. **Unité :** sans unité.
+- `FacteurCapacité` : Multiplicateur de capacité du scénario activé, neutre dans le nominal sans risque correspondant. **Unité :** sans unité.
+- `QuantitéDéjàEngagéeAujourd’hui` : Quantité de l'article déjà engagée auprès de ce fournisseur pendant le jour courant, tous sites destinataires partageant cette capacité compris. **Unité :** unité de l'article sur le pas journalier.
+- `CapacitéRestanteFournisseur` : Quantité brute encore commandable pendant ce même jour après prise en compte des facteurs et des engagements déjà pris ; ce n'est pas un taux à soustraire d'une quantité. **Unité :** unité de l'article sur le pas journalier.
+- `QuantitéNetteVoulue` : Quantité utilisable visée par le plan pour le nouvel achat au site destinataire. **Unité :** unité de l'article.
+- `FiabilitéPlanifiée` : Fraction de fiabilité que la politique autorise le MRP à anticiper pour grossir l'achat ; elle vaut 1 dans le nominal décrit. **Unité :** sans unité.
+- `DemandéBrut` : Quantité brute demandée avant contrainte de standard, capacité et arrondi en UN, pour viser la quantité nette souhaitée. **Unité :** unité de l'article.
+- `Standard` : Quantité par lot standard de l'offre, utilisée ici seulement lorsqu'elle est positive et déclarée contraignante. **Unité :** unité de l'article / lot standard.
+- `LotsDemandés` : Nombre entier de lots standards nécessaire pour atteindre la demande brute. **Unité :** nombre de lots standards.
+- `LotsPossibles` : Nombre entier de lots standards que permet la capacité encore disponible pendant le jour courant. **Unité :** nombre de lots standards.
+- `QuantitéCommandée` : Quantité brute finalement engagée après standard éventuel, capacité et arrondi entier si l'article est en UN. **Unité :** unité de l'article ; UN physiques entières si applicable.
+- `QuantitéReçue` : Quantité issue de cet achat après rendement effectif, enregistrée lors de sa réception future ; le rendement ne change pas sa date en lui-même. **Unité :** unité de l'article ; UN physiques entières si applicable.
+- `0` : Borne nulle empêchant d'utiliser une capacité restante négative. **Unité :** même unité de quantité que la capacité du pas journalier.
+- `UN et masse/longueur` : Branches d'unité : pièces indivisibles, ou quantités de masse ou de longueur conservant leur précision. **Unité :** UN, G, KG ou M selon l'article.
+
+**Opérateurs et signes :** `borner` : Ramener le produit des facteurs dans l'intervalle fermé de 0,01 à 1 ; `×` : Composer les facteurs sans unité, appliquer une fraction à une quantité ou convertir un nombre de lots en quantité via le standard ; `−` : Déduire de la capacité du pas journalier les quantités déjà engagées pendant le même jour ; `/` : Diviser par la fiabilité planifiée pour grossir le besoin, ou par le standard pour obtenir un nombre de lots ; `ceil` : Prendre le plus petit entier supérieur ou égal au nombre de lots demandés ; `floor` : Prendre le plus grand entier inférieur ou égal au nombre de lots possibles ou à la quantité de pièces commandée ou reçue ; `max et min` : Borner d'abord la capacité disponible par zéro puis retenir le plus petit besoin ou nombre de lots compatible avec cette capacité ; `Si ... Sinon ... si unité` : Choisir la branche selon le caractère contraignant et positif du standard, puis selon l'unité physique de l'article ; `=` : Définir les facteurs et quantités successifs ; les deux dernières affectations en UN imposent des pièces entières.
+
 Si aucun lot ne tient dans la capacité, la quantité engagée vaut zéro ; le
 besoin n’est pas effacé. Le code applique aussi une tolérance numérique de
 1e−9 autour des plafonds/planchers de nombre de lots pour éviter un lot dû
@@ -1147,6 +1723,19 @@ PrixNormalisé = PrixSource / BaseDePrix
 CoûtNouvelAchat = QuantitéReçue × PrixNormalisé × FacteurPrixDuScénario
 ```
 
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Coût d'un nouvel approvisionnement externe d'un article auprès d'une offre fournisseur dans le scénario actif ; les engagements du carnet initial ne sont pas refacturés.
+
+- `PrixSource` : Montant source facturé pour la base de quantité indiquée par l'offre. **Unité :** euros pour la base de prix.
+- `BaseDePrix` : Quantité à laquelle se rapporte PrixSource, convertie AVANT la division dans la même unité canonique que QuantitéReçue ; par exemple une base de 1 000 G devient 1 KG si la quantité reçue est en KG. **Unité :** unité canonique compatible avec QuantitéReçue : KG, G, UN ou M selon l’article.
+- `PrixNormalisé` : Montant source divisé par la base déjà convertie dans l’unité canonique de la quantité reçue. **Unité :** euros / unité canonique de quantité de l'article.
+- `QuantitéReçue` : Quantité effectivement reçue pour ce nouvel achat, exprimée dans l'unité utilisée par le prix normalisé. **Unité :** unité de quantité de l'article.
+- `FacteurPrixDuScénario` : Multiplicateur de prix du scénario actif ; une valeur de 1 laisse le prix normalisé inchangé. **Unité :** sans unité.
+- `CoûtNouvelAchat` : Montant imputé au nouvel achat externe pour la quantité reçue, distinct des coûts opérationnels de fabrication ou stockage. **Unité :** euros.
+
+**Opérateurs et signes :** `/` : Ramener le montant source à une unité de quantité de l'article ; `×` : Multiplier la quantité reçue par son prix unitaire compatible et par le facteur de prix sans unité ; `=` : Définir le prix normalisé puis le coût de ce nouvel achat.
+
 Le carnet déjà existant n’est pas facturé à nouveau. Un prix absent peut activer
 le repli économique de 0,01 par unité : ce n’est pas un prix industriel observé.
 Les valeurs de portage, de stockage et le multiplicateur nominal de transport
@@ -1165,6 +1754,22 @@ les jours de semaine, avec une croissance de 5 % par cycle.
 JourBase = Position − 2
 DemandeSemaineScénario = floor(DemandeSemaineBase × 1,05^Cycle)
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Scénario de demande client après 2025, pour chaque article client ; le profil de 52 semaines est répété sur 364 jours et augmenté de 5 % par cycle. Il s'agit d'une hypothèse déclarée.
+
+- `jour` : Jour simulé de la demande ; 0 correspond au 1er janvier 2025, 364 au 31 décembre 2025 et 365 au 1er janvier 2026. **Unité :** indice de jour calendaire.
+- `2` : Décalage d'alignement du profil sur les jours de semaine de l'origine mercredi ; il est ajouté puis retiré pour retrouver le jour de base. **Unité :** jours calendaires.
+- `364` : Longueur du profil répété, soit 52 semaines de 7 jours. **Unité :** jours calendaires par cycle.
+- `Cycle` : Quotient entier de jour + 2 par 364, qui indique le nombre de cycles de croissance appliqués. **Unité :** nombre de cycles, sans unité.
+- `Position` : Reste de cette division, compris entre 0 et 363, qui repère le jour dans le profil aligné. **Unité :** position en jours dans le cycle.
+- `JourBase` : Jour du profil de base associé à cette position, après retrait du décalage de deux jours. **Unité :** indice de jour du profil de base.
+- `DemandeSemaineBase` : Total hebdomadaire de l'article client dans la semaine de base sélectionnée par le profil. **Unité :** UN de l'article sur la semaine de base.
+- `1,05` : Facteur de croissance supposé de 5 % à chaque cycle de 364 jours. **Unité :** sans unité.
+- `DemandeSemaineScénario` : Total hebdomadaire synthétique entier de l'article pour la semaine du scénario, ensuite réparti en demandes quotidiennes entières. **Unité :** UN de l'article sur la semaine du scénario.
+
+**Opérateurs et signes :** `division_avec_reste` : Produire le quotient entier Cycle et le reste Position de la division de jour + 2 par 364 ; `+ et −` : Appliquer puis retirer le décalage d'alignement de deux jours ; `^` : Élever le facteur de croissance 1,05 au nombre de cycles Cycle ; `×` : Appliquer le facteur de croissance cumulé au total hebdomadaire de base ; `floor` : Prendre le plus grand entier inférieur ou égal au total synthétique obtenu ; `(Cycle, Position) et =` : Affecter les deux résultats de la division, puis définir le jour de base et la demande hebdomadaire du scénario ; `=` : vaut la valeur calculée, ou met à jour la quantité dans les lignes successives ; `+` : additionner les valeurs de même unité ; `−` : soustraire la valeur de même unité.
 
 La demande quotidienne est ensuite la différence de deux cumuls entiers de
 la section 6. Ce ne sont pas des totaux d’années civiles simplement multipliés.
@@ -1218,6 +1823,14 @@ POUR CHAQUE JOUR t
  11. Exporter bilans, disponibilités, décisions, lots, coûts et retards.
 ```
 
+**Repères de cet algorithme.**
+
+**Périmètre :** Ordre d'exécution de la simulation du réseau entier : initialisation unique, puis un pas quotidien pour chaque article/site, jusqu'au client ; chaque décision n'utilise que l'information déjà connue.
+
+- `t` : Jour courant de simulation ; t = 0 est le 1er janvier 2025, la veille est t−1 et le lendemain t+1. **Unité :** indice de jour calendaire.
+
+**Opérateurs et signes :** `AVANT LE PREMIER JOUR` : Effectuer l'initialisation une seule fois ; les stocks et engagements initiaux ne sont pas rechargés à chaque cycle ; `POUR CHAQUE JOUR t` : Parcourir les jours dans l'ordre chronologique et exécuter toutes les étapes du pas t ; `1 à 11, puis, avant et après` : Imposer l'ordre des opérations : information, événements, travail, service, planification, engagements, nouveau plan et exports ; cet ordre détermine ce qui est réalisable le même jour ; `aval→amont` : Parcourir le réseau de planification du client au dépôt, aux usines puis aux composants et fournisseurs, en propageant les besoins ; `re-netté` : Réallouer les ressources encore disponibles et les engagements aux besoins du plan, sans les compter deux fois.
+
 Le réseau de planification doit être sans cycle, traité client→dépôt→usine→
 composants. Un article/site ne peut pas être simultanément acheté et fabriqué
 sans une politique de partage explicite. Les liens de recette doivent avoir
@@ -1234,6 +1847,19 @@ La grille de lancement combine les périodes par leur plus petit commun multiple
 PériodeAdmissible = ppcm(PériodeLiaison, PériodeArticleSite)
 DateAdmissible si numéro_du_jour % PériodeAdmissible = 0
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Grille périodique de lancement d'un article/site et de sa liaison dans le calendrier du modèle ; les calendriers explicites d'achat ou de fermeture s'y ajoutent.
+
+- `PériodeLiaison` : Intervalle périodique de revue ou lancement configuré pour la liaison considérée. **Unité :** nombre entier de jours calendaires.
+- `PériodeArticleSite` : Intervalle périodique configuré pour cet article au site considéré. **Unité :** nombre entier de jours calendaires.
+- `PériodeAdmissible` : Période commune obtenue pour respecter simultanément les deux grilles. **Unité :** nombre entier de jours calendaires.
+- `numéro_du_jour` : Indice du jour testé depuis l'origine du modèle, où 0 est le mercredi 1er janvier 2025. **Unité :** indice de jour calendaire.
+- `DateAdmissible` : Date satisfaisant cette grille périodique avant prise en compte des autres calendriers et contraintes. **Unité :** date et condition d'admissibilité.
+- `0` : Reste nul qui indique l'appartenance du jour à la grille commune. **Unité :** reste en jours.
+
+**Opérateurs et signes :** `ppcm` : Prendre le plus petit commun multiple des deux périodes entières ; `%` : Calculer le reste de la division du numéro de jour par la période commune ; `=` : Dans la première ligne, définir la période ; dans la seconde, tester si le reste est nul ; `si` : Déclarer le jour admissible à cette grille lorsque la condition de reste nul est satisfaite.
 
 Les calendriers explicites d’achat du dimanche ou de fermeture complètent cette
 grille. Pour la fabrication, le calcul planifié doit aussi éviter les fermetures
@@ -1320,6 +1946,21 @@ Pour chaque bilan physique de site/article, vérifier :
 PhysiqueFin = PhysiqueDébut + Réceptions + SortiesDeFabrication
               − Prélèvements − Départs − Pertes + AjustementsSignés
 ```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Bilan physique d'un seul article dans un seul site sur une même période de contrôle ; tous les mouvements sont exécutés pendant cette période et convertis dans la même unité de stock.
+
+- `PhysiqueDébut` : Quantité physiquement détenue au site pour cet article au début de la période, tous statuts physiques concernés compris. **Unité :** unité de stock de l'article.
+- `Réceptions` : Quantités réellement arrivées au site pendant la période ; une libération de blocage n'est pas comptée comme une nouvelle réception. **Unité :** unité de stock de l'article.
+- `SortiesDeFabrication` : Quantités de cet article devenues des lots physiques achevés au site pendant la période, distinctes du simple travail en encours. **Unité :** unité de stock de l'article.
+- `Prélèvements` : Quantités réellement retirées du stock pour fabrication ou autres usages pendant la période ; une réservation seule ne figure pas ici. **Unité :** unité de stock de l'article.
+- `Départs` : Quantités expédiées physiquement hors du site pendant la période. **Unité :** unité de stock de l'article.
+- `Pertes` : Quantités physiquement perdues ou rebutées au site pendant la période et comptabilisées comme sorties. **Unité :** unité de stock de l'article.
+- `AjustementsSignés` : Corrections physiques explicites et tracées pendant la période, positives pour un ajout ou négatives pour un retrait. **Unité :** unité de stock de l'article, avec signe.
+- `PhysiqueFin` : Quantité physiquement détenue du même article au même site à la fin de la période, après tous les mouvements comptabilisés. **Unité :** unité de stock de l'article.
+
+**Opérateurs et signes :** `+` : Ajouter les entrées physiques et les ajustements avec leur signe ; `−` : Déduire les prélèvements exécutés, les départs et les pertes physiques de la période ; `=` : Exprimer la conservation du stock physique au même article/site entre début et fin de période.
 
 Une libération de blocage ne figure pas comme une deuxième réception. Une
 réservation n’est pas une consommation. Une proposition ne modifie pas le bilan.
