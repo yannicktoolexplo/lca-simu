@@ -80,7 +80,7 @@ intermédiaires.
 
 ## Documentation
 
-- [Refaire le MRP pas à pas : clients → Muret → usines → fournisseurs](docs/MRP_PAS_A_PAS.html) — formules, variables, exemples et paramètres ; [PDF](docs/MRP_PAS_A_PAS.pdf) et [texte modifiable](docs/MRP_PAS_A_PAS.md).
+- [MRP, lots et risques pas à pas : clients → Muret → usines → fournisseurs](docs/MRP_PAS_A_PAS.html) — formules, variables, lotification, risques dépendant de l'état et exemple relié jusqu'au client ; [PDF complet](docs/MRP_LOTS_RISQUES_PAS_A_PAS.pdf) et [texte modifiable](docs/MRP_PAS_A_PAS.md).
 - [Commandes opérationnelles](OPERATIONS.md)
 - [Régénération des résultats](docs/REGENERER_RESULTATS.md)
 - [Règles MRP actives](docs/REGLES_MRP.md)

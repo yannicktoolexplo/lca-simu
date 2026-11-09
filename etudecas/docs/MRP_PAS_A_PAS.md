@@ -2029,3 +2029,566 @@ réel n’est identifié par ce guide et la référence n’est pas promue.
 Pour reproduire **ce programme**, conserver les conventions et adaptations
 décrites. Pour construire **un MRP industriel cible**, faire confirmer les
 politiques candidates avant de les transformer en règles de gestion.
+
+## 25. Du besoin au lot physique
+
+Le MRP calcule une quantité à préparer. La **lotification** transforme cette
+quantité en campagnes et en lots fabricables. Imagine une recette préparée par
+fournées : avoir travaillé sur une partie de la fournée ne donne pas encore
+une fournée terminée à expédier.
+
+Les règles MRP des chapitres précédents donnent le besoin net. Les règles
+ci-dessous dimensionnent ensuite la fabrication ; elles ne garantissent ni
+les matières, ni la capacité, ni le transport nécessaires.
+
+### 25.1 Dimensionner la campagne
+
+Une **campagne** est le travail engagé pour un article sur un site. Elle peut
+contenir plusieurs lots physiques de taille fixe. Avec un besoin strictement
+positif et une politique de lot fixe active :
+
+```text
+QuantitéCampagne = ceil(BesoinNet / TailleLotFixe) × TailleLotFixe
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Une décision de lancement pour un même article et un même site ; TailleLotFixe est strictement positive.
+
+- `QuantitéCampagne` : Quantité totale proposée pour cette campagne. **Unité :** unité de sortie de l'article : UN, G ou KG selon son paramétrage.
+- `BesoinNet` : Quantité positive restant à couvrir après le calcul MRP. **Unité :** même unité de sortie que QuantitéCampagne.
+- `TailleLotFixe` : Quantité d'un lot physique complet de cet article. **Unité :** même unité de sortie que QuantitéCampagne.
+
+**Opérateurs et signes :** `/` : calculer le nombre de lots nécessaires ; `ceil` : arrondir ce nombre à l'entier supérieur ; `×` : revenir à une quantité de produit ; `=` : donner la quantité calculée.
+
+Avec un besoin de 120 UN et un lot fixe de 100 UN, la campagne contient deux
+lots, soit 200 UN. Les 80 UN supplémentaires sont un surplus à suivre dans le
+stock et dans les calculs MRP suivants ; ce ne sont pas 80 UN de demande client.
+Avec un besoin nul, cette règle ne crée pas de campagne positive.
+
+Pour une politique minimum/multiple/maximum, sans lot fixe, le moteur procède
+dans cet ordre. Le calcul suivant suppose un multiple positif et un maximum
+positif, avec au moins un lot admissible entre le minimum et le maximum :
+
+```text
+QuantitéAvantArrondi = max(BesoinNet, MinimumLot)
+QuantitéArrondie = ceil(QuantitéAvantArrondi / MultipleLot) × MultipleLot
+MaximumAdmissible = floor(MaximumLot / MultipleLot) × MultipleLot
+QuantitéCampagne = min(QuantitéArrondie, MaximumAdmissible)
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Une proposition positive pour un même article/site, politique sans lot fixe, minimum/multiple/maximum compatibles ; toutes les quantités utilisent la même unité de sortie.
+
+- `BesoinNet` : Quantité restant à couvrir par la proposition. **Unité :** unité de sortie de l'article.
+- `MinimumLot` : Plus petite quantité autorisée par la politique de fabrication. **Unité :** même unité de sortie.
+- `MultipleLot` : Pas de quantité auquel le lot doit se conformer. **Unité :** même unité de sortie.
+- `MaximumLot` : Plafond déclaré pour un lot de cette politique. **Unité :** même unité de sortie.
+- `QuantitéAvantArrondi` : Besoin relevé au minimum de fabrication. **Unité :** même unité de sortie.
+- `QuantitéArrondie` : Quantité relevée au multiple supérieur. **Unité :** même unité de sortie.
+- `MaximumAdmissible` : Plus grand multiple entier ne dépassant pas le maximum déclaré. **Unité :** même unité de sortie.
+- `QuantitéCampagne` : Quantité de la campagne proposée par cet appel. **Unité :** même unité de sortie.
+
+**Opérateurs et signes :** `max` : retenir la plus grande valeur ; `min` : retenir la plus petite ; `/` : exprimer la quantité en nombre de multiples ; `ceil` : arrondir ce nombre vers le haut ; `floor` : arrondir ce nombre vers le bas ; `×` : retrouver la quantité correspondante ; `=` : donner chaque résultat intermédiaire.
+
+Si le besoin dépasse ce plafond, cet appel laisse un besoin résiduel à couvrir :
+il ne fabrique pas tout en dépassant le maximum. Sans multiple ou sans maximum,
+les branches correspondantes du programme sont omises. Une politique incohérente
+est rejetée. Ces règles sont celles de `launch_campaign_qty` dans le
+[moteur](../simulation/engine/run_first_simulation.py).
+
+### 25.2 Fabriquer sans rendre l'encours disponible trop tôt
+
+La campagne est découpée en lots physiques. Avec une taille fixe positive,
+la cible suivante et l'avancement de ce lot sont calculés ainsi :
+
+```text
+CibleLot = min(ResteCampagne, TailleLotFixe)
+TravailAccepté = min(TravailProposé, max(0, CibleLot − TravailDéjàExécuté))
+TravailAprès = TravailDéjàExécuté + TravailAccepté
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Le prochain lot d'une même campagne article/site ; son travail cumulé est distinct du stock de produits achevés. TravailProposé a déjà été limité par les contraintes physiques du jour.
+
+- `ResteCampagne` : Quantité de la campagne restant à réaliser lors de la création du prochain lot. **Unité :** unité de sortie de l'article.
+- `TailleLotFixe` : Quantité cible d'un lot complet lorsque cette politique est active. **Unité :** même unité de sortie.
+- `CibleLot` : Quantité à achever avant de créer le lot terminé. **Unité :** même unité de sortie.
+- `TravailProposé` : Quantité de travail physiquement réalisable proposée pour ce lot dans cette passe. **Unité :** quantité équivalente de sortie, pour la passe considérée.
+- `TravailDéjàExécuté` : Travail cumulé sur ce lot avant la passe, y compris les jours antérieurs. **Unité :** même quantité équivalente de sortie.
+- `TravailAccepté` : Travail ajouté dans la passe sans dépasser la cible du lot. **Unité :** même quantité équivalente de sortie.
+- `TravailAprès` : Travail cumulé après cette passe. **Unité :** même quantité équivalente de sortie.
+
+**Opérateurs et signes :** `min` : limiter au reste à réaliser ; `max(0, …)` : empêcher un reste négatif ; `−` : retirer le travail déjà effectué de la cible ; `+` : ajouter uniquement le travail accepté ; `=` : donner le résultat de chaque étape.
+
+Sans taille fixe, la cible du prochain lot est le reste de la campagne déjà
+dimensionnée. Le travail des jours successifs reste dans l'**encours**.
+À l'achèvement, le moteur crée le lot enfant une seule fois et lui rattache
+toutes les matières consommées pendant sa fabrication.
+
+La capacité n'est pas offerte de nouveau à chaque passe de calcul :
+
+```text
+CapacitéRestante = max(0, CapacitéJour − TravailDéjàFaitCeJour − ConditionnementInitialCeJour)
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Le même budget quotidien de production, partagé entre les passes qui le consomment ; les quantités de travail doivent être exprimées sur la même base que cette capacité.
+
+- `CapacitéJour` : Budget physique de travail retenu pour la journée. **Unité :** quantité équivalente de sortie sur cette journée.
+- `TravailDéjàFaitCeJour` : Travail de production ayant déjà consommé ce budget aujourd'hui. **Unité :** même quantité équivalente de sortie.
+- `ConditionnementInitialCeJour` : Travail des conditionnements d'ouverture déjà imputé à cette journée. **Unité :** même quantité équivalente de sortie.
+- `CapacitéRestante` : Budget encore utilisable pour la passe suivante. **Unité :** même quantité équivalente de sortie.
+
+**Opérateurs et signes :** `−` : déduire les travaux déjà exécutés ; `max(0, …)` : maintenir un reste non négatif ; `=` : donner la capacité encore disponible. Le moteur rejette aussi un dépassement du budget, il ne le masque pas simplement par zéro.
+
+Le travail consomme la recette correspondant à la quantité effectivement
+exécutée. Les composants en UN sont prélevés avec l'arrondi entier requis.
+Une réservation seule n'est pas une consommation. La marge `tau_process`
+de planification ne devient pas ici une seconde durée de maturation physique.
+Voir `ProductionBatchWip` dans les [campagnes](../simulation/lot_trace/campaigns.py)
+et `production_remaining_day_capacity` dans le [moteur](../simulation/engine/run_first_simulation.py).
+
+**Exemple fictif, calcul manuel :** un lot de 100 UN, une capacité de 40 UN
+par jour et un blocage complet le deuxième jour. Les matières nécessaires sont
+disponibles sur les journées effectivement travaillées.
+
+| Jour fictif | Travail accepté | Encours non achevé en fin de jour | Lot terminé créé ce jour |
+|---|---:|---:|---:|
+| Premier jour | 40 UN | 40 UN | 0 UN |
+| Deuxième jour, bloqué | 0 UN | 40 UN | 0 UN |
+| Troisième jour | 40 UN | 80 UN | 0 UN |
+| Quatrième jour | 20 UN | 0 UN | 100 UN |
+
+Le contrôle qualité peut encore retenir ces 100 UN après leur achèvement.
+Le stock utilisable, son départ, sa réception et sa disponibilité à Muret
+gardent chacun leur date. Un stock aval suffisant peut absorber ce décalage ;
+un client en manque peut au contraire le subir.
+
+## 26. Suivre la matière jusqu'au client
+
+La **généalogie** est le carnet des liens : quelle matière a alimenté quelle
+fabrication, puis quelles expéditions et quels clients. Elle relie les sorties
+du calcul MRP aux mouvements physiques sans remplacer les preuves industrielles.
+
+| Identité | Ce qu'elle désigne dans le simulateur |
+|---|---|
+| Campagne | Engagement de fabrication pouvant contenir plusieurs lots fixes |
+| Lot | Quantité partageant une origine de fabrication simulée |
+| Occurrence de stock | Présence localisée d'un lot à une étape ; transport et réception gardent leurs propres traces |
+| `shipment_id`, identifiant SHIP | Transaction physique d'expédition simulée ; ce n'est pas l'identité d'un camion réel |
+
+Les allocations de chaque prélèvement restent rattachées à leurs lots parents.
+Un transport conserve la quantité dans la même unité. Une fabrication conserve
+les contributions de chaque composant avec son unité : on ne divise jamais des
+kilogrammes par un total mélangeant kilogrammes, mètres et unités.
+Si l'origine détaillée manque, le moteur marque `untraced_origin` : **origine
+non retracée**, et non numéro de lot industriel inventé.
+
+### 26.1 Passer d'un incident aux lots exposés
+
+Les identifiants d'incident et le jour de leur décision suivent l'expédition,
+les lots reçus, leurs transformations et les lots servis au client. Le contexte
+initial est conservé même lorsque le départ physique est différé.
+Pour une transformation, le registre calcule séparément chaque composant :
+
+```text
+PartComposantBasse = somme(QuantitéParent × PartParentBasse) / somme(QuantitéParent)
+PartComposantHaute = somme(QuantitéParent × PartParentHaute) / somme(QuantitéParent)
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Les allocations du même composant, dans une même unité, réellement consommées pour un lot enfant ; le total consommé est positif. Les sommes incluent aussi ses parents non exposés, dont la part exposée est nulle.
+
+- `QuantitéParent` : Quantité prélevée sur chacun des lots parents de ce composant. **Unité :** unité de ce composant, par exemple KG ou UN.
+- `PartParentBasse` : Borne basse de la fraction exposée du lot parent concerné. **Unité :** fraction sans unité, entre 0 et 1.
+- `PartParentHaute` : Borne haute de cette même fraction. **Unité :** fraction sans unité, entre 0 et 1.
+- `PartComposantBasse` : Borne basse de la fraction exposée de tout ce composant consommé. **Unité :** fraction sans unité, entre 0 et 1.
+- `PartComposantHaute` : Borne haute de cette même fraction. **Unité :** fraction sans unité, entre 0 et 1.
+
+**Opérateurs et signes :** `somme` : additionner les allocations de ce seul composant ; `×` : pondérer chaque quantité par sa fraction exposée ; `/` : rapporter la quantité exposée au total consommé ; `=` : donner chacune des bornes.
+
+Le registre encadre ensuite la quantité du lot enfant issue de composants
+exposés. Il ne prétend pas connaître leur mélange microscopique :
+
+```text
+QuantitéEnfantBasse = QuantitéLotEnfant × max(PartComposantBasse)
+QuantitéEnfantHaute = QuantitéLotEnfant × min(1, somme(PartComposantHaute))
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Un lot enfant et l'ensemble de ses composants, après calcul séparé de leurs fractions exposées ; les bornes parentales sont cohérentes entre 0 et 1.
+
+- `QuantitéLotEnfant` : Quantité totale créée dans le lot enfant. **Unité :** unité de sortie du lot enfant, par exemple UN de produit fini.
+- `PartComposantBasse` : Borne basse de la fraction exposée de chaque composant de ce lot. **Unité :** fraction sans unité, entre 0 et 1.
+- `PartComposantHaute` : Borne haute correspondante de chaque composant. **Unité :** fraction sans unité, entre 0 et 1.
+- `QuantitéEnfantBasse` : Borne basse de quantité du lot enfant attribuée à cette exposition. **Unité :** même unité de sortie que QuantitéLotEnfant.
+- `QuantitéEnfantHaute` : Borne haute de cette quantité attribuée. **Unité :** même unité de sortie que QuantitéLotEnfant.
+
+**Opérateurs et signes :** `max` : retenir la plus grande fraction basse parmi les composants ; `somme` : additionner leurs fractions hautes, sans additionner leurs quantités physiques incompatibles ; `min(1, …)` : plafonner à la totalité du lot ; `×` : convertir la fraction en quantité enfant ; `=` : donner chacune des bornes.
+
+### 26.2 Exposition, double comptage et perte de service
+
+Deux incidents concernant la même expédition de 100 UN ne font pas 200 UN
+physiquement exposées. Le registre garde une seule expédition à sommer et
+plusieurs liens d'incident. Les quantités sont regroupées par expédition
+exposée unique et par unité, jamais en additionnant toutes les lignes d'incident.
+
+De même, 20 UN servies provenant d'un lot exposé ne sont pas 20 UN perdues.
+Pour attribuer un retard, une perte de service ou un surcoût à l'incident,
+il faut comparer au calcul témoin apparié sans cet incident.
+Les règles exactes et les CSV de liaison sont dans le
+[registre risques → lots → clients](../simulation/lot_trace/RISK_IMPACT_REGISTRY.md)
+et sa fonction `_derive_child_impact` dans le
+[code du registre](../simulation/lot_trace/risk_impact_registry.py).
+
+## 27. Un risque peut dépendre de l'état de la chaîne
+
+Un **risque imposé** est un événement déclaré dans un scénario : par exemple,
+une capacité réduite pendant une période donnée. Un **risque dépendant de
+l'état** est créé par une règle lorsque le fonctionnement simulé dépasse un
+seuil : stock trop bas, utilisation trop élevée, retards constatés ou pertes.
+
+**Dans la référence nominale actuelle, cette deuxième famille est désactivée.**
+Elle s'active avec `--supplier-state-dependent-risks`. La commande d'étude
+`cascade` orchestre le même moteur physique ; elle ne rend pas automatiquement
+ces risques actifs dans la carte nominale conservée.
+
+Les seuils et amplitudes ci-dessous sont des **conventions de scénario**.
+Ce ne sont ni des fréquences de panne industrielles mesurées, ni des probabilités
+que nous aurions calibrées sur les courbes de 2025.
+
+### 27.1 Mesurer une tension, puis conserver une mémoire
+
+Pour la tension de stock, le moteur calcule une couverture :
+
+```text
+CouvertureStock = StockFournisseur / BesoinJournalierRéférence
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Le même article chez le même fournisseur, au jour observé ; le besoin journalier est strictement positif.
+
+- `CouvertureStock` : Nombre de jours de besoin couverts par le stock retenu dans cette mesure. **Unité :** jours.
+- `StockFournisseur` : Quantité du buffer fournisseur utilisée par la règle. **Unité :** unité de stock de l'article, par exemple UN ou KG.
+- `BesoinJournalierRéférence` : Maximum du besoin aval alloué et du signal aval alloué à ce fournisseur. **Unité :** même unité d'article par jour.
+
+**Opérateurs et signes :** `/` : diviser une quantité par un débit quotidien ; `=` : donner la couverture correspondante.
+
+Sans besoin positif, cette division n'est pas réalisée et les compteurs de
+tension de stock sont réinitialisés. La grandeur utilisée par une règle doit
+rester celle du moteur ; elle ne remplace pas un statut qualité industriel.
+
+Une condition persistante peut accumuler plusieurs observations :
+
+```text
+CompteurNouveau = CompteurPrécédent + 1 si ConditionVraie
+CompteurNouveau = 0 sinon
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Mise à jour d'une règle donnée, pour la même clé de source/article/liaison et lors d'une observation de cette métrique.
+
+- `CompteurNouveau` : Nombre d'observations déclenchantes successives après la mise à jour. **Unité :** nombre d'observations.
+- `CompteurPrécédent` : Valeur conservée avant cette observation. **Unité :** nombre d'observations.
+- `ConditionVraie` : Résultat du test de seuil de cette règle. **Unité :** booléen, vrai ou faux.
+- `1` : Une observation déclenchante supplémentaire. **Unité :** observation.
+- `0` : Valeur de réinitialisation si la condition est fausse. **Unité :** observation.
+
+**Opérateurs et signes :** `+` : ajouter une observation ; `si` et `sinon` : choisir une seule branche ; `=` : mettre à jour le compteur, sans résoudre une équation entre les deux lignes.
+
+Pour les délais, les observations arrivent aux **réceptions physiques** : trois
+observations ne signifient donc pas nécessairement trois jours calendaires.
+Le moteur ne connaît pas le retard réellement réalisé avant cette réception.
+La mémoire comprend des compteurs, des moyennes glissantes et une période
+d'interdiction de redéclenchement ; ce n'est pas une loi continue de fatigue.
+
+### 27.2 Déclencher maintenant, agir ensuite
+
+```text
+DébutEffet = JourDéclenchement + 1
+FinEffet = DébutEffet + DuréeEffet − 1
+DernierJourInterdit = FinEffet + DélaiAvantRedéclenchement
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Un nouvel incident d'état, après vérification de l'activation, de la famille autorisée, du seuil, de la période d'observation initiale et du délai de redéclenchement.
+
+- `JourDéclenchement` : Jour où la règle constate suffisamment d'observations déclenchantes. **Unité :** indice de jour du modèle.
+- `DébutEffet` : Premier jour où l'incident peut modifier le calcul physique. **Unité :** indice de jour du modèle.
+- `FinEffet` : Dernier jour inclus dans cet effet. **Unité :** indice de jour du modèle.
+- `DuréeEffet` : Durée positive retenue pour l'événement. **Unité :** jours calendaires.
+- `DélaiAvantRedéclenchement` : Attente supplémentaire interdisant de recréer cette règle immédiatement. **Unité :** jours calendaires.
+- `DernierJourInterdit` : Dernier jour de déclenchement encore refusé pour cette règle. **Unité :** indice de jour du modèle.
+- `1` : Un jour d'avance pour commencer l'effet, ou correction du comptage des deux bornes incluses. **Unité :** jour calendaire.
+
+**Opérateurs et signes :** `+` : avancer une date ; `−` : retirer le jour déjà compté par la borne de début ; `=` : définir la date de chaque étape.
+
+Un incident déclenché à J4, de durée sept jours, agit de J5 à J11 inclus.
+Le premier nouveau déclenchement admissible est le jour suivant
+`DernierJourInterdit`, sous réserve que les autres conditions restent réunies.
+La période d'observation initiale vaut 30 jours par défaut ; notre exemple
+pédagogique la ramène explicitement à zéro pour exercer le mécanisme rapidement.
+
+### 27.3 Les seuils réellement programmés
+
+| Mesure de la règle | Condition déclenchante | Effet futur retenu |
+|---|---|---|
+| Couverture de stock | Moins de 5 jours pendant 5 observations | Disponibilité multipliée par 0,95 pendant 7 jours |
+| Couverture de stock | Moins de 3 jours pendant 2 observations | Disponibilité multipliée par 0,85 pendant 14 jours |
+| Couverture de stock | Au plus 0,25 jour lors d'une observation | Disponibilité multipliée par 0,70 pendant 21 jours |
+| Utilisation de capacité | Plus de 75 % pendant 5 observations | Capacité multipliée par 0,97 pendant 7 jours |
+| Utilisation de capacité | Au moins 99,5 % lors d'une observation | Capacité multipliée par 0,92 pendant 7 jours |
+| Utilisation de capacité | Plus de 85 % pendant 3 observations | Capacité multipliée par 0,90 pendant 14 jours |
+| Utilisation de capacité | Plus de 90 % pendant 3 observations | Capacité multipliée par 0,85 pendant 14 jours |
+| Délai observé rapporté au délai de référence | Plus de 1,10 pendant 3 observations | Facteur délai de 1,10 pendant 7 jours |
+| Même rapport de délais | Plus de 1,25 pendant 2 observations | Trois jours supplémentaires pendant 14 jours |
+| Même rapport de délais | Plus de 1,35 pendant 2 observations | Cinq jours supplémentaires pendant 14 jours |
+| Rejet amont moyen sur sept jours et couverture | Plus de 10 %, deux observations, couverture inférieure à 7 jours | Disponibilité amont multipliée par 0,97 pendant 7 jours |
+| Rejet amont moyen sur quatorze jours et couverture | Plus de 50 %, couverture inférieure à 3 jours | Capacité amont multipliée par 0,90 pendant 14 jours |
+| Part de perte dans la quantité appelée | Plus de 3 % pendant 2 observations | Fiabilité multipliée par 0,95 pendant 14 jours |
+| Même part de perte | Plus de 8 % lors d'une observation | Rendement qualité multiplié par 0,90 pendant 14 jours |
+| Coût unitaire de recours amont rapporté au prix fournisseur de référence | Besoin d'achat amont positif, rapport supérieur à 2,50 pendant 3 observations | Coût de recours amont multiplié par 1,10 pendant 14 jours |
+
+Les parts et rapports sont sans unité ; la couverture s'exprime en jours.
+L'utilisation rapporte le débit mesuré au budget nominal de capacité sur le
+même pas. Les fractions de rejet et de perte comparent des quantités dans
+la même unité. Les moyennes utilisent les observations disponibles selon la
+métrique ; une absence de réception ne révèle pas un délai futur.
+
+Pour le recours amont, le coût surveillé additionne achat unitaire et transport
+unitaire, puis rapporte ce total au prix fournisseur de référence. Les montants
+doivent concerner la même unité du même article. Cette règle de la famille
+`cost` ajoute un surcoût économique, sans réduction physique directe ; son
+interdiction de redéclenchement dure quatorze jours après la fin de l'effet.
+
+Des règles de manque matière peuvent aussi agir sur une liaison candidate :
+manque d'au moins 5 % pendant deux observations, disponibilité multipliée par
+0,92 pendant dix jours ; manque d'au moins 10 % avec réception trop tardive,
+deux jours de délai ajoutés pendant quatorze jours ; manque d'au moins 35 %
+pendant deux observations, capacité multipliée par 0,88 pendant quatorze jours.
+Le dénominateur est le maximum du programme d'exécution, de la quantité désirée
+et d'une unité de calcul. La réception est ici trop tardive lorsqu'elle dépasse
+le jour courant augmenté du maximum entre sept jours et le délai de la liaison.
+Ce sont des règles locales de scénario, à activer et interpréter sur leur périmètre.
+
+Sources : `make_state_dependent_supplier_event`,
+`register_state_dependent_supplier_event` et les règles de fin de pas du
+[moteur](../simulation/engine/run_first_simulation.py) ;
+`ReceiptLeadObservations` dans les [conventions temporelles](../simulation/engine/model_semantics.py).
+
+## 28. Composer les risques sans les compter deux fois
+
+Les effets imposés et les effets dépendant de l'état sont composés séparément,
+puis réunis. Un multiplicateur réduit une capacité ou une disponibilité ; un
+délai supplémentaire ajoute des jours. Les identifiants des événements actifs
+restent conservés dans les transactions concernées.
+
+### 28.1 Les effets d'état sont bornés, sans effacer une crise imposée
+
+Pour des facteurs de réduction de capacité compris entre zéro et un :
+
+```text
+FacteurÉtatCapacité = max(0.70, produit(FacteursCapacitéÉtatActifs))
+FacteurFinalCapacité = FacteurScénarioCapacité × FacteurÉtatCapacité
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Même liaison, article et jour d'application ; seuls les événements actifs et applicables entrent dans les produits. La formule décrit ici des réductions, sans facteur supérieur à un.
+
+- `FacteursCapacitéÉtatActifs` : Liste des multiplicateurs de capacité des incidents d'état applicables. **Unité :** facteurs sans unité, de zéro à un.
+- `FacteurÉtatCapacité` : Produit d'état après sa borne inférieure propre. **Unité :** facteur sans unité.
+- `0.70` : Borne inférieure programmée pour cette capacité dépendante de l'état. **Unité :** facteur sans unité.
+- `FacteurScénarioCapacité` : Produit des facteurs de capacité imposés par le scénario. **Unité :** facteur sans unité.
+- `FacteurFinalCapacité` : Facteur composé appliqué à la capacité concernée. **Unité :** facteur sans unité.
+
+**Opérateurs et signes :** `produit` : multiplier les facteurs d'une même famille ; `max` : garder le plus grand argument ; `×` : composer scénario et état après la borne d'état ; `=` : définir le facteur de chaque étape. Le produit d'une liste vide vaut un.
+
+Exemple fictif vérifié : les quatre facteurs d'état 0,97, 0,92, 0,90 et 0,85
+donnent un produit de 0,682686, relevé à 0,70. Une crise imposée de facteur
+0,50 donne ensuite un facteur final de 0,35. Le plancher d'état ne transforme
+donc pas la crise imposée en une réduction limitée à 30 %.
+
+| Effet d'état | Borne native avant composition avec le scénario |
+|---|---|
+| Capacité et disponibilité, internes ou amont | Facteur au moins égal à 0,70 |
+| Fiabilité et rendement qualité | Facteur au moins égal à 0,75 |
+| Facteur de délai, interne ou amont | Au plus 1,50 |
+| Jours de délai supplémentaires, internes ou amont | Au plus dix jours |
+| Facteurs de coût concernés | Au plus 1,50 |
+
+Les jours supplémentaires d'événements applicables s'ajoutent ; les facteurs
+de délai se multiplient. Les bornes générales du moteur restent également
+appliquées. Une journée d'incident n'est pas ajoutée une seconde fois à la
+réception si son effet a déjà été inclus dans le calendrier de l'expédition.
+
+### 28.2 Plusieurs destructions portent sur le reliquat
+
+```text
+PartDétruiteTotale = 1 − produit(1 − PartDétruiteParIncident)
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Composition des proportions de destruction de stock applicables au même périmètre ; chaque proportion est bornée entre zéro et un par le moteur.
+
+- `PartDétruiteParIncident` : Fraction de destruction déclarée par chacun des incidents applicables. **Unité :** fraction sans unité, de zéro à un.
+- `PartDétruiteTotale` : Fraction détruite après composition des reliquats. **Unité :** fraction sans unité, de zéro à un.
+- `1` : La totalité du stock ou du reliquat avant l'effet concerné. **Unité :** fraction sans unité.
+
+**Opérateurs et signes :** `−` : obtenir le reliquat puis la perte totale ; `produit` : conserver successivement les parts non détruites ; `=` : donner la fraction totale composée.
+
+Ce calcul combine les effets. La quantité effectivement détruite doit ensuite
+être rapprochée des événements physiques ; le registre d'exposition ne crée pas
+de perte de matière à lui seul.
+
+### 28.3 Ce que le MRP sait de la perte
+
+```text
+FiabilitéDuPlan = FiabilitéEffective si CompensationAnticipée
+FiabilitéDuPlan = FiabilitéNominale sinon
+```
+
+**Rappel des variables de ce calcul.**
+
+**Périmètre :** Traitement de la perte temporaire fournisseur dans le calcul des quantités à acheter ; les deux lignes sont des choix alternatifs.
+
+- `FiabilitéDuPlan` : Fiabilité retenue pour dimensionner le besoin brut du plan. **Unité :** fraction sans unité.
+- `FiabilitéEffective` : Fiabilité incluant la perte temporaire considérée. **Unité :** fraction sans unité.
+- `FiabilitéNominale` : Fiabilité hors de cette perte temporaire. **Unité :** fraction sans unité.
+- `CompensationAnticipée` : Option autorisant ce grossissement du besoin selon la perte temporaire. **Unité :** booléen, vrai ou faux.
+
+**Opérateurs et signes :** `si` et `sinon` : choisir la fiabilité autorisée ; `=` : affecter la valeur au calcul du plan.
+
+L'option `--no-supplier-risk-loss-gross-up` désactive cette compensation
+immédiate. Elle ne prouve pas, à elle seule, que toutes les informations d'un
+scénario sont inconnues à chaque décision : il faut conserver les dates de
+connaissance et vérifier les traces. La source exacte est
+`supplier_planning_reliability` ; les compositions sont dans
+`supplier_risk_multipliers_for_lane` du [moteur](../simulation/engine/run_first_simulation.py).
+
+## 29. Relier toute la chaîne et distinguer exposition et perte
+
+```text
+Besoin MRP → campagne → travail et matières consommées → lot achevé
+  → stock utilisable → expédition → réception → disponibilité → client
+État observé → règle d'état → incident actif à partir du lendemain
+  → capacité, disponibilité, rendement ou délai modifié → nouveaux états
+Incident appliqué → identifiant d'expédition → généalogie → lots clients exposés
+```
+
+**Lecture de ce schéma.** La première ligne décrit le flux physique gouverné par les décisions ; la seconde boucle montre comment l'état peut modifier les conditions suivantes ; la dernière décrit la traçabilité. Une flèche de traçabilité ne mesure pas, à elle seule, une perte de service causée par l'incident.
+
+| Étape à raccorder | Question simple | Trace native à consulter |
+|---|---|---|
+| MRP et engagement | Que fallait-il couvrir et qu'a-t-on engagé ? | `mrp_dated_plan_daily.csv`, `mrp_orders_daily.csv` |
+| Campagne et encours | Quel travail a réellement eu lieu et quand le lot est-il achevé ? | `production_plan_events.csv`, `production_lot_events.csv` |
+| État et risque | Quelle mesure a déclenché quel effet et à quelle date ? | `supplier_state_dependent_risk_events.csv`, `supplier_risk_events_applied_daily.csv` |
+| Mouvement exposé | Quelle transaction a réellement porté cet incident ? | `production_supplier_shipments_daily.csv`, clé `shipment_id` |
+| Matière et transformation | Quels lots parents ont alimenté quels lots enfants ? | `production_lot_genealogy.csv` et registre d'impact |
+| Client | Qu'a-t-il reçu, consommé et encore attendu ? | `production_demand_service_daily.csv`, `risk_impact_client_service.csv` |
+
+Deux notions restent distinctes :
+
+- **Exposition :** le lot ou la transaction a rencontré un effet de risque dans le modèle.
+- **Impact incrémental :** le résultat diffère du témoin comparable sans ce mécanisme.
+
+Le registre suit la première notion. La seconde demande une comparaison
+appariée, avec mêmes demande, état initial, règles conservées et conventions
+de tirage. Un même lot exposé à deux incidents n'est pas deux quantités
+physiques différentes. Un lot exposé servi au client n'est pas une vente perdue.
+
+Il reste une limite de liaison : chaque nouvel incident d'état reçoit sa propre
+racine d'identité. Son enregistrement ne reçoit pas automatiquement l'identifiant
+de l'incident initial qui aurait éventuellement créé la tension. Nous savons
+suivre les états et les effets physiques ; nous ne disposons pas d'une preuve
+automatique d'ascendance pour tous les incidents successifs. Une proximité
+temporelle ne doit pas être transformée en parenté causale.
+
+Les scénarios importés `scenario_preview` de rappel, quarantaine ou retard
+servent à explorer la généalogie. Ils ne recalculent pas les stocks, délais,
+coûts ou livraisons. Ils restent distincts des événements réellement exécutés
+dans le moteur. Voir le [contrat matières et incidents](MATIERES_LOTS_ET_INCIDENTS.md).
+
+Les deux interfaces existantes, [suivi de lots](EXPLORATEUR_DES_LOTS.md) et
+[parcours simplifié](PARCOURS_DES_LOTS.md), conservent leurs rôles. Les identités
+communes permettent de relier leurs lectures ; une consolidation camion affichée
+ne déplace pas automatiquement les événements physiques de la simulation.
+
+## 30. Un exemple court où tous les liens restent vérifiables
+
+**Exemple fictif exécuté, distinct des données industrielles de 2025.**
+Le cas comporte un fournisseur et un client, un article en UN, cent unités
+initiales chez le fournisseur, une demande de dix unités par jour et un jour
+de transport. Le moteur conserve ses décisions et son réapprovisionnement
+fournisseur. Il n'y a pas de transformation en produit fini dans ce petit graphe.
+Les comptes ci-dessous ciblent uniquement l'article `item:A` sur la liaison
+`SDC-TEST` vers `C-TEST`. D'autres lots initiaux issus des réglages communs
+peuvent apparaître dans le registre global ; ils sont exclus de ces comptes.
+
+Deux calculs de quatorze jours ont les mêmes données et la même graine 9102.
+Le témoin désactive les risques d'état ; la variante les active avec une
+période d'observation initiale nulle. Les délais aléatoires et la compensation
+anticipée des pertes temporaires sont désactivés dans les deux cas.
+
+**Portée des contrôles : les deux calculs se terminent, mais leur qualification
+automatique globale est refusée.** Pour chacun, trois tableaux attendus restent
+sans lignes dans ce graphe sans usine ni centre de distribution : stocks
+d'intrants, stocks de distribution et sorties de fabrication. L'audit de
+parcours des lots n'a pas été produit non plus. Les tests et rapprochements
+ciblés vérifient les mécanismes décrits ; ils ne remplacent pas ces quatre
+contrôles non passants et ne qualifient pas l'ensemble du calcul.
+
+| Mesure sur les quatorze jours | Témoin | Risques d'état activés |
+|---|---:|---:|
+| Événements d'état créés | 0 | 4 |
+| Expéditions physiques | 14 | 14 |
+| Quantité expédiée, y compris le transit final | 210 UN | 210 UN |
+| Transactions expédiées exposées, comptées une seule fois | 0 | 11, soit 110 UN |
+| Quantité servie provenant de lots exposés, sans double compte par incident | 0 UN | 40 UN |
+| Réapprovisionnement fournisseur | 160 UN | 149 UN |
+| Stock fournisseur final | 50 UN | 39 UN |
+| Demande totale | 140 UN | 140 UN |
+| Quantité servie totale | 140 UN | 140 UN |
+| Demande encore en retard à la fin | 0 UN | 0 UN |
+
+L'effet est bien physique : le réapprovisionnement et le stock fournisseur
+diminuent de onze unités. Les expéditions restent identiques et le stock client
+protège le service sur cette fenêtre. Cela ne signifie pas que toutes les
+demandes ont été servies à leur date : dix unités attendent à J0, puis sont
+rattrapées à J1 dans les deux cas. Une expédition reste en transit à la fin ;
+certains événements restent actifs au-delà de ces quatorze jours.
+
+### 30.1 Une chaîne précise, lisible sans supposer une perte
+
+| Étape du même exemple | Événement ou identité réellement retrouvé |
+|---|---|
+| J2 | Une tension de couverture de stock déclenche un effet futur de disponibilité ; un effet amont est également créé |
+| J3 | `SHIP-00000004` expédie dix UN avec les deux identifiants de risque ; le jour de décision reste J3 |
+| J4 | La généalogie relie le parent `LOT-00000005` au lot reçu `LOT-00000008`, quantité dix UN |
+| Identité de lot | Le lot métier `BATCH-00000005` est conservé ; ses occurrences de stock changent avec les sites |
+| J10 | Le client consomme les dix UN de `LOT-00000008` ; événement `LEVT-00000046` |
+| Comparaison au témoin | Le service quotidien est identique : ces dix unités exposées ne sont pas dix unités perdues |
+
+Les [deux exécutions et leurs commandes](../artifacts/testing/mrp_lots_risques_20261109/execution_manifest.json),
+les [résultats témoins](../artifacts/testing/mrp_lots_risques_20261109/control_overview.json)
+et la [variante avec risques](../artifacts/testing/mrp_lots_risques_20261109/state_overview.json)
+permettent de suivre ces identités. Les CSV détaillés sont dans leurs dossiers
+`control/data` et `state/data` ; les registres de liaison dans `risk_registry`.
+
+Le fonctionnement de la fabrication et du mélange est vérifié séparément par
+les cas mémoire des chapitres 25 et 26 et par leurs tests ciblés. Le petit
+graphe fournisseur–client ne démontre pas, à lui seul, une cascade complète
+Gaillac → usine → Muret → client, ni une cause industrielle de 2025.
+Le [manifeste de cette extension](../artifacts/testing/mrp_lots_risques_20261109/final_manifest.json)
+précise les contrôles exécutés et les limites. Aucune référence nominale
+n'est remplacée et aucune probabilité industrielle n'est déduite de cet exemple.

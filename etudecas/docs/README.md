@@ -8,7 +8,7 @@ Les [résultats locaux](../index.html) ont leur propre accueil.
 
 | Sujet | Guide et références |
 |---|---|
-| Refaire le système MRP, des clients jusqu’aux fournisseurs | [Guide pas à pas](MRP_PAS_A_PAS.html) et [PDF](MRP_PAS_A_PAS.pdf) : mots simples, formules, variables, exemples, recettes, paramètres et ordre quotidien ; [texte modifiable](MRP_PAS_A_PAS.md) et [paramètres lisibles](reference/MRP_PARAMETRES_LISIBLES.json) |
+| Relier MRP, lots et risques jusqu'au client | [Guide pas à pas](MRP_PAS_A_PAS.html) et [PDF complet](MRP_LOTS_RISQUES_PAS_A_PAS.pdf) : formules, variables, recettes, lotification, généalogie, risques dépendant de l'état et cascade ; chapitres 25 à 30 pour la suite ; [texte modifiable](MRP_PAS_A_PAS.md) et [paramètres lisibles](reference/MRP_PARAMETRES_LISIBLES.json) |
 | Comprendre ce que couvre toute la simulation et quelles données industrielles manquent | [Rapport de complétude de la simulation](RAPPORT_COMPLETUDE_SIMULATION.md) ; demande, production, MRP, achats, lots, risques, incertitude et priorités de données |
 | Comprendre les données industrielles et leurs versions | [Bilan des données sources](DONNEES_SOURCES.md) ; couverture, unités, calendriers, redondances et contradictions vérifiées le 8 octobre 2026 |
 | Règles MRP courantes et application par liaison | [Les règles simplement](REGLES_MRP.md) ; prévisions, achats, fabrication, transferts et conventions encore à confirmer |
