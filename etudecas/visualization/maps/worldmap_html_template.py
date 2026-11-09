@@ -4088,7 +4088,14 @@ def html_template(
     const CUSTOMER_CURRENT_METRICS = DATA.customer_current_metrics || {{}};
     const GLOBAL_KPI_TREE = DATA.global_kpi_tree || null;
     const MATERIAL_BALANCE_ROWS = DATA.material_balance_rows || [];
-    const LOT_TRACE = DATA.lot_trace || {{ available: false, lots: {{}}, lot_options: [], events: [], genealogy: [], plan_events: [], deferred_orders: [] }};
+    const EMPTY_LOT_TRACE = {{ available: false, lots: {{}}, lot_options: [], events: [], genealogy: [], plan_events: [], deferred_orders: [] }};
+    const NOMINAL_LOT_TRACE = DATA.lot_trace || EMPTY_LOT_TRACE;
+    const SIMULATED_RISK_LOT_CONTEXT = DATA.simulated_risk_lot_context || {{ available: false, run_key: "", lot_trace: EMPTY_LOT_TRACE }};
+    let LOT_TRACE = NOMINAL_LOT_TRACE;
+    let lotTraceRunContextKey = "nominal";
+    const lotTraceSelectionByRun = new Map();
+    const riskLotTraceIndexesByRun = new Map();
+    let refreshLotTraceSelectors = null;
     const MODEL_PANEL = DATA.model_panel || {{ nodes: {{}}, edges: {{}} }};
     const SIMULATED_RISK_CAMPAIGN_METRICS = (
       DATA.supplier_risk_campaign && DATA.supplier_risk_campaign.available
@@ -4506,7 +4513,7 @@ def html_template(
       }});
     }}
 
-    const LOT_TRACE_CONFIG = LOT_TRACE.config || {{}};
+    let LOT_TRACE_CONFIG = LOT_TRACE.config || {{}};
 
     function lotTraceConfigMap(key) {{
       const value = LOT_TRACE_CONFIG[key];
@@ -4574,7 +4581,7 @@ def html_template(
       return "";
     }}
 
-    const LOT_TRACE_LOGISTICS_ASSUMPTIONS = lotTraceConfigMap("logistics_assumptions");
+    let LOT_TRACE_LOGISTICS_ASSUMPTIONS = lotTraceConfigMap("logistics_assumptions");
 
     function lotTraceNormalizeItemId(itemId) {{
       const text = String(itemId || "").trim();
@@ -4884,7 +4891,7 @@ def html_template(
       return Array.from(days).sort((a, b) => a - b);
     }}
 
-    function buildLotTraceIndexes() {{
+    function buildLotTraceIndexes(trace = LOT_TRACE) {{
       const indexes = {{
         eventsByLot: new Map(),
         parentsByChild: new Map(),
@@ -4894,7 +4901,7 @@ def html_template(
         edgeIdsByLot: new Map(),
         campaignsByLot: new Map(),
       }};
-      (LOT_TRACE.events || []).forEach((row) => {{
+      (trace.events || []).forEach((row) => {{
         const lotId = String(row.lot_id || "");
         if (!lotId) return;
         lotTraceAddMapEntry(indexes.eventsByLot, lotId, row);
@@ -4905,7 +4912,7 @@ def html_template(
           lotTraceAddMapEntry(indexes.campaignsByLot, lotId, String(row.production_campaign_id || ""));
         }}
       }});
-      (LOT_TRACE.genealogy || []).forEach((row) => {{
+      (trace.genealogy || []).forEach((row) => {{
         const parentLot = String(row.parent_lot_id || "");
         const childLot = String(row.child_lot_id || "");
         if (parentLot && childLot) {{
@@ -4926,14 +4933,42 @@ def html_template(
           if (childLot) lotTraceAddMapEntry(indexes.edgeIdsByLot, childLot, edgeId);
         }}
       }});
-      (LOT_TRACE.plan_events || []).forEach((row) => {{
+      (trace.plan_events || []).forEach((row) => {{
         const campaignId = String(row.campaign_id || "");
         if (campaignId) lotTraceAddMapEntry(indexes.planByCampaign, campaignId, row);
       }});
       return indexes;
     }}
 
-    const lotTraceIndexes = buildLotTraceIndexes();
+    let lotTraceIndexes = buildLotTraceIndexes();
+
+    function simulatedRiskLotTrace() {{
+      return SIMULATED_RISK_LOT_CONTEXT.available
+        ? (SIMULATED_RISK_LOT_CONTEXT.lot_trace || EMPTY_LOT_TRACE)
+        : EMPTY_LOT_TRACE;
+    }}
+
+    function setLotTraceRunContext(runKey) {{
+      const requested = String(runKey || "nominal");
+      const isRisk = requested !== "nominal" && requested === String(SIMULATED_RISK_LOT_CONTEXT.run_key || "");
+      const nextKey = requested === "nominal" ? "nominal" : (isRisk ? requested : "risk:unavailable");
+      if (nextKey === lotTraceRunContextKey) return;
+      lotTraceSelectionByRun.set(lotTraceRunContextKey, {{ lotId: selectedLotId, direction: lotTraceDirection, showDetails: lotTraceShowDetails }});
+      LOT_TRACE = nextKey === "nominal" ? NOMINAL_LOT_TRACE : (isRisk ? simulatedRiskLotTrace() : EMPTY_LOT_TRACE);
+      lotTraceRunContextKey = nextKey;
+      LOT_TRACE_CONFIG = LOT_TRACE.config || {{}};
+      LOT_TRACE_LOGISTICS_ASSUMPTIONS = lotTraceConfigMap("logistics_assumptions");
+      lotTraceIndexes = buildLotTraceIndexes(LOT_TRACE);
+      const saved = lotTraceSelectionByRun.get(nextKey) || {{}};
+      selectedLotId = String(saved.lotId || "");
+      lotTraceDirection = saved.direction || "both";
+      lotTraceShowDetails = Boolean(saved.showDetails);
+      lotTraceCurrentTransportSummaryHtml = "";
+      materialOutgoingIndex = null;
+      materialIncidentPreview = null;
+      if (refreshLotTraceSelectors) refreshLotTraceSelectors();
+      lastFactoryPanelRenderKey = "";
+    }}
 
     function lotTraceIsValidViewModel(model, lotId) {{
       if (!model || typeof model !== "object") return false;
@@ -8163,6 +8198,7 @@ def html_template(
       const selectedOrder = selectedDeferredOrder();
       const snapshot = selectedLotTraceSnapshot();
       const selected = lotTraceRowsForDirection(snapshot);
+      const runLabel = lotTraceRunContextKey === "nominal" ? "Nominal" : "Calcul des risques simulés";
       document.querySelectorAll(".lotTraceDirectionBtn").forEach(btn => {{
         btn.classList.toggle("active", String(btn.dataset.lotTraceDirection || "both") === lotTraceDirection);
       }});
@@ -8179,7 +8215,7 @@ def html_template(
       }}
       if (selectedOrder) {{
         if (meta) {{
-          meta.textContent = `Ordre reporte - ${{selectedOrder.status_label || "reporte"}} - ${{selectedOrder.delay_days || 0}} jours de report.`;
+          meta.textContent = `${{runLabel}} — Ordre reporte - ${{selectedOrder.status_label || "reporte"}} - ${{selectedOrder.delay_days || 0}} jours de report.`;
         }}
         renderDeferredProductionOrderGraph(selectedOrder);
         if (tables) {{
@@ -8210,8 +8246,8 @@ def html_template(
             .filter(Boolean)
         );
         meta.textContent = snapshot
-          ? `${{directionLabel}} - ${{businessLotCount}} lot(s) metier - ${{selected.lots.length}} occurrence(s) de stock - ${{shipmentIds.size}} expedition(s) - ${{selected.events.length}} evenement(s) causal(aux). Fleches: parent vers enfant.`
-          : "Selectionne un lot PF/PFI/MP ou un ordre reporte";
+          ? `${{runLabel}} — ${{directionLabel}} - ${{businessLotCount}} lot(s) metier - ${{selected.lots.length}} occurrence(s) de stock - ${{shipmentIds.size}} expedition(s) - ${{selected.events.length}} evenement(s) causal(aux). Fleches: parent vers enfant.`
+          : `${{runLabel}} — Selectionne un lot PF/PFI/MP ou un ordre reporte`;
       }}
       renderLotTraceGraph(snapshot);
       document.getElementById("lotTraceGraphWrap").insertAdjacentHTML("afterbegin", lotTraceTruckPlanningHtml(selected));
@@ -8257,7 +8293,7 @@ def html_template(
         if (select.value !== selectedLotId) select.value = selectedLotId || "";
       }}
       if (modalSelect) {{
-        modalSelect.disabled = !visible;
+        modalSelect.disabled = !(visible || (currentPanelMode === "simulated_risk" && LOT_TRACE.available));
         if (modalSelect.value !== selectedLotId) modalSelect.value = selectedLotId || "";
       }}
       if (focusBtn) focusBtn.disabled = !selectedLotId;
@@ -8409,8 +8445,13 @@ def html_template(
         }}
         if (includeDeferredOrders) appendDeferredOrderOptions(target, deferredOrders);
       }}
-      populateSelect(select, false);
-      populateSelect(modalSelect, true);
+      refreshLotTraceSelectors = () => {{
+        populateSelect(select, false);
+        populateSelect(modalSelect, true);
+        if (select) select.value = selectedLotId || "";
+        if (modalSelect) modalSelect.value = selectedLotId || "";
+      }};
+      refreshLotTraceSelectors();
       if (!select && !modalSelect) return;
       const onLotChange = (ev) => setSelectedLot(String(ev.target.value || ""));
       if (select) select.addEventListener("change", onLotChange);
@@ -9142,6 +9183,8 @@ def html_template(
     }}
 
     function simulatedRiskCascadeLotImpact(row) {{
+      const trace = simulatedRiskLotTrace();
+      const runContextKey = String(SIMULATED_RISK_LOT_CONTEXT.run_key || "");
       const eventIds = simulatedRiskCascadeEventIds(row);
       const outputItemIds = [...new Set(
         (row && row.impacted_output_items || []).map(value => String(value || "")).filter(Boolean)
@@ -9149,6 +9192,7 @@ def html_template(
       const routeNodeIds = simulatedRiskCascadeNodeIds(row).slice().sort();
       const routeEdgeIds = simulatedRiskCascadeEdgeIds(row).slice().sort();
       const cacheKey = JSON.stringify({{
+        runContextKey,
         eventIds: eventIds.slice().sort(),
         outputItemIds,
         routeNodeIds,
@@ -9158,18 +9202,29 @@ def html_template(
       if (simulatedRiskCascadeLotCache.has(cacheKey)) {{
         return simulatedRiskCascadeLotCache.get(cacheKey);
       }}
+      if (!riskLotTraceIndexesByRun.has(runContextKey)) {{
+        riskLotTraceIndexesByRun.set(runContextKey, buildLotTraceIndexes(trace));
+      }}
+      const traceIndexes = riskLotTraceIndexesByRun.get(runContextKey);
       const eventIdSet = new Set(eventIds);
+      const registry = SIMULATED_RISK_LOT_CONTEXT.registry || {{}};
+      const exposureBundles = new Map();
+      (registry.bundles || []).forEach(bundle => {{
+        if (!lotTraceRiskEventIds(bundle.event_ids).some(id => eventIdSet.has(id))) return;
+        const identity = String(bundle.exposure_bundle_id || bundle.shipment_id || "");
+        if (identity) exposureBundles.set(identity, bundle);
+      }});
       const directLotIds = new Set();
       const rowMatches = (traceRow) => {{
         const rowEventIds = lotTraceRiskEventIds(traceRow && traceRow.risk_event_ids);
         return rowEventIds.some(eventId => eventIdSet.has(eventId));
       }};
-      (LOT_TRACE.events || []).forEach(traceRow => {{
+      (trace.events || []).forEach(traceRow => {{
         if (!rowMatches(traceRow)) return;
         lotTraceAddSetValue(directLotIds, traceRow.lot_id);
         lotTraceAddSetValue(directLotIds, traceRow.related_lot_id);
       }});
-      (LOT_TRACE.genealogy || []).forEach(traceRow => {{
+      (trace.genealogy || []).forEach(traceRow => {{
         if (!rowMatches(traceRow)) return;
         lotTraceAddSetValue(directLotIds, traceRow.parent_lot_id);
         lotTraceAddSetValue(directLotIds, traceRow.child_lot_id);
@@ -9181,7 +9236,7 @@ def html_template(
       while (queue.length && guard < 100000) {{
         guard += 1;
         const parentLotId = queue.shift();
-        (lotTraceIndexes.childrenByParent.get(parentLotId) || []).forEach(link => {{
+        (traceIndexes.childrenByParent.get(parentLotId) || []).forEach(link => {{
           const childLotId = String(link.child_lot_id || "");
           if (!childLotId || allLotIds.has(childLotId)) return;
           allLotIds.add(childLotId);
@@ -9190,8 +9245,8 @@ def html_template(
       }}
 
       const outputItems = new Set(outputItemIds);
-      const optionIds = new Set((LOT_TRACE.lot_options || []).map(lot => String(lot.lot_id || "")));
-      const lotRows = [...allLotIds].map(lotId => ({{ lotId, info: lotTraceLotInfo(lotId) }}));
+      const optionIds = new Set((trace.lot_options || []).map(lot => String(lot.lot_id || "")));
+      const lotRows = [...allLotIds].map(lotId => ({{ lotId, info: (trace.lots || {{}})[lotId] || {{}} }}));
       const priority = (entry) => {{
         const info = entry.info || {{}};
         const scope = String(info.trace_scope || "");
@@ -9219,6 +9274,9 @@ def html_template(
         .map(entry => String((entry.info || {{}}).item_id || ""))
         .filter(Boolean))].sort();
       const result = {{
+        runContextKey,
+        exposureBundleCount: exposureBundles.size,
+        shipmentIds: [...new Set([...exposureBundles.values()].map(bundle => String(bundle.shipment_id || "")).filter(Boolean))].sort(),
         available: Boolean(eventIds.length && directLotIds.size && traceableLotRows.length),
         eventIds,
         directLotIds: [...directLotIds],
@@ -9259,9 +9317,10 @@ def html_template(
     }}
 
     function simulatedRiskCascadeLotsHtml(row) {{
+      const trace = simulatedRiskLotTrace();
       if (
         !row
-        || !LOT_TRACE.available
+        || !trace.available
         || simulatedRiskCascadeKeyForRow(row) !== selectedSimulatedRiskCascadeKey
       ) return "";
       const impact = simulatedRiskCascadeLotImpact(row);
@@ -9285,6 +9344,9 @@ def html_template(
       return `
         <details class="riskDetailsBlock" open>
           <summary>Lots contenant une matière exposée — ${{impact.traceableCount}} lots traçables</summary>
+          <div class="riskScenarioMuted">Contexte : ${{escapeHtmlText(SIMULATED_RISK_LOT_CONTEXT.label || "Calcul des risques simulés")}} · ${{escapeHtmlText(SIMULATED_RISK_LOT_CONTEXT.scenario_id || "scénario non précisé")}}. Les identifiants de lots de ce calcul restent séparés du nominal.</div>
+          <div class="riskScenarioMuted">${{impact.exposureBundleCount}} transaction(s) native(s) distincte(s) dans le registre d'exposition, sans additionner les doubles rattachements à plusieurs incidents. Ce nombre n'est pas un nombre de ventes perdues.</div>
+          ${{impact.shipmentIds.length ? `<details><summary>Expéditions exposées du calcul de risque</summary><div class="riskScenarioMuted">${{escapeHtmlText(impact.shipmentIds.join(", "))}}</div></details>` : ""}}
           <div class="riskScenarioMuted">Le lien est physique dans cette simulation : l'incident est relié à une expédition, puis à tous ses descendants dans la généalogie. Ce comptage large peut dépasser le registre d'attribution quantitative. Une matière exposée dans un lot ne prouve pas, à elle seule, que l'incident a retardé ce lot.</div>
           ${{lineageContinuation}}
           <div class="riskCascadeContextGrid">
@@ -9904,6 +9966,7 @@ def html_template(
           }}
           const globalModal = document.getElementById("simulatedRiskGlobalModal");
           if (globalModal) globalModal.classList.remove("visible");
+          setLotTraceRunContext(impact.runContextKey);
           setSelectedLot(lotId);
           const lotModal = document.getElementById("lotTraceModal");
           if (lotModal) lotModal.classList.add("visible");
@@ -12401,6 +12464,7 @@ def html_template(
         return;
       }}
       currentPanelMode = mode;
+      setLotTraceRunContext(mode === "simulated_risk" ? (SIMULATED_RISK_LOT_CONTEXT.run_key || "risk:unavailable") : "nominal");
       lastFactoryPanelRenderKey = "";
       applyModeUi();
       draw();

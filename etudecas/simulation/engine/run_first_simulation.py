@@ -7158,6 +7158,40 @@ def infer_item_unit_map(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
     return out
 
 
+def resolve_dated_mrp_risk_scope(
+    *,
+    scope: str = "reject",
+    scenario_id: str,
+    state_dependent_risks: bool = False,
+    events_csv: str = "",
+    supplier_risk_events: list[dict[str, Any]] | None = None,
+    apply_to_opening_purchase_orders: bool = False,
+) -> dict[str, Any]:
+    """Validate an explicit experiment without changing source opening orders.
+
+    This is a permission boundary, not a risk or MRP equation. Existing source
+    receipt/replanning policies still apply; simulated risks cannot rewrite the
+    initial purchase quantities or their source dates under either scope.
+    """
+    if scope not in {"reject", "preserve_opening_orders"}:
+        raise ValueError("Unknown dated MRP risk scope")
+    if apply_to_opening_purchase_orders:
+        raise ValueError("Dated MRP risk scope forbids risk overlays on opening purchase orders")
+    if scenario_id != "scn:BASE":
+        raise ValueError("Dated opening purchase execution requires scn:BASE")
+    if scope == "reject" and (state_dependent_risks or events_csv or supplier_risk_events):
+        raise ValueError("Dated opening purchase execution is currently qualified only for BASE without risk overlays")
+    return {
+        "scope": scope,
+        "status": "experimental_hypothesis" if scope == "preserve_opening_orders" else "baseline_restriction",
+        "risk_effects_scope": "simulated_operational_flows_only" if scope == "preserve_opening_orders" else "none",
+        "opening_purchase_risk_overlay": False,
+        "opening_source_dates_and_quantities": "unchanged_by_simulated_risks",
+        "existing_source_execution_and_replanning_policies": "unchanged",
+        "industrial_calibration_claimed": False,
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run first-pass supply simulation.")
     parser.add_argument(
@@ -7194,6 +7228,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mrp-execution-mode", choices=["historical", "availability", "dated"], default="historical",
         help="Dated execution separates opening purchases' physical delivery G from availability I; historical preserves prior reproduction.",
+    )
+    parser.add_argument(
+        "--dated-mrp-risk-scope", choices=["reject", "preserve_opening_orders"], default="reject",
+        help=("Experimental dated MRP only: explicitly allow risks on simulated operational flows while "
+              "preserving source opening purchase dates and quantities. Opening purchase risk overlays "
+              "remain forbidden; reject preserves the default refusal of risk experiments."),
     )
     parser.add_argument(
         "--mrp-receipt-netting-mode", choices=["all_future", "within_cover"], default="all_future",
@@ -14798,9 +14838,12 @@ def main() -> None:
                 or measurement_start_stock_scale_csv_path or measurement_start_in_transit_scale_csv_path
                 or initialization_policy["state_scale"] != 1.0 or opening_stock_bootstrap_scale != 1.0):
             raise ValueError("Dated MRP execution requires no warmup or initial state scaling")
-        if (args.supplier_risk_events_apply_to_opening_purchase_orders or args.supplier_state_dependent_risks
-                or args.supplier_risk_events_csv or str(scenario.get("id")) != "scn:BASE"):
-            raise ValueError("Dated opening purchase execution is currently qualified only for BASE without risk overlays")
+        dated_mrp_risk_policy = resolve_dated_mrp_risk_scope(
+            scope=args.dated_mrp_risk_scope, scenario_id=str(scenario.get("id")),
+            state_dependent_risks=args.supplier_state_dependent_risks,
+            events_csv=args.supplier_risk_events_csv, supplier_risk_events=supplier_risk_events,
+            apply_to_opening_purchase_orders=args.supplier_risk_events_apply_to_opening_purchase_orders,
+        )
         if initialization_policy["seed_open_orders_from_january_snapshot"] and opening_open_order_source == "reconstructed_january_snapshot":
             raise ValueError("Dated opening purchase execution requires explicit source G and I dates")
         opening_purchase_availability = OpeningPurchaseAvailability(
@@ -23639,7 +23682,10 @@ def main() -> None:
                 "future_calendar_limit": "future_proposals_use_scalar_lead_recomputed_at_each_decision_actual_G_to_I_and_firm_dates_use_exact_weekday_calendar",
                 "held": "same_received_child_lot_at_G_held_until_I_no_second_receipt_or_cost",
             }} if internal_component_policies else {}),
-            **({"mrp_execution_mode": args.mrp_execution_mode, "opening_purchase_availability": {
+            **({"mrp_execution_mode": args.mrp_execution_mode,
+                "dated_mrp_risk_scope": args.dated_mrp_risk_scope,
+                "dated_mrp_risk_policy": dated_mrp_risk_policy,
+                "opening_purchase_availability": {
                 "source": "explicit_opening_order_G_and_I_dates",
                 "scope": ("opening_and_aggregate_supplier_purchases_and_explicit_internal_transfer_receipts"
                           if internal_component_policies else "opening_purchase_orders_only_not_initial_stock_J_or_new_supplier_orders"),
@@ -23655,7 +23701,9 @@ def main() -> None:
                 "aggregate_purchase_count": len(supplier_delivery_orders),
                 **({"internal_transfer_count": sum(row["order_type"] == "internal_transfer_delivery" for row in opening_purchase_availability.rows)}
                    if internal_component_policies else {}),
-                "unsupported": "warmup_initial_state_scaling_and_supplier_risk_overlays",
+                "unsupported": ("warmup_initial_state_scaling_and_opening_purchase_risk_overlays"
+                                if args.dated_mrp_risk_scope == "preserve_opening_orders" else
+                                "warmup_initial_state_scaling_and_supplier_risk_overlays"),
             }} if opening_purchase_availability is not None else {}),
             **({"effective_runtime_rules": {
                 "status": "scenario_runner_declaration_not_inferred_from_native_defaults",

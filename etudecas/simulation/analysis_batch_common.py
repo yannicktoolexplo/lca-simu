@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +95,77 @@ def sensitivity_run_context(path: Path, default_run_script: Path) -> tuple[Path,
         args.extend(["--current-reference-scan3-mode", scan3_mode])
         return runner, args
     return default_run_script, args
+
+
+def is_current_reference_manifest(manifest: dict[str, Any]) -> bool:
+    return manifest.get("customer_demand_policy") == "flow_actual_2025_then_weekday_aligned_5pct_growth_v1"
+
+
+def current_reference_manifest_paths(manifest: dict[str, Any]) -> tuple[Path, Path]:
+    """Current-reference paths are repository-relative, not manifest-relative."""
+    root = Path(__file__).resolve().parents[2]
+    graph = manifest.get("graph") or manifest.get("input_graph")
+    output = manifest.get("output") or manifest.get("output_dir")
+    if not isinstance(graph, str) or not graph or not isinstance(output, str) or not output:
+        raise ValueError("Current-reference manifest requires its prepared graph and output paths")
+    return tuple(p if p.is_absolute() else root / p for p in (Path(graph), Path(output)))
+
+
+def scale_source_customer_demand(
+    data: dict[str, Any], global_scale: float, item_scales: dict[str, float],
+) -> None:
+    """Scale arrived orders and customer forecasts in a hypothetical copied graph.
+
+    Current-reference execution reads these weekly payloads instead of the
+    generic scenario profile. Integer weekly quantities are rounded down once;
+    the native weekday allocation and future growth then use that new template.
+    Dates, vintages and source quantities are retained as provenance, never
+    represented as newly observed industrial data.
+    """
+    meta = data.get("meta") or {}
+    history = meta.get("customer_demand_history")
+    if not isinstance(history, dict) or not isinstance(history.get("rows"), list):
+        return
+    pairs = {(str(row.get("node_id")), str(row.get("item_id"))) for row in history["rows"]}
+    effective = {
+        item: Decimal(str(global_scale)) * Decimal(str(to_float(item_scales.get(item, 1.0), 1.0)))
+        for _, item in pairs
+    }
+    if all(scale == 1.0 for scale in effective.values()):
+        return
+    counts = {}
+    for key in ("customer_demand_history", "mrp_forecasts"):
+        payload = meta.get(key)
+        if not isinstance(payload, dict):
+            continue
+        count = 0
+        for row in payload.get("rows") or []:
+            pair = str(row.get("node_id")), str(row.get("item_id"))
+            scale = effective.get(pair[1], Decimal(1))
+            if pair not in pairs or scale == 1.0:
+                continue
+            original = row.get("qty")
+            if (isinstance(original, bool) or not isinstance(original, (int, float))
+                    or not math.isfinite(original) or original < 0):
+                raise ValueError(f"Invalid customer quantity for scenario scaling: {pair}")
+            if str(row.get("uom") or "").upper() != "UN" or int(original) != original:
+                raise ValueError(f"Customer scenario scaling requires integer UN: {pair}")
+            if not str(row.get("source_file") or "").strip() or not str(row.get("source_row") or "").strip():
+                raise ValueError(f"Customer scenario scaling requires existing source provenance: {pair}")
+            row["qty"] = int((Decimal(str(original)) * scale).to_integral_value(rounding=ROUND_FLOOR))
+            source = str(row.get("source_file") or "")
+            row.update(scenario_quantity_status="hypothetical_batch_demand_scale",
+                       scenario_demand_scale=float(scale), quantity_before_scenario_scale=original,
+                       source_file_before_scenario_scale=source,
+                       source_file="scenario_scaled_customer_demand:" + source)
+            count += 1
+        counts[key] = count
+    meta["customer_demand_scale_scenario"] = dict(
+        status="hypothetical_not_industrial_observation",
+        item_factors={item: float(scale) for item, scale in effective.items()},
+        item_factors_exact_decimal={item: str(scale) for item, scale in effective.items()},
+        integer_policy="floor_weekly_once_then_native_daily_allocation", scaled_rows=counts,
+    )
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
@@ -362,6 +434,130 @@ def validate_factors(factors: dict[str, float]) -> None:
             raise ValueError(f"Factor {name} must be a finite positive number")
 
 
+def scale_initial_inventory(
+    data: dict[str, Any], *, supplier_scale: float, production_scale: float,
+    supplier_node_scale: dict[str, float],
+    supplier_pair_scale: dict[tuple[str, str, str], float],
+) -> None:
+    """Vary free opening inventory once; dated held source quantities stay fixed.
+
+    A supplier's item is one physical pool even when it serves several routes.
+    Equal route factors identify the same intervention; conflicting factors do
+    not define a unique shared pool and are refused rather than multiplied.
+    """
+    from etudecas.simulation.engine.run_first_simulation import infer_item_unit_map, normalize_unit
+
+    nodes = data.get("nodes") or []
+    node_by_id = {str(node.get("id")): node for node in nodes}
+    suppliers = {node_id for node_id, node in node_by_id.items()
+                 if node.get("type") == "supplier_dc" and not node.get("processes")}
+    production = set(detect_production_nodes(data))
+    for node_id, factor in supplier_node_scale.items():
+        if factor != 1 and node_id not in suppliers:
+            raise ValueError(f"Supplier stock scale targets a non-supplier inventory: {node_id}")
+    pool_factors: dict[tuple[str, str], Decimal] = {}
+    for (src, _dst, item_id), factor in supplier_pair_scale.items():
+        if src not in suppliers:
+            raise ValueError(f"Supplier stock pair targets a non-supplier inventory: {src}")
+        pool, exact = (src, item_id), Decimal(str(factor))
+        if pool in pool_factors and pool_factors[pool] != exact:
+            raise ValueError(f"Conflicting route factors for shared supplier stock: {pool}")
+        pool_factors[pool] = exact
+    if (supplier_scale == 1 and production_scale == 1
+            and all(value == 1 for value in supplier_node_scale.values())
+            and all(value == 1 for value in pool_factors.values())):
+        return
+
+    units = infer_item_unit_map(nodes, data.get("edges") or [])
+    items = {str(item.get("id")): item for item in data.get("items") or []}
+    state_by_pair = {(str(node.get("id")), str(state.get("item_id"))): state
+                     for node in nodes for state in (node.get("inventory") or {}).get("states") or []}
+    pair_units = {}
+    for pair, state in state_by_pair.items():
+        unit = state.get("uom") or (items.get(pair[1]) or {}).get("uom_default") or units.get(pair[1])
+        if unit:
+            pair_units[pair] = normalize_unit(unit)
+    meta = data.get("meta") or {}
+    held: dict[tuple[str, str], Decimal] = {}
+    for row in (meta.get("initial_stock_availability") or {}).get("rows") or []:
+        pair = str(row.get("node_id")), str(row.get("item_id"))
+        source_unit, stock_unit = normalize_unit(row.get("uom")), pair_units.get(pair, "")
+        quantity = Decimal(str(row.get("quantity")))
+        if not quantity.is_finite() or quantity < 0:
+            raise ValueError(f"Invalid retained opening stock: {pair}")
+        if source_unit != stock_unit:
+            if source_unit == "KG" and stock_unit == "G":
+                quantity *= 1000
+            elif source_unit == "G" and stock_unit == "KG":
+                quantity /= 1000
+            else:
+                raise ValueError(f"Retained opening stock unit does not match inventory: {pair}")
+        held[pair] = held.get(pair, Decimal(0)) + quantity
+
+    rows = []
+    excluded_virtual = []
+    for pair, state in state_by_pair.items():
+        node_id, item_id = pair
+        if node_id in production:
+            factor = Decimal(str(production_scale))
+            scope = "production_free_opening_stock"
+        elif node_id in suppliers:
+            factor = (Decimal(str(supplier_scale)) * Decimal(str(supplier_node_scale.get(node_id, 1)))
+                      * pool_factors.get(pair, Decimal(1)))
+            scope = "supplier_free_opening_stock"
+        else:
+            continue
+        if factor == 1 or "initial" not in state:
+            continue
+        item = items.get(item_id) or {}
+        if item.get("kind") == "virtual_process_input" or (item.get("attrs") or {}).get("virtual") is True:
+            excluded_virtual.append({"node_id": node_id, "item_id": item_id})
+            continue
+        original = state["initial"]
+        if isinstance(original, bool) or not isinstance(original, (int, float)):
+            raise ValueError(f"Opening stock must be numeric: {pair}")
+        physical = Decimal(str(original))
+        retained = held.get(pair, Decimal(0))
+        unit = pair_units.get(pair, "")
+        if not unit or not physical.is_finite() or physical < retained:
+            raise ValueError(f"Invalid physical/retained opening stock for scenario scaling: {pair}")
+        free = physical - retained
+        scaled_free = free * factor
+        if unit == "UN":
+            if physical != physical.to_integral_value() or retained != retained.to_integral_value():
+                raise ValueError(f"Opening UN stock and retained quantities must be integral: {pair}")
+            scaled_free = scaled_free.to_integral_value(rounding=ROUND_FLOOR)
+            result = int(retained + scaled_free)
+        else:
+            result = float(retained + scaled_free)
+            if not math.isfinite(result):
+                raise ValueError(f"Scaled opening stock overflow: {pair}")
+        source = str(state.get("initial_source") or "graph_inventory_initial")
+        state.update(initial=result, initial_before_scenario_scale=original,
+                     initial_source_before_scenario_scale=source,
+                     initial_source=source + "; hypothetical_batch_free_opening_stock_scale",
+                     scenario_initial_quantity_status="hypothetical_not_industrial_observation",
+                     scenario_free_initial_stock_scale_exact_decimal=str(factor))
+        rows.append(dict(node_id=node_id, item_id=item_id, uom=unit, scope=scope,
+                         factor_exact_decimal=str(factor), physical_before=original,
+                         retained_source_quantity=float(retained), free_before=float(free),
+                         free_after=int(scaled_free) if unit == "UN" else float(scaled_free),
+                         physical_after=result))
+    if rows or excluded_virtual:
+        data.setdefault("meta", {})["initial_stock_scale_scenario"] = {
+            "status": "hypothetical_not_industrial_observation",
+            "scope": "free_usable_opening_inventory_only",
+            "supplier_scope": "supplier_dc_without_production_processes",
+            "production_scope": "nodes_with_production_processes",
+            "retained_source_quantities_and_dates": "unchanged",
+            "distribution_center_and_customer_stocks": "unchanged",
+            "integer_policy": "Decimal_product_then_floor_free_UN_once",
+            "mass_policy": "same_inventory_unit_no_unit_conversion_of_physical_stock",
+            "shared_supplier_item_pool": "one_factor_conflicting_route_factors_refused",
+            "rows": rows, "excluded_virtual_inputs": excluded_virtual,
+        }
+
+
 def apply_scales(
     base_data: dict[str, Any],
     scenario_id: str,
@@ -415,8 +611,6 @@ def apply_scales(
         parse_supplier_pair_key(key): to_float(value, 1.0)
         for key, value in edge_pair_reliability_scale.items()
     }
-    production_nodes = set(detect_production_nodes(data))
-
     demand_global_scale = to_float(factors.get("demand_scale", 1.0), 1.0)
     lead_time_scale = to_float(factors.get("lead_time_scale", 1.0), 1.0)
     transport_cost_scale = to_float(factors.get("transport_cost_scale", 1.0), 1.0)
@@ -496,6 +690,7 @@ def apply_scales(
         item_id = str(d.get("item_id"))
         scale = demand_global_scale * to_float(demand_item_scale.get(item_id, 1.0), 1.0)
         scale_profile_values(d.get("profile") or [], scale)
+    scale_source_customer_demand(data, demand_global_scale, demand_item_scale)
     base_safety_days = to_float(scn.get("safety_stock_days", 7.0), 7.0)
     base_review_days = to_float(scn.get("review_period_days", 1.0), 1.0)
     base_fg_target_days = to_float(scn.get("fg_target_days", 0.0), 0.0)
@@ -574,6 +769,10 @@ def apply_scales(
     )
     scn["economic_policy"] = econ
 
+    scale_initial_inventory(
+        data, supplier_scale=supplier_stock_scale, production_scale=production_stock_scale,
+        supplier_node_scale=supplier_node_scale, supplier_pair_scale=parsed_stock_pair_scale,
+    )
     for n in data.get("nodes", []) or []:
         node_id = str(n.get("id"))
         node_type = str(n.get("type") or "")
@@ -586,11 +785,7 @@ def apply_scales(
                 cap["max_rate"] = round(max(0.0, to_float(cap.get("max_rate"), 0.0) * node_cap_scale), 6)
             p["capacity"] = cap
 
-        inv = n.get("inventory") or {}
-        states = inv.get("states") or []
-        inv_factor = production_stock_scale if node_id in production_nodes else supplier_stock_scale
         if node_type == "supplier_dc":
-            inv_factor *= to_float(supplier_node_scale.get(node_id, 1.0), 1.0)
             sim_constraints = n.get("simulation_constraints") or {}
             sim_constraints["supplier_capacity_scale"] = round(
                 max(
@@ -617,50 +812,54 @@ def apply_scales(
             if item_capacity_scale:
                 sim_constraints["supplier_item_capacity_scale"] = item_capacity_scale
             n["simulation_constraints"] = sim_constraints
-        for st in states:
-            if "initial" in st:
-                item_id = str(st.get("item_id") or "")
-                pair_stock_factor = 1.0
-                for (src, _dst, pair_item), pair_scale in parsed_stock_pair_scale.items():
-                    if src == node_id and pair_item == item_id:
-                        pair_stock_factor *= pair_scale
-                st["initial"] = round(
-                    max(
-                        0.0,
-                        to_float(st.get("initial"), 0.0)
-                        * inv_factor
-                        * pair_stock_factor,
-                    ),
-                    6,
-                )
-        inv["states"] = states
-        n["inventory"] = inv
 
+    internal_policy = (data.get("meta") or {}).get("internal_component_policy") or {}
+    protected_lead_routes = {
+        (str(row.get("source_node_id")), str(row.get("node_id")), str(row.get("item_id")))
+        for row in internal_policy.get("rows") or []
+        if internal_policy.get("schema_version") in {1, 2}
+    }
+    lead_scale_rows = []
     for e in data.get("edges", []) or []:
         edge_src = str(e.get("from") or "")
         edge_dst = str(e.get("to") or "")
         edge_items = [str(item_id) for item_id in (e.get("items") or [])]
-        pair_lead_scale = math.prod(
-            parsed_lead_pair_scale.get((edge_src, edge_dst, item_id), 1.0)
-            for item_id in edge_items
-        )
         pair_reliability_scale = math.prod(
             parsed_reliability_pair_scale.get((edge_src, edge_dst, item_id), 1.0)
             for item_id in edge_items
         )
-        edge_lead_scale = (
-            to_float(edge_src_lead_time_scale.get(edge_src, 1.0), 1.0)
-            * pair_lead_scale
-            * lead_time_scale
-        )
+        edge_lead_scale_exact = (Decimal(str(edge_src_lead_time_scale.get(edge_src, 1)))
+                                 * Decimal(str(lead_time_scale)))
+        for item_id in edge_items:
+            edge_lead_scale_exact *= Decimal(str(parsed_lead_pair_scale.get((edge_src, edge_dst, item_id), 1)))
+        edge_lead_scale = float(edge_lead_scale_exact)
         edge_reliability = (
             to_float(edge_src_reliability_scale.get(edge_src, 1.0), 1.0)
             * pair_reliability_scale
         )
         lead = e.get("lead_time") or {}
-        for k in ["mean", "min", "max"]:
-            if k in lead:
-                lead[k] = round(max(0.05, to_float(lead.get(k), 0.0) * edge_lead_scale), 6)
+        protected = any((edge_src, edge_dst, item) in protected_lead_routes for item in edge_items)
+        if edge_lead_scale != 1:
+            before = copy.deepcopy(lead)
+            if not protected:
+                for k in ["mean", "min", "max"]:
+                    if k in lead:
+                        if k == "mean" and lead.get("source") == "case_data_fia":
+                            # The source-delivery contract consumes whole calendar days.
+                            # This is a declared hypothetical future reference, not a
+                            # change to opening commitments or an observed source value.
+                            lead[k] = max(1, int((Decimal(str(lead[k])) * edge_lead_scale_exact)
+                                               .to_integral_value(rounding=ROUND_CEILING)))
+                        else:
+                            lead[k] = round(max(0.05, to_float(lead.get(k), 0.0) * edge_lead_scale), 6)
+            lead_scale_rows.append({
+                "edge_id": str(e.get("id")), "requested_factor": edge_lead_scale,
+                "requested_factor_exact_decimal": str(edge_lead_scale_exact),
+                "status": "excluded_source_bound_internal_reference" if protected else "hypothetical_future_lane_reference",
+                "before": before, "after": copy.deepcopy(lead),
+                "applied_mean_ratio": (to_float(lead.get("mean")) / to_float(before.get("mean"))
+                                       if to_float(before.get("mean")) > 0 else None),
+            })
         e["lead_time"] = lead
 
         tc = e.get("transport_cost") or {}
@@ -676,6 +875,14 @@ def apply_scales(
         )
         e["service_level"] = service_level
 
+    if lead_scale_rows:
+        data.setdefault("meta", {})["lead_time_scale_scenario"] = {
+            "status": "hypothetical_not_industrial_observation",
+            "scope": "unprotected_future_lane_references_only_opening_order_dates_unchanged",
+            "protected_routes_source": "meta.internal_component_policy.rows",
+            "fia_mean_integer_policy": "Decimal_scaled_reference_ceiling_whole_calendar_day_minimum_one",
+            "rows": lead_scale_rows,
+        }
     return data
 
 
@@ -721,6 +928,8 @@ def run_simulation(
         stderr = proc.stderr.strip()
         stdout = proc.stdout.strip()
         message = "\n".join([part for part in [stdout, stderr] if part]).strip()
+        if "PermissionError:" in message or "[WinError 5]" in message:
+            raise PermissionError(f"Simulation filesystem access refused for {input_json}:\n{message}")
         raise RuntimeError(f"Simulation failed for {input_json}:\n{message}")
 
     summary_file = resolve_existing_path(
@@ -785,7 +994,11 @@ def prune_simulation_output(
         if child.name == "summaries" and keep_summaries:
             continue
         if child.is_dir() and child.name in {"data", "plots", "maps"}:
-            shutil.rmtree(child, ignore_errors=True)
+            root = output_dir.resolve()
+            target = child.resolve()
+            if target == root or not target.is_relative_to(root):
+                raise ValueError(f"Refusing cleanup outside simulation output: {target}")
+            shutil.rmtree(target)
             continue
         if child.is_file() and child.suffix.lower() in {".csv", ".png", ".html"}:
             child.unlink(missing_ok=True)

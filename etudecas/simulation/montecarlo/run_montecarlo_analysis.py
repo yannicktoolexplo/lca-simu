@@ -17,6 +17,8 @@ import random
 import sys
 import tempfile
 import threading
+import shutil
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean, pstdev
@@ -38,6 +40,9 @@ from etudecas.simulation.analysis_batch_common import (
     safe_name,
     to_float,
     write_json,
+    sensitivity_run_context,
+    is_current_reference_manifest,
+    current_reference_manifest_paths,
 )
 from etudecas.simulation.montecarlo.trajectory_collector import (
     build_montecarlo_trajectories_payload,
@@ -506,6 +511,17 @@ def extract_manifest_command(manifest_path: Path) -> dict[str, Any]:
     if not manifest_path.exists():
         raise FileNotFoundError(f"Manifest not found: {manifest_path}")
     manifest = load_json(manifest_path)
+    if is_current_reference_manifest(manifest):
+        run_script, extra_args = sensitivity_run_context(
+            manifest_path, REPO_ROOT / "etudecas/simulation/engine/run_first_simulation.py",
+        )
+        input_path, output = current_reference_manifest_paths(manifest)
+        return {
+            "manifest_path": str(manifest_path), "input_path": str(input_path),
+            "run_script": str(run_script), "scenario_id": str(manifest.get("scenario_id") or "scn:BASE"),
+            "manifest_days": int(to_float(manifest.get("days"), 0)),
+            "nominal_output_dir": str(output), "simulator_extra_args": extra_args,
+        }
     command = [str(x) for x in (manifest.get("simulator_command") or [])]
     if not command:
         raise ValueError(f"No simulator_command found in manifest: {manifest_path}")
@@ -1192,6 +1208,24 @@ def write_scaled_supplier_neutral_floors(
     return True
 
 
+@contextmanager
+def temporary_case_directory(root: Path, run_id: str):
+    """Delete only a verified fresh child of this campaign, and retain failures."""
+    root = root.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix=f"mc_{safe_name(run_id)}_", dir=root))
+    try:
+        yield temporary
+    except BaseException:
+        # In particular, never issue cleanup writes after a permission refusal.
+        raise
+    else:
+        target = temporary.resolve()
+        if target == root or not target.is_relative_to(root):
+            raise ValueError(f"Refusing cleanup outside Monte Carlo campaign: {target}")
+        shutil.rmtree(target)
+
+
 def execute_run_spec(
     spec: dict[str, Any],
     *,
@@ -1286,7 +1320,7 @@ def execute_run_spec(
                     }
             row["case_dir"] = str(case_dir)
         else:
-            with tempfile.TemporaryDirectory(prefix=f"mc_{safe_name(run_id)}_") as tmp:
+            with temporary_case_directory(runs_dir.parent / "temporary_runs", run_id) as tmp:
                 case_dir = Path(tmp)
                 case_input = case_dir / "input_case.json"
                 case_output = case_dir / "simulation_output"
@@ -1341,6 +1375,8 @@ def execute_run_spec(
 
         for k, v in numeric_kpis(summary).items():
             row[f"kpi::{k}"] = v
+    except PermissionError:
+        raise
     except Exception as exc:
         row["status"] = "failed"
         row["error"] = str(exc)
@@ -1674,6 +1710,10 @@ def main() -> None:
                 spec = future_to_spec[future]
                 try:
                     result = future.result()
+                except PermissionError:
+                    for pending in future_to_spec:
+                        pending.cancel()
+                    raise
                 except Exception as exc:
                     row = dict(spec["row"])
                     row["status"] = "failed"
@@ -2043,6 +2083,10 @@ def main() -> None:
                         spec = future_to_spec[future]
                         try:
                             result = future.result()
+                        except PermissionError:
+                            for pending in future_to_spec:
+                                pending.cancel()
+                            raise
                         except Exception as exc:
                             failed_row = dict(spec["row"])
                             failed_row["status"] = "failed"

@@ -62,6 +62,9 @@ except ModuleNotFoundError:
     from etudecas.visualization.maps.risk_payload import risk_pct, risk_ratio, supplier_risk_action_label, supplier_risk_worst_zone, supplier_risk_zone_color, supplier_risk_zone_counts_text, supplier_risk_zone_label, supplier_risk_zone_rank
 
 from etudecas.visualization.maps.simulation_payload import executed_shipment_day, observed_transport_lead
+from etudecas.visualization.maps.simulated_risk_lot_context import (
+    build_simulated_risk_lot_context, reference_only_display_payload,
+)
 from etudecas.risk.supplier_criticality.local import (
     build_edge_item_sets,
     build_supplier_local_criticality,
@@ -12166,6 +12169,12 @@ def main() -> None:
             output_root=simulated_risk_output_root if simulated_risk_output_root.exists() else output_root_from_csv(demand_service_csv),
             simulated_risk_metrics=payload.get("simulated_risk_metrics", {}),
         )
+        payload["simulated_risk_lot_context"] = build_simulated_risk_lot_context(
+            raw,
+            simulated_risk_output_root,
+            nominal_output_root=output_root_from_csv(demand_service_csv),
+            nominal_trace=payload["lot_trace"],
+        )
         payload["scenario_comparison"] = build_scenario_comparison_payload(output_root_from_csv(demand_service_csv))
         payload["scan_dashboard"] = build_scan_dashboard_payload(
             scan_results_dir,
@@ -12355,6 +12364,7 @@ def main() -> None:
             "[WARN] Plotly offline assets unavailable; generated HTML may depend on the Plotly CDN.",
             file=sys.stderr,
         )
+    payload = reference_only_display_payload(payload, raw)
     html_str = html_template(
         args.title,
         json.dumps(payload, ensure_ascii=False),

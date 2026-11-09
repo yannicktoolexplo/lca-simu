@@ -39,6 +39,53 @@ Les modes d'étude sont `sensitivity`, `targeted`, `paired`, `temporal`,
 prérequis restent explicites. La [procédure de vérification](docs/TEST_VALIDATION.md)
 décrit la sélection des contrôles à effectuer après une modification.
 
+## Recalculer la carte complète avec le MRP courant
+
+```powershell
+python -B -m etudecas.simulation.complete_campaign --plan-only
+python -B -m etudecas.simulation.complete_campaign --progress-maps
+# Reprendre les étapes terminées et les checkpoints analytiques compatibles
+python -B -m etudecas.simulation.complete_campaign --resume --progress-maps
+```
+
+Ce parcours utilise `coherent-MRP-20261014` et son runtime de réconciliation
+et projection pour tous les calculs. Il produit un nouveau nominal avec lots
+et audit, cinq compagnons de risques avec réactions dépendant de l'état,
+leurs registres incident–expédition–lots–clients, les sensibilités, la criticité
+fournisseur et Monte Carlo, puis assemble leurs résultats dans la même carte.
+Il ne réutilise pas les campagnes historiques comme résultats de substitution.
+Les commandes d'achat initiales datées gardent leurs quantités et dates source
+dans ces comparaisons ; l'application des risques à ces commandes initiales
+reste un mécanisme distinct, non activé par ce parcours.
+Les variantes de stock modifient uniquement le stock libre utilisable initial
+du fournisseur ou du site de fabrication visé. Les quantités bloquées et leurs
+dates source sont conservées ; les articles en unités restent entiers après
+application du facteur. Ces quantités de variante sont signalées comme hypothèses.
+Les délais internes liés au contrat de disponibilité source restent fixes.
+Les délais fournisseurs paramétrables exprimés en jours entiers sont arrondis
+au jour supérieur ; le facteur demandé, l'effet appliqué et les exclusions sont tracés.
+
+Le plan par défaut comporte 388 calculs de 1 825 jours : un nominal, cinq
+risques, 181 cas de sensibilité pour huit fournisseurs éligibles et 200 tirages
+Monte Carlo plus leur baseline. Le profil `workshop`, la graine 42 et un seul
+worker sont explicites ; la propagation appariée supplémentaire est désactivée.
+Le nombre de sensibilités est adapté si moins de huit fournisseurs sont éligibles.
+Les seuils de risque et distributions d'incertitude restent des hypothèses de
+scénario ; ils ne sont pas des probabilités industrielles démontrées.
+
+`--output-dir`, `--map-output`, `--stop-after`, `--max-wall-minutes` et les limites
+de stockage sont vérifiés entre les étapes, sans interrompre un calcul natif
+déjà engagé. Les checkpoints distinguent les
+étapes déclarées, en cours, terminées et échouées. Une erreur ou un refus
+d'écriture ne déclenche pas de relance aveugle. Ne pas modifier les sources
+pendant une campagne : la reprise vérifie leur identité.
+
+`--progress-maps` publie des cartes intermédiaires explicitement marquées en
+cours ; les analyses non encore calculées y restent absentes. La carte finale
+attend tous les tirages et cas demandés réussis. Une exécution terminée n'est
+pas une qualification scientifique. Les références HTML précédentes restent
+conservées. L'ancien `rebuild-map-5y` utilise son parcours historique distinct.
+
 ## Installation Minimale
 
 Depuis la racine du repo :
