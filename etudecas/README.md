@@ -31,6 +31,12 @@ Les valeurs par défaut sont `--reference current` et
 `--forecast-mode source_priority`. La livraison historique de septembre reste
 reproductible avec `--reference historical_20260920`.
 
+Pour recalculer aussi les sensibilités, cinq scénarios de risque dépendant de
+l'état reliés à leurs propres lots, la criticité fournisseur et Monte Carlo :
+`python -B -m etudecas.simulation.complete_campaign --progress-maps`.
+Ce parcours long et reprenable conserve le même runtime MRP ; son plan et ses
+limites sont décrits dans les [commandes opérationnelles](OPERATIONS.md).
+
 La carte courante est
 [`resultats/corrections_5ans_20261014/carte_simulation_5ans_corrigee.html`](resultats/corrections_5ans_20261014/carte_simulation_5ans_corrigee.html).
 Elle contient le réseau, les courbes, les comparaisons industrielles 2025, un

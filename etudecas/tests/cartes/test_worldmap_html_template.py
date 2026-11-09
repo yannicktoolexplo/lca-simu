@@ -85,7 +85,8 @@ def test_incident_lot_link_requires_an_intersection_and_traceable_lots() -> None
         "Boolean(eventIds.length && directLotIds.size && traceableLotRows.length)"
         in impact
     )
-    assert "!LOT_TRACE.available" in lot_section
+    assert "!trace.available" in lot_section
+    assert "const trace = simulatedRiskLotTrace();" in lot_section
     assert (
         "simulatedRiskCascadeKeyForRow(row) !== selectedSimulatedRiskCascadeKey"
         in lot_section
@@ -131,6 +132,7 @@ def test_incident_lot_open_keeps_risk_mode_and_draws_both_paths() -> None:
     assert "impact.traceableLotIds.includes(lotId)" in open_handler
     assert 'setPanelMode("ops")' not in open_handler
     assert "setSelectedLot(lotId)" in open_handler
+    assert "setLotTraceRunContext(impact.runContextKey)" in open_handler
     assert "lotTraceOverlayEnabledForCurrentMode()" in lot_overlay
     assert 'const lineColor = riskCascadeMode ? "#2563eb" : "#f97316"' in lot_overlay
     assert (
@@ -146,3 +148,35 @@ def test_incident_lot_open_keeps_risk_mode_and_draws_both_paths() -> None:
     assert 'document.getElementById("modeOps").addEventListener' in html
     assert 'document.getElementById("modeSimulatedRisk").addEventListener' in html
     assert 'const visible = currentPanelMode === "ops"' in html
+
+
+def test_risk_lot_context_is_separate_and_cache_includes_run_identity() -> None:
+    html = html_template("Supply Map", '{"nodes": []}', "", 0, "")
+    impact = _fragment(html, "function simulatedRiskCascadeLotImpact(row)",
+                       "function selectedSimulatedRiskCascadeLotImpact()")
+    switch = _fragment(html, "function setLotTraceRunContext(runKey)",
+                       "function lotTraceIsValidViewModel(model, lotId)")
+    assert "const trace = simulatedRiskLotTrace();" in impact
+    assert "runContextKey," in impact
+    assert "(trace.events || [])" in impact
+    assert "(trace.genealogy || [])" in impact
+    assert "(trace.lots || {})[lotId]" in impact
+    assert "lotTraceLotInfo(lotId)" not in impact
+    assert "riskLotTraceIndexesByRun" in impact
+    assert "lotTraceSelectionByRun.set(lotTraceRunContextKey" in switch
+    assert 'requested === "nominal" ? "nominal"' in switch
+    assert '"risk:unavailable"' in switch
+    assert "materialOutgoingIndex = null" in switch
+    assert "materialIncidentPreview = null" in switch
+    assert "refreshLotTraceSelectors()" in switch
+
+
+def test_lot_modal_names_its_run_and_repopulates_run_local_choices() -> None:
+    html = html_template("Supply Map", '{"nodes": []}', "", 0, "")
+    modal = _fragment(html, "function renderLotTraceModal()", "function updateLotTraceControls()")
+    controls = _fragment(html, "function initLotTraceControls()", "function setSelectedLot(lotId)")
+    assert 'const runLabel = lotTraceRunContextKey === "nominal"' in modal
+    assert "${runLabel}" in modal
+    assert "refreshLotTraceSelectors = () =>" in controls
+    assert "populateSelect(select, false)" in controls
+    assert "populateSelect(modalSelect, true)" in controls

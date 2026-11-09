@@ -45,6 +45,9 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     safe_name,
     to_float,
     write_json,
+    sensitivity_run_context,
+    is_current_reference_manifest,
+    current_reference_manifest_paths,
 )
 
 
@@ -280,6 +283,10 @@ def extract_manifest_extra_args(manifest_path: Path) -> list[str]:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception:
         return []
+    if is_current_reference_manifest(manifest):
+        return sensitivity_run_context(
+            manifest_path, REPO_ROOT / "etudecas/simulation/engine/run_first_simulation.py",
+        )[1]
     cmd = manifest.get("simulator_command") or []
     if not isinstance(cmd, list) or not cmd:
         return []
@@ -310,6 +317,18 @@ def extract_manifest_extra_args(manifest_path: Path) -> list[str]:
         extra.append(token)
         i += 1
     return extra
+
+
+def resolve_baseline_context(
+    manifest_path: Path, run_script: Path, input_path: Path, baseline_result_dir: Path,
+) -> tuple[Path, Path, Path, list[str]]:
+    """Resolve paths and runtime together; never combine current flags with an old graph."""
+    manifest = load_json(manifest_path) if manifest_path.is_file() else {}
+    if is_current_reference_manifest(manifest):
+        input_path, baseline_result_dir = current_reference_manifest_paths(manifest)
+        run_script, extra_args = sensitivity_run_context(manifest_path, run_script)
+        return run_script, input_path, baseline_result_dir, extra_args
+    return run_script, input_path, baseline_result_dir, extract_manifest_extra_args(manifest_path)
 
 
 def split_supplier_floor_arg(extra_args: list[str]) -> tuple[list[str], Path | None]:
@@ -648,10 +667,11 @@ def prune_case_output(output_dir: Path, *, artifact_mode: str = "summary") -> No
     keep = compact_keep if artifact_mode == "compact" else summary_keep
 
     def try_unlink(path: Path) -> None:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError:
-            return
+        root = output_dir.resolve()
+        target = path.resolve()
+        if target == root or not target.is_relative_to(root):
+            raise ValueError(f"Refusing cleanup outside sensitivity output: {target}")
+        path.unlink(missing_ok=True)
 
     for child in output_dir.iterdir():
         if child in keep:
@@ -1533,6 +1553,9 @@ def main() -> None:
     input_path = Path(args.input)
     run_script = Path(args.run_script)
     baseline_result_dir = Path(args.baseline_result_dir)
+    run_script, input_path, baseline_result_dir, baseline_extra_args = resolve_baseline_context(
+        Path(args.baseline_manifest), run_script, input_path, baseline_result_dir,
+    )
     output_dir = Path(args.output_dir)
     cases_root = output_dir / "cases"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1552,7 +1575,7 @@ def main() -> None:
     supplier_nodes_all = detect_supplier_nodes(base_data)
     ranked_suppliers = rank_suppliers(baseline_result_dir, set(supplier_nodes_all))
     selected_suppliers = ranked_suppliers if args.top_suppliers <= 0 else ranked_suppliers[: args.top_suppliers]
-    extra_args, supplier_floor_csv = split_supplier_floor_arg(extract_manifest_extra_args(Path(args.baseline_manifest)))
+    extra_args, supplier_floor_csv = split_supplier_floor_arg(baseline_extra_args)
 
     specs = build_specs(
         groups,

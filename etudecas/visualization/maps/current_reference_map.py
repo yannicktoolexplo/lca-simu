@@ -18,8 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 ORIGIN = date(2025, 1, 1)
 PRODUCTS = {
-    "item:268091": "article_268091 268091",
-    "item:268967": "article_268967 268967",
+    "item:268091": "268091",
+    "item:268967": "268967",
 }
 
 
