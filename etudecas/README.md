@@ -80,7 +80,7 @@ intermédiaires.
 
 ## Documentation
 
-- [Refaire le MRP pas à pas : clients → Muret → usines → fournisseurs](docs/MRP_PAS_A_PAS.html) — formules, variables, exemples et paramètres ; [texte modifiable](docs/MRP_PAS_A_PAS.md).
+- [Refaire le MRP pas à pas : clients → Muret → usines → fournisseurs](docs/MRP_PAS_A_PAS.html) — formules, variables, exemples et paramètres ; [PDF](docs/MRP_PAS_A_PAS.pdf) et [texte modifiable](docs/MRP_PAS_A_PAS.md).
 - [Commandes opérationnelles](OPERATIONS.md)
 - [Régénération des résultats](docs/REGENERER_RESULTATS.md)
 - [Règles MRP actives](docs/REGLES_MRP.md)
