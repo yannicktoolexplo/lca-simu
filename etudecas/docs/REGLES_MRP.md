@@ -8,6 +8,12 @@ La chronologie des essais et des règles abandonnées reste dans
 [l’expérience MRP 2025](archive/MRP_EXPERIENCES_2025.md). Elle ne définit pas le
 comportement courant.
 
+Pour une lecture pédagogique complète, des clients jusqu’aux fournisseurs,
+utiliser [Refaire le MRP pas à pas](MRP_PAS_A_PAS.html), disponible aussi en
+[texte modifiable](MRP_PAS_A_PAS.md). Ce guide explicite les calendriers,
+surcharges d’ouverture et reports de promesses réellement actifs, avec leurs
+formules et l’[annexe de paramètres](reference/MRP_PARAMETRES_LISIBLES.json).
+
 ## Convention unique des variables
 
 Une variable garde ci-dessous **le même nom, le même sens, la même unité et le
@@ -1070,16 +1076,18 @@ Pour **001848 à Avène** :
 | Secours | VD0519670A | 4,20 €/kg | 21 jours | 4 000 kg |
 
 ```text
-manque_physique_avant_disponibilité_du_principal
-  = max(0,
-        besoins_physiques dus avant cette date
-        - stock utilisable
-        - réceptions fermes disponibles avant cette date)
+quantité_de_secours
+  = somme des allocations non protégées améliorables telles que :
+      date_besoin_anticipée < première_disponibilité_nouvel_achat_principal
+      et date_allouée_actuelle > max(date_besoin_anticipée, disponibilité_secours)
 ```
 
-Le secours ne couvre que ce manque physique, jamais le plancher de sécurité
-seul, et uniquement s’il améliore la date de disponibilité. Son lot et son
-surplus sont déduits avant de recalculer la quantité du principal.
+Dans la branche additive active, le sélecteur reçoit des besoins déjà avancés
+par les jours de sécurité. Il ne teste donc pas seulement les dates originales
+de consommation physique. La réserve fixe seule ne déclenche pas le secours ;
+tous les engagements fermes sont protégés du rachat, même tardifs. Le secours
+n’est retenu que s’il améliore la date des allocations éligibles. Son lot et
+son surplus sont déduits avant de recalculer la quantité du principal.
 Le rôle principal/secours est confirmé ; son déclencheur exact reste une règle
 expérimentale de la référence, à confronter à d’autres historiques industriels.
 
@@ -1371,7 +1379,7 @@ reclasser l'écart Scan3/BOM en usage partagé.
 | 9 | CV | `tau_process = 3` n’a pas de sens physique confirmé. | Marge de planification seulement ; jamais durée de fabrication. |
 | 10 | CAL/DA | `Sorties_article_scan3` est confirmé comme le périmètre de nos références, mais son étape exacte reste inconnue : prélèvement OF, sortie atelier, vrac ou combinaison. | L'écart `Scan3 − BOM` reste un diagnostic seulement. Les autres références viennent exclusivement de I ; aucun résiduel Scan3 n'entre dans le MRP. |
 | 11 | DA/CAL | `042342` a un standard FIA de 30 000 000 UN, mais le périmètre multi-format n’est pas ventilé. Les 60 M des en-cours ne se rapprochent que de 29,5 M d’entrées H documentées. | Le standard ne prouve ni minimum ni multiple de commande. |
-| 12 | DA | `344135` est dans la BOM 268967, part de zéro et n’a pas d’ordre ouvert ; aucune substitution explicite n’est fournie. | Ne pas inventer une substitution avec `338928` ou `338929`. |
+| 12 | DA/CV | `344135` est dans la BOM 268967 ; `config/cases/data_poc.json` configure 107 800 UN initiales de l’ancienne référence compatible `EX-344135`, utilisables de J0 à J120 lorsque le nouveau stock est nul. | Hypothèse nominale explicite, pas quantité industrielle démontrée. Ne pas inventer de substitution avec `338928` ou `338929`. |
 | 13 | CV/DA | Lots actifs : 268091 min 28 800, multiple 14 400, plafond source déclaré 142 485 et maximum réalisable par ce multiple 129 600 ; 268967 107 800 ; 773474 3 200 kg ; 693055 600 kg ; plafond 20 lancements/semaine. La capacité réelle de 693055 manque. | Les paramètres explicités restent séparés ; la capacité de Gaillac reste une convention. |
 | 14 | DA/CV | 693055 est fabriqué à Gaillac, mais sa BOM amont industrielle n’est pas fournie. | Une matière fictive rend le flux visible, sans prétendre valider recette ni fournisseur amont. |
 | 15 | IS/CV | 693055 utilise 28 jours ouvrés de libération à Gaillac + 7 jours de transport + 7 jours de réception à Avène, tandis que la FIA mentionne 70 jours. Les données ne prouvent pas 28 jours après chaque entrée. | La chaîne active reste explicite ; les 70 jours ne sont pas convertis arbitrairement en transport. |
