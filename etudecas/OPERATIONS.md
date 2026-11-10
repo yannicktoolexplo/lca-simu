@@ -110,9 +110,10 @@ insensibilité générale ; aucune monotonie globale n'est supposée.
 
 Les trois indicateurs sont suivis séparément :
 
-- critère historique `product_availability` : part des journées client/article
-  entièrement servies, retards inclus. Il ne mesure pas le stock disponible à
-  Muret ; « journées entièrement servies » est le libellé métier précis ;
+- réponse client `quantity_service_rate` : quantité servie divisée par la demande
+  cumulée et l'arriéré initial, compté une seule fois. La version 2 de l'étude
+  utilise explicitement ce critère, distinct du stock disponible et de la
+  ponctualité ;
 - taux de révision du programme prévisionnel de fabrication simulé : changements
   de quantité ou de calendrier rapportés aux publications actives comparables ;
   il ne mesure pas les révisions industrielles d'ordres de fabrication ;
@@ -124,6 +125,8 @@ taux et **1 %** du coût témoin, avec un plancher d'une unité monétaire. Une 
 ou une baisse compte comme effet et conserve son signe. Un effet sur le coût
 seul ne vaut pas réussite sur les trois indicateurs.
 
+Le critère historique `product_availability`, part des journées client/article
+entièrement servies, retards inclus, reste affiché en diagnostic secondaire.
 Un taux de journées entièrement servies nul peut coexister avec des livraisons
 importantes : tant qu'un arriéré demeure, la journée échoue à ce critère binaire.
 Présenter séparément la part de demande servie en quantité et le retard final.
@@ -141,6 +144,25 @@ partielle ; elle ne valide jamais l'objectif des trois indicateurs. Les budgets
 par défaut sont 115 calculs, 48 heures et 20 GiB, vérifiés entre les cas, avec un
 seul calcul à la fois. Choisir un nouveau dossier de résultats ; le nominal et
 les anciens rapports restent conservés.
+
+La progression et les trois mesures sont enregistrées après chaque cas terminé.
+Les exports moteur restent compacts, avec conservation des stocks, campagnes,
+journaux, événements et généalogies de lots produits par ce profil. Cela suffit
+au contrôle ciblé des trois mesures ; le registre détaillé de consommation
+matière n'est pas exporté et la qualification complète des bilans matière ne
+peut pas être déclarée sur ces seuls fichiers. `--resume --output-dir
+DOSSIER` ne reprend qu'un arrêt de budget entre deux cas terminés : même version
+2, paramètres, horizon, critères, sources, entrées et empreintes CSV. Les budgets
+peuvent être augmentés explicitement ; le temps cumulé est conservé. Un cas
+partiel, un échec natif ou un refus de sécurité interdit cette reprise.
+
+Une recherche achevée ne garantit pas un effet sur les trois indicateurs pour
+chaque paramètre : un coût de stockage seul doit changer le coût, sans changer
+les flux. D'autres coûts ne ciblent pas directement l'immobilisation. Une cible
+PF nominale à zéro reste zéro après multiplication ; une période de revue d'un
+jour et une fiabilité déjà à 100 % peuvent atteindre leurs bornes. Ces cas sont
+distincts d'une mesure manquante ou d'un arrêt de budget. `all_three_satisfied`
+décrit uniquement les effets détectés, pas une validation globale du modèle.
 
 ### Mesure des révisions de production
 

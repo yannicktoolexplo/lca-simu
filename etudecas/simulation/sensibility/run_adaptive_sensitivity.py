@@ -22,6 +22,7 @@ from typing import Any, Callable
 
 from etudecas.simulation.analysis_batch_common import SUPPORTED_FACTORS, apply_scales
 from etudecas.simulation.analysis.production_daily_metrics import daily_plan_metrics
+from etudecas.simulation.analysis.customer_service_metrics import customer_service_metrics, customer_service_scope
 from etudecas.simulation.analysis.production_replanning_metrics import (
     JOURNAL_FILENAME, LABEL as REPLANNING_LABEL, programme_metrics_from_directory,
 )
@@ -29,7 +30,7 @@ from etudecas.simulation.sensibility import run_supplier_parameter_sensitivity a
 
 ROOT = Path(__file__).resolve().parents[3]
 METRICS = {
-    "kpi::product_availability": "Disponibilité PF : lignes intégralement servies, retards inclus",
+    "kpi::quantity_service_rate": "Part de demande servie en quantité (rattrapages inclus)",
     "kpi::production_replanning_rate": REPLANNING_LABEL,
     "kpi::inventory_cost": "Coût du capital immobilisé valorisé (sous-total si valorisation incomplète)",
 }
@@ -78,7 +79,8 @@ def search_thresholds(*, parameters: list[str], baseline: dict[str, Any],
         down: tuple[float, ...] = (.5, .1, .01), up: tuple[float, ...] = (2., 5., 20.),
         max_runs: int = 115, rate_delta: float = .001, cost_relative: float = .01,
         cost_absolute: float = 1., allow_partial: bool = False,
-        budget_reason: Callable[[], str | None] = lambda: None) -> dict[str, Any]:
+        budget_reason: Callable[[], str | None] = lambda: None,
+        on_progress: Callable[[dict[str, Any]], None] = lambda snapshot: None) -> dict[str, Any]:
     """Pure scheduler: fair breadth-first probes, separate first crossing per KPI.
 
     One baseline is counted. Adjacent tested points form descriptive intervals;
@@ -109,6 +111,12 @@ def search_thresholds(*, parameters: list[str], baseline: dict[str, Any],
     trials = []
     runs = 1
     stopped = None
+    def publish_progress():
+        # A detached snapshot prevents report consumers from mutating scheduling.
+        on_progress(deepcopy({"status": "running", "missing_indicators": missing,
+            "native_runs": runs, "directions": directions, "trials": trials,
+            "tolerances": limits, "all_three_satisfied": False}))
+    publish_progress()
     for depth in range(max(len(down), len(up))):
         for state in directions:
             if state["status"] != "pending":
@@ -131,6 +139,7 @@ def search_thresholds(*, parameters: list[str], baseline: dict[str, Any],
                                "runtime_activation": "not_proven", "effective_input_sha256": signature})
                 if saturated:
                     state["status"] = "parameter_unchanged" if not state["tried_factors"] else "parameter_saturated"
+                publish_progress()
                 continue
             row = evaluate(parameter, factor)
             if row.get("status") != "ok":
@@ -163,6 +172,7 @@ def search_thresholds(*, parameters: list[str], baseline: dict[str, Any],
             if all(key in state["thresholds"] for key in observed):
                 state["status"] = ("thresholds_detected_with_missing_trial_indicators" if state["unavailable_trial_indicators"]
                     else "thresholds_detected" if not missing else "thresholds_detected_measurable_only")
+            publish_progress()
         if stopped:
             break
     for state in directions:
@@ -173,10 +183,34 @@ def search_thresholds(*, parameters: list[str], baseline: dict[str, Any],
         state["unavailable_indicators"] = missing
         state.pop("last_effective_key")
     incomplete_trials = any(state["unavailable_trial_indicators"] for state in directions)
-    return {"status": "partial_indicators" if missing or incomplete_trials else "bounded_search_finished",
+    result = {"status": "partial_indicators" if missing or incomplete_trials else "budget_reached" if stopped else "bounded_search_finished",
             "missing_indicators": missing, "native_runs": runs, "directions": directions, "trials": trials,
             "budget_stop": stopped, "tolerances": limits,
             "all_three_satisfied": all(state["all_three_satisfied"] for state in directions)}
+    on_progress(deepcopy(result))
+    return result
+
+
+RESUME_FIELDS = ("schema", "parameters", "days", "baseline_manifest", "input_graph", "runtime",
+    "metric_definitions", "down_levels", "up_levels", "criteria", "implementation",
+    "dependency_hashes", "observability_hashes", "allow_partial_indicators", "artifact_policy")
+
+
+def validate_resume_report(previous: dict[str, Any], current: dict[str, Any]) -> None:
+    """Only the same deterministic study can replay source-bound completed cases."""
+    if previous.get("status") == "failed_stopped_without_retry":
+        raise ValueError("Reprise refusée après échec : préserver les preuves et choisir un nouveau dossier")
+    if previous.get("schema") != "etudecas.adaptive-sensitivity.v2":
+        raise ValueError("Reprise refusée : contrat de progression ancien ou inconnu")
+    if (previous.get("status") not in {"budget_reached", "bounded_search_finished", "partial_indicators"}
+            or previous.get("budget_stop") not in {"max_runs", "wall_time_budget", "storage_budget", "free_disk_budget"}):
+        raise ValueError("Reprise autorisée seulement après un arrêt de budget entre deux cas terminés")
+    for key in RESUME_FIELDS:
+        # JSON normalisation equates tuples written as lists, never numeric values.
+        if json.dumps(previous.get(key), sort_keys=True) != json.dumps(current.get(key), sort_keys=True):
+            raise ValueError("Reprise refusée : contrat différent pour " + key)
+    if current["max_runs"] < len(previous.get("completed_native_cases", [])):
+        raise ValueError("Le nouveau budget est inférieur aux calculs déjà terminés")
 
 
 def effective_projection(data: dict[str, Any]) -> str:
@@ -282,24 +316,25 @@ def historical_graph_copy(data: dict[str, Any], days: int) -> tuple[dict[str, An
         "preserved": "Physical inputs, source commitments, historical demand/forecasts and2025/source/custom calendars; only exactly recognized generated prospective assumptions are undone."}
 
 
-def read_observability(nominal: Path) -> dict[str, Any]:
+def read_observability(nominal: Path, *, expected_scope: dict[str, Any] | None = None) -> dict[str, Any]:
     """Read actual export contracts before scheduling expensive calculations."""
     summary_path = nominal / "summaries/first_simulation_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8-sig"))
     kpis = summary.get("kpis") or {}
-    values = {"kpi::product_availability": None, "kpi::production_replanning_rate": None,
+    values = {"kpi::quantity_service_rate": None, "kpi::production_replanning_rate": None,
               "kpi::inventory_cost": finite(kpis.get("total_holding_cost"))}
     service = nominal / "data/production_demand_service_daily.csv"
+    scope = expected_scope or {"expected_pairs": None, "uom": None, "status": "unknown_customer_service_scope"}
+    service_metrics = customer_service_metrics([])
     if service.is_file():
-        total = available = 0
         with service.open(encoding="utf-8-sig", newline="") as stream:
-            for row in csv.DictReader(stream):
-                required, served = finite(row.get("required_with_backlog_qty")), finite(row.get("served_qty"))
-                if required is not None and served is not None and required > 1e-9:
-                    total += 1
-                    available += served + 1e-6 >= required
-        if total:
-            values["kpi::product_availability"] = available / total
+            service_rows = list(csv.DictReader(stream))
+        service_metrics = customer_service_metrics(service_rows if scope.get("expected_pairs") else [],
+            expected_days=summary.get("sim_days") if type(summary.get("sim_days")) is int else None,
+            expected_pairs=scope.get("expected_pairs"), expected_uom=scope.get("uom"))
+        if not scope.get("expected_pairs"):
+            service_metrics["customer_service_semantics_status"] = "unknown_customer_service_scope"
+        values["kpi::quantity_service_rate"] = finite(service_metrics.get("quantity_service_rate"))
     constraints = nominal / "data/production_constraint_daily.csv"
     semantics = "export_absent"
     if constraints.is_file():
@@ -313,6 +348,8 @@ def read_observability(nominal: Path) -> dict[str, Any]:
         semantics = programme_metrics.get("planning_semantics_status")
     return {"values": values, "missing_indicators": [key for key, value in values.items() if value is None],
             "planning_semantics_status": semantics, "source_horizon_days": summary.get("sim_days"),
+            "customer_service_diagnostics": service_metrics,
+            "customer_service_scope": scope,
             "production_replanning_basis": (programme_metrics or {}).get("production_replanning_basis"),
             "production_replanning_comparable_count": (programme_metrics or {}).get("production_replanning_comparable_count"),
             "production_replanning_coverage_complete": (programme_metrics or {}).get("production_replanning_coverage_complete"),
@@ -323,32 +360,51 @@ def read_observability(nominal: Path) -> dict[str, Any]:
             "economic_valuation": summary.get("economic_valuation", {"status": "unknown", "complete": False})}
 
 
+def customer_service_diagnostic_text(metrics: dict[str, Any]) -> str:
+    """Human reading of the same-horizon witness, preserving genuine zeros."""
+    def value(name):
+        return finite(metrics.get("kpi::" + name, metrics.get(name)))
+    def quantity(name):
+        number = value(name)
+        return "inconnu" if number is None else f"{number:,.0f}".replace(",", "\u202f")
+    rate = value("quantity_service_rate")
+    percentage = "inconnue" if rate is None else f"{100 * rate:.2f} %".replace(".", ",")
+    return ("Témoin au même horizon : part de demande servie en quantité " + percentage
+        + " ; " + quantity("quantity_service_served_qty") + " unités servies / "
+        + quantity("quantity_service_demand_qty") + " demandées, avec "
+        + quantity("quantity_service_opening_backlog_qty") + " unités en retard au début de la fenêtre. "
+        + "Retard final : " + quantity("quantity_service_ending_backlog_qty") + " unités. "
+        + "Journées client/article entièrement soldées, retards inclus : "
+        + quantity("fully_served_customer_item_days") + " / " + quantity("active_customer_item_days") + ".")
+
+
 def write_reports(output: Path, report: dict[str, Any]) -> None:
     (output / "adaptive_summary.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     table = []
     for state in report.get("directions", []):
         for metric, label in METRICS.items():
-            threshold = state["thresholds"].get(metric) or {}
+            threshold = state.get("thresholds", {}).get(metric) or {}
             table.append({"parameter": state["parameter"], "label": state["label"], "direction": state["direction"],
                 "indicator": metric, "indicator_label": label,
-                "status": "effet_observe" if threshold else "non_mesurable" if metric in state["unavailable_indicators"]
-                          else "non_mesurable_dans_certains_essais" if metric in state["unavailable_trial_indicators"] else state["status"],
+                "status": "effet_observe" if threshold else "non_mesurable" if metric in state.get("unavailable_indicators", [])
+                          else "non_mesurable_dans_certains_essais" if metric in state.get("unavailable_trial_indicators", {}) else state["status"],
                 "first_factor": threshold.get("first_tested_factor"), "delta": threshold.get("delta"),
                 "interval": json.dumps(threshold.get("adjacent_tested_interval")),
-                "all_three_satisfied": state["all_three_satisfied"]})
+                "all_three_satisfied": state.get("all_three_satisfied", False)})
     for filename, rows in (("adaptive_thresholds.csv", table), ("adaptive_trials.csv", report.get("trials", []))):
         fields = sorted({key for row in rows for key in row}) or ["status"]
         with (output / filename).open("w", encoding="utf-8", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=fields); writer.writeheader(); writer.writerows(rows)
-    body = "".join("<tr>" + "".join("<td>" + html.escape(str(row.get(key) or "")) + "</td>"
+    body = "".join("<tr>" + "".join("<td>" + html.escape(str(row.get(key) if row.get(key) is not None else "")) + "</td>"
         for key in ("label", "direction", "indicator_label", "status", "first_factor", "delta", "interval")) + "</tr>" for row in table)
     missing = ", ".join(METRICS[key] for key in report.get("missing_indicators", [])) or "aucun"
     states = {"blocked_missing_indicators": "Bloqué : indicateur non mesurable", "blocked_no_measurable_indicator": "Bloqué : aucun indicateur mesurable",
-        "declared": "Préparé", "partial_indicators": "Mesures partielles : objectif des trois indicateurs non acquis",
+        "declared": "Préparé", "running": "En cours", "running_native_case": "Calcul natif en cours", "partial_indicators": "Mesures partielles : objectif des trois indicateurs non acquis",
         "bounded_search_finished": "Recherche bornée terminée", "budget_reached": "Budget atteint", "parameter_unchanged": "Entrée inchangée aux paliers testés",
         "parameter_saturated": "Borne effective atteinte", "bounds_reached_no_further_effect": "Bornes atteintes sans tous les effets recherchés",
         "thresholds_detected": "Seuils observés", "thresholds_detected_measurable_only": "Seuils des seuls indicateurs mesurables",
         "thresholds_detected_with_missing_trial_indicators": "Seuils observés avec mesures partielles", "failed_stopped_without_retry": "Échec : arrêt sans réessai",
+        "pending": "À tester",
         "effet_observe": "Effet observé", "non_mesurable": "Non mesurable", "non_mesurable_dans_certains_essais": "Non mesurable dans certains essais"}
     for code, label in states.items():
         body = body.replace(">" + code + "</td>", ">" + html.escape(label) + "</td>")
@@ -358,7 +414,9 @@ def write_reports(output: Path, report: dict[str, Any]) -> None:
     design = (f"Horizon : {report.get('days')} jours. {len(report.get('parameters', []))} paramètres globaux sélectionnés sur19 disponibles ; aucune prétention de couvrir chaque fournisseur/site. "
         f"Budgets : {report.get('max_runs')} calculs, {report.get('max_wall_minutes')} minutes, {report.get('max_disk_gb')} Gio ; contrôlés entre calculs. "
         f"Seuil des taux : {criteria.get('rate_absolute_fraction')} en fraction ; stockage : {criteria.get('cost_relative_fraction')} du témoin avec minimum {criteria.get('cost_absolute_monetary')} unité monétaire.")
-    document = '<!doctype html><html lang="fr"><meta charset="utf-8"><title>Recherche de seuils</title><style>body{font:15px/1.5 system-ui;margin:24px}table{border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:6px}td{max-width:300px}p{max-width:1100px}</style><h1>Recherche de seuils de sensibilité</h1><p>État : ' + html.escape(states.get(report["status"], report["status"])) + '</p><p>' + html.escape(design) + '</p><p>Indicateurs non mesurables : ' + html.escape(missing) + '</p><p>Valorisation du stockage : ' + html.escape(str(coverage.get("status", "inconnue"))) + '; couples article/site non valorisés : ' + str(unknown_pairs) + '. Le coût reste le sous-total connu du capital immobilisé, pas le coût complet de l’entrepôt.</p><p>Chaque facteur est modifié seul, dans les deux sens. Les intervalles relient des points testés et ne prouvent pas une monotonie globale. Une entrée modifiée ne prouve pas une activation physique.</p><p>Le taux de disponibilité porte sur les lignes entièrement servies, retards inclus, et ne remplace pas le taux de service en quantité. La replanification requiert un véritable journal de révisions de production avec identités stables, versions et cibles avant/après ; une absence n’est pas zéro. Cette étude ne fournit pas de qualification globale du modèle industriel. <a href="adaptive_summary.json">Sources, empreintes et résultats détaillés</a>.</p><table><tr><th>Paramètre</th><th>Sens</th><th>Indicateur</th><th>Résultat</th><th>Premier facteur</th><th>Écart</th><th>Intervalle testé</th></tr>' + body + '</table></html>'
+    baseline = (report.get("baseline_same_horizon") or {}).get("row")
+    diagnostic = customer_service_diagnostic_text(baseline) if baseline else "Le témoin de cette étude au même horizon n’est pas encore calculé."
+    document = '<!doctype html><html lang="fr"><meta charset="utf-8"><title>Recherche de seuils</title><style>body{font:15px/1.5 system-ui;margin:24px}table{border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:6px}td{max-width:300px}p{max-width:1100px}</style><h1>Recherche de seuils de sensibilité</h1><p>État : ' + html.escape(states.get(report["status"], report["status"])) + '</p><p>' + html.escape(design) + '</p><p>Indicateurs non mesurables : ' + html.escape(missing) + '</p><p>' + html.escape(diagnostic) + '</p><p>Valorisation du stockage : ' + html.escape(str(coverage.get("status", "inconnue"))) + '; couples article/site non valorisés : ' + str(unknown_pairs) + '. Le coût reste le sous-total connu du capital immobilisé, pas le coût complet de l’entrepôt.</p><p>Chaque facteur est modifié seul, dans les deux sens. Les intervalles relient des points testés et ne prouvent pas une monotonie globale. Une entrée modifiée ne prouve pas une activation physique. Les paramètres monétaires peuvent ne pas modifier les trois indicateurs : une recherche terminée ne signifie pas que trois effets sont démontrés.</p><p>Les trois critères sont : la part de demande servie en quantité (rattrapages inclus), le taux de révision du programme prévisionnel de fabrication simulé et le coût du capital immobilisé valorisé. La part servie ne mesure ni la ponctualité ni le stock disponible à Muret. Les journées entièrement soldées, retards inclus, restent un diagnostic secondaire ; leur zéro peut coexister avec des livraisons. La replanification requiert un journal de programmes avec identités stables, versions et cibles avant/après ; une absence n’est pas zéro. Cette étude ne fournit pas de qualification globale du modèle industriel. <a href="adaptive_summary.json">Sources, empreintes et résultats détaillés</a>.</p><table><tr><th>Paramètre</th><th>Sens</th><th>Indicateur</th><th>Résultat</th><th>Premier facteur</th><th>Écart</th><th>Intervalle testé</th></tr>' + body + '</table></html>'
     (output / "adaptive_report.html").write_text(document, encoding="utf-8")
 
 
@@ -379,6 +437,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cost-absolute-delta", type=float, default=1.)
     parser.add_argument("--allow-partial-indicators", action="store_true")
     parser.add_argument("--plan-only", action="store_true")
+    parser.add_argument("--resume", action="store_true", help="Rejouer uniquement les reçus terminés d'une étude de mêmes sources et même protocole")
     args = parser.parse_args(argv)
     parameters = [word.strip() for word in args.parameters.split(",") if word.strip()]
     if (not parameters or len(set(parameters)) != len(parameters) or set(parameters) - SUPPORTED_FACTORS
@@ -416,13 +475,15 @@ def main(argv: list[str] | None = None) -> int:
         return values
     dependency_hashes = file_hashes(dependencies)
     observability_hashes = file_hashes(observability_files)
-    observed = read_observability(nominal)
+    source_graph_data = json.loads(graph.read_text(encoding="utf-8-sig"))
+    service_scope = customer_service_scope(source_graph_data, "scn:BASE")
+    observed = read_observability(nominal, expected_scope=service_scope)
     if observability_hashes != file_hashes(observability_files):
         raise RuntimeError("Les exports ont changé pendant le diagnostic d'observabilité")
     output = (args.output_dir or ROOT / "etudecas/artifacts/testing" / ("sens_adaptive_" + uuid.uuid4().hex[:10])).resolve()
     if not output.is_relative_to((ROOT / "etudecas/artifacts/testing").resolve()):
         parser.error("Les sorties doivent rester sous etudecas/artifacts/testing")
-    report = {"schema": "etudecas.adaptive-sensitivity.v1", "status": "declared", "created_utc": datetime.now(timezone.utc).isoformat(),
+    report = {"schema": "etudecas.adaptive-sensitivity.v2", "status": "declared", "created_utc": datetime.now(timezone.utc).isoformat(),
         "parameters": [{"key": p, "label": PARAMETER_LABELS[p]} for p in parameters],
         "parameter_scope": "19 facteurs globaux disponibles; aucune prétention de balayage de chaque site ou fournisseur",
         "days": args.days, "historical_scope": "2025 uniquement, convention du runtime sur362jours",
@@ -432,6 +493,8 @@ def main(argv: list[str] | None = None) -> int:
         "output": str(output), "observability_preflight": observed, "missing_indicators": observed["missing_indicators"],
         "fresh_baseline_required": bool(observed["missing_indicators"]),
         "metric_definitions": METRICS, "down_levels": down, "up_levels": up,
+        "allow_partial_indicators": args.allow_partial_indicators,
+        "artifact_policy": "compact_engine_exports_all_retained_including_stocks_campaigns_and_lots",
         "criteria": {"rate_absolute_fraction": args.rate_delta, "cost_relative_fraction": args.cost_relative_delta,
                      "cost_absolute_monetary": args.cost_absolute_delta},
         "implementation": implementation, "implementation_sha256": hashlib.sha256(json.dumps(implementation, sort_keys=True).encode()).hexdigest(),
@@ -445,24 +508,32 @@ def main(argv: list[str] | None = None) -> int:
     if args.plan_only:
         report["status"] = "plan_only_no_writes_or_native_runs"
         print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False)); return 0
+    previous_report = None
     if output.exists():
-        raise FileExistsError("Choisir un dossier neuf; aucune reprise aveugle : " + str(output))
-    output.mkdir(parents=True)
+        if not args.resume:
+            raise FileExistsError("Choisir un dossier neuf ou --resume pour des reçus compatibles : " + str(output))
+        previous_report = json.loads((output / "adaptive_summary.json").read_text(encoding="utf-8"))
+    elif args.resume:
+        raise FileNotFoundError("Aucune étude à reprendre : " + str(output))
+    else:
+        output.mkdir(parents=True)
     # Legacy exports cannot prove that the current runtime is unobservable.
     # Only one fresh same-horizon baseline is permitted before the strict
     # scheduler rechecks all three indicators and refuses any missing metric.
     def hashes():
         return file_hashes(dependencies)
     started = time.monotonic()
+    previous_wall_seconds = finite((previous_report or {}).get("elapsed_wall_seconds")) or 0.
     def budget():
-        if (time.monotonic() - started) / 60 >= args.max_wall_minutes: return "wall_time_budget"
+        if (previous_wall_seconds + time.monotonic() - started) / 60 >= args.max_wall_minutes: return "wall_time_budget"
         if shutil.disk_usage(output).free / 2**30 < args.min_free_disk_gb: return "free_disk_budget"
         if sum(p.stat().st_size for p in output.rglob("*") if p.is_file()) / 2**30 >= args.max_disk_gb: return "storage_budget"
         if (code_fingerprint() != implementation or hashes() != dependency_hashes
                 or file_hashes(observability_files) != observability_hashes):
             raise RuntimeError("Sources ou entrées modifiées : arrêt sans nouveau calcul")
         return None
-    base_data, horizon_adaptation = historical_graph_copy(json.loads(graph.read_text(encoding="utf-8-sig")), args.days)
+    base_data, horizon_adaptation = historical_graph_copy(source_graph_data, args.days)
+    del source_graph_data
     report["historical_graph_adaptation"] = horizon_adaptation
     for name, expected in horizon_adaptation["conversion_reference_hashes"].items():
         path = Path(name)
@@ -471,6 +542,32 @@ def main(argv: list[str] | None = None) -> int:
         if path not in dependencies:
             dependencies.append(path)
         dependency_hashes[name] = expected
+    if previous_report is not None:
+        validate_resume_report(previous_report, report)
+        completed = previous_report.get("completed_native_cases", [])
+        expected_cases = {entry["case_id"]: entry for entry in completed}
+        for folder in (output / "cases").iterdir() if (output / "cases").is_dir() else ():
+            if not folder.is_dir():
+                continue
+            entry = expected_cases.get(folder.name)
+            if entry is None or not (folder / "completed_case.json").is_file():
+                raise ValueError("Reprise refusée : cas partiel ou non publié, aucun réessai : " + str(folder))
+            evidence = entry.get("retained_output_sha256")
+            if not evidence or file_hashes([Path(p) for p in evidence]) != evidence:
+                raise ValueError("Reprise refusée : CSV retenus absents ou différents : " + str(folder))
+        report["completed_native_cases"] = deepcopy(completed)
+        report["created_utc"] = previous_report["created_utc"]
+        report["resume_count"] = int(previous_report.get("resume_count", 0)) + 1
+        report["previous_status"] = previous_report.get("status")
+    report["executed_cases_this_session"] = 0
+    report["reused_cases_this_session"] = 0
+    def save_progress(snapshot=None):
+        if snapshot is not None:
+            report.update(snapshot)
+        report["native_runs"] = len(report.get("completed_native_cases", []))
+        report["elapsed_wall_seconds"] = previous_wall_seconds + time.monotonic() - started
+        report["updated_utc"] = datetime.now(timezone.utc).isoformat()
+        write_reports(output, report)
     signatures = {}
     neutral = supplier.base_case()
     neutral_key = effective_projection(apply_scales(base_data, "scn:BASE", neutral["factors"]))
@@ -490,18 +587,39 @@ def main(argv: list[str] | None = None) -> int:
                 "parameter_label": PARAMETER_LABELS.get(parameter, "Témoin recalculé au même horizon"),
                 "safe_direction": "both_directions_no_monotonicity_assumed"}
         print(json.dumps({"parameter": parameter, "factor": factor, "days": args.days}), flush=True)
-        row = supplier.run_case(case_id=supplier.case_id_for(parameter, factor), spec=spec, level=factor,
+        case_id = supplier.case_id_for(parameter, factor)
+        case_dir = output / "cases" / case_id
+        was_completed = (case_dir / "completed_case.json").is_file()
+        report["current_case"] = {"case_id": case_id, "parameter": parameter, "factor": factor,
+                                  "execution": "verify_completed_receipt" if was_completed else "native"}
+        report["status"] = "running_native_case"
+        save_progress()
+        row = supplier.run_case(case_id=case_id, spec=spec, level=factor,
             config=config, base_data=base_data, run_script=runner, scenario_id="scn:BASE", days=args.days,
-            cases_root=output / "cases", extra_args=extra, supplier_floor_csv=floors, artifact_mode="summary")
+            cases_root=output / "cases", extra_args=extra, supplier_floor_csv=floors, artifact_mode="full")
         case_summary = json.loads((Path(row["case_output_dir"]) / "summaries/first_simulation_summary.json").read_text(encoding="utf-8"))
-        report.setdefault("completed_native_cases", []).append({"case_id": row["case_id"], "parameter": parameter,
+        entry = {"case_id": row["case_id"], "parameter": parameter,
             "factor": factor, "days": args.days, "metrics": metric_values(row),
+            "customer_service_diagnostics": {key: row.get("kpi::" + key) for key in
+                ("product_availability", "quantity_service_rate", "quantity_service_demand_qty", "quantity_service_served_qty",
+                 "quantity_service_opening_backlog_qty", "quantity_service_ending_backlog_qty", "customer_service_semantics_status")},
             "production_replanning_basis": row.get("kpi::production_replanning_basis"),
             "production_replanning_comparable_count": row.get("kpi::production_replanning_comparable_count"),
-            "economic_valuation": case_summary.get("economic_valuation", {"status": "unknown", "complete": False})})
+            "retained_output_sha256": file_hashes(sorted(p for p in Path(row["case_output_dir"]).glob("data/*") if p.is_file())),
+            "economic_valuation": case_summary.get("economic_valuation", {"status": "unknown", "complete": False})}
+        done = report.setdefault("completed_native_cases", [])
+        existing = next((old for old in done if old["case_id"] == row["case_id"]), None)
+        if existing is not None and existing != entry:
+            raise ValueError("Le reçu terminé diffère du point de reprise : " + row["case_id"])
+        if existing is None:
+            done.append(entry)
+        counter = "reused_cases_this_session" if was_completed else "executed_cases_this_session"
+        report[counter] += 1
         report["native_runs"] = len(report["completed_native_cases"])
+        report["status"] = "running"
+        save_progress()
         return row
-    write_reports(output, report)
+    save_progress()
     try:
         baseline = execute("baseline", 1.)
         report["baseline_same_horizon"] = {"days": args.days, "row": baseline}
@@ -510,7 +628,7 @@ def main(argv: list[str] | None = None) -> int:
         result = search_thresholds(parameters=parameters, baseline=baseline, evaluate=execute,
             effective_key=effective, down=down, up=up, max_runs=args.max_runs,
             rate_delta=args.rate_delta, cost_relative=args.cost_relative_delta, cost_absolute=args.cost_absolute_delta,
-            allow_partial=args.allow_partial_indicators, budget_reason=budget)
+            allow_partial=args.allow_partial_indicators, budget_reason=budget, on_progress=save_progress)
         report.update(result)
         report["native_runs"] = len(report.get("completed_native_cases", []))
         report["sources_unchanged"] = (code_fingerprint() == implementation and hashes() == dependency_hashes
@@ -519,8 +637,8 @@ def main(argv: list[str] | None = None) -> int:
     except PermissionError:
         raise  # Refus d'écriture: pas de nouvelle écriture ni réessai.
     except Exception as error:
-        report.update(status="failed_stopped_without_retry", error=repr(error)); write_reports(output, report); raise
-    write_reports(output, report)
+        report.update(status="failed_stopped_without_retry", error=repr(error)); save_progress(); raise
+    save_progress()
     print(json.dumps({"status": report["status"], "output": str(output), "native_runs": report["native_runs"],
                       "all_three_satisfied": report["all_three_satisfied"]}))
     return 0 if report["all_three_satisfied"] else 2

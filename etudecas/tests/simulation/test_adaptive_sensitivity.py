@@ -6,12 +6,13 @@ import pytest
 
 from etudecas.simulation.analysis_batch_common import SUPPORTED_FACTORS
 from etudecas.simulation.sensibility.run_adaptive_sensitivity import (
-    METRICS, PARAMETER_LABELS, effective_projection, historical_graph_copy, metric_values, search_thresholds, tolerances,
+    METRICS, PARAMETER_LABELS, effective_projection, historical_graph_copy, metric_values, search_thresholds, tolerances, validate_resume_report,
+    customer_service_diagnostic_text,
 )
 
 
 def row(availability=.8, replanning=.1, cost=100):
-    return {"status": "ok", "kpi::product_availability": availability,
+    return {"status": "ok", "kpi::quantity_service_rate": availability,
             "kpi::production_replanning_rate": replanning, "kpi::inventory_cost": cost}
 
 
@@ -38,7 +39,8 @@ def test_missing_replanning_is_unknown_and_blocks_before_any_probe():
 
 
 def test_strict_metric_reader_never_substitutes_fill_rate_or_total_cost():
-    assert all(value is None for value in metric_values({"kpi::fill_rate": 1, "kpi::total_cost": 0}).values())
+    assert all(value is None for value in metric_values({"kpi::product_availability": 1,
+        "kpi::fill_rate": 1, "kpi::total_cost": 0}).values())
     assert metric_values(row(replanning=0))["kpi::production_replanning_rate"] == 0
 
 
@@ -50,7 +52,7 @@ def test_first_thresholds_are_separate_per_indicator_and_both_directions():
     for direction in result["directions"]:
         thresholds = direction["thresholds"]
         assert thresholds["kpi::inventory_cost"]["first_tested_factor"] in {.5, 2}
-        assert thresholds["kpi::product_availability"]["first_tested_factor"] in {.1, 5}
+        assert thresholds["kpi::quantity_service_rate"]["first_tested_factor"] in {.1, 5}
         assert thresholds["kpi::production_replanning_rate"]["first_tested_factor"] in {.01, 20}
         assert direction["all_three_satisfied"]
     assert result["native_runs"] == 7 and result["all_three_satisfied"]
@@ -80,6 +82,7 @@ def test_round_robin_covers_parameters_before_deepening_and_budget_is_exact():
     assert calls == [("holding_cost_scale", .5), ("holding_cost_scale", 2),
                      ("supplier_stock_scale", .5), ("supplier_stock_scale", 2)]
     assert result["native_runs"] == 5 and result["budget_stop"] == "max_runs"
+    assert result["status"] == 'budget_reached' and not result['all_three_satisfied']
     assert all(state["status"] == "budget_reached" for state in result["directions"])
 
 
@@ -106,7 +109,7 @@ def test_quantization_plateau_does_not_hide_a_later_effective_change():
 def test_nonmonotone_response_reports_only_local_tested_interval():
     result = run(lambda p, f: row(.79 if f in {.1, 5} else .8, .1, 100))
     for state in result["directions"]:
-        threshold = state["thresholds"]["kpi::product_availability"]
+        threshold = state["thresholds"]["kpi::quantity_service_rate"]
         assert threshold["adjacent_tested_interval"] in [[.1, .5], [2, 5]]
         assert "pas de monotonie globale" in threshold["interpretation"]
     assert not result["all_three_satisfied"]
@@ -236,3 +239,113 @@ def test_non_generated_custom_profile_and_similar_closure_are_not_deleted():
     assert adapted["meta"]["current_reference_other_use_profile"] == before["meta"]["current_reference_other_use_profile"]
     assert not report["removed_recognized_prospective_closures"]
     assert source == before
+
+
+def test_progress_is_published_after_each_trial_with_detached_state():
+    snapshots = []
+    def progress(snapshot):
+        snapshots.append(deepcopy(snapshot))
+        snapshot['directions'].clear()
+        snapshot['trials'].clear()
+    result = run(lambda p, f: row(.7, .2, 120), down=(.5,), up=(2,), on_progress=progress)
+    assert [len(value['trials']) for value in snapshots] == [0, 1, 2, 2]
+    assert result['all_three_satisfied'] and len(result['directions']) == 2
+    assert snapshots[-1]['status'] == 'bounded_search_finished'
+
+
+def test_progress_records_saturation_without_inventing_a_native_run():
+    snapshots = []
+    result = search_thresholds(parameters=['fg_target_days_scale'], baseline=row(),
+        evaluate=lambda p, f: pytest.fail('No changed input, so no native probe'),
+        effective_key=lambda p, f: 'zero', on_progress=snapshots.append)
+    assert len(snapshots) == 4
+    assert len(snapshots[1]['trials']) == 1
+    assert snapshots[1]['trials'][0]['native_execution'] is False
+    assert result['native_runs'] == 1 and not result['all_three_satisfied']
+
+
+def test_completed_rows_replay_the_same_search_without_another_native_calculation():
+    completed = {}
+    fresh_calls = []
+    def fresh(p, f):
+        fresh_calls.append((p, f))
+        completed[p, f] = row(.7, .2, 120)
+        return completed[p, f]
+    original = run(fresh, down=(.5,), up=(2,))
+    replay_calls = []
+    def replay(p, f):
+        replay_calls.append((p, f))
+        return deepcopy(completed[p, f])
+    reconstructed = run(replay, down=(.5,), up=(2,))
+    assert fresh_calls == replay_calls and len(fresh_calls) == 2
+    assert reconstructed == original
+
+
+def resume_pair():
+    contract = {'schema': 'etudecas.adaptive-sensitivity.v2', 'parameters': ['holding_cost_scale'],
+        'days': 21, 'baseline_manifest': 'same/manifest.json', 'input_graph': 'same/graph.json',
+        'runtime': 'same.py', 'metric_definitions': dict(METRICS), 'down_levels': [.5], 'up_levels': [2],
+        'criteria': {'rate': .001}, 'implementation': {'engine.py': 'same-sha'},
+        'dependency_hashes': {'graph.json': 'same-sha'}, 'observability_hashes': {'service.csv': 'same-sha'},
+        'allow_partial_indicators': False, 'artifact_policy': 'all', 'max_runs': 3}
+    previous = dict(deepcopy(contract), status='bounded_search_finished',
+        budget_stop='max_runs', completed_native_cases=[{'case_id': 'baseline'}])
+    return previous, contract
+
+
+def test_resume_contract_allows_only_budget_changes_with_identical_study():
+    previous, current = resume_pair()
+    current['max_runs'] = 5
+    current['max_wall_minutes'] = 60
+    validate_resume_report(previous, current)
+
+
+@pytest.mark.parametrize('field', ['days', 'parameters', 'criteria', 'implementation',
+    'dependency_hashes', 'observability_hashes', 'metric_definitions', 'down_levels', 'allow_partial_indicators'])
+def test_resume_contract_refuses_changed_design_sources_or_indicator(field):
+    previous, current = resume_pair()
+    current[field] = 'different'
+    with pytest.raises(ValueError, match='contrat différent'):
+        validate_resume_report(previous, current)
+
+
+def test_resume_contract_refuses_failed_and_older_studies_or_smaller_budget():
+    previous, current = resume_pair()
+    previous['status'] = 'failed_stopped_without_retry'
+    with pytest.raises(ValueError, match='après échec'):
+        validate_resume_report(previous, current)
+    previous, current = resume_pair()
+    previous['schema'] = 'etudecas.adaptive-sensitivity.v1'
+    with pytest.raises(ValueError, match='ancien'):
+        validate_resume_report(previous, current)
+    previous, current = resume_pair()
+    current['max_runs'] = 0
+    with pytest.raises(ValueError, match='inférieur'):
+        validate_resume_report(previous, current)
+
+
+@pytest.mark.parametrize('status,stop', [('running_native_case', None), ('running', None),
+    ('bounded_search_finished', None), ('blocked_missing_indicators', None)])
+def test_resume_only_accepts_clean_budget_boundaries(status, stop):
+    previous, current = resume_pair()
+    previous.update(status=status, budget_stop=stop)
+    with pytest.raises(ValueError, match='entre deux cas'):
+        validate_resume_report(previous, current)
+
+
+def test_customer_service_diagnostic_preserves_deliveries_with_zero_cleared_days():
+    metrics = {'kpi::quantity_service_rate': float(Fraction(183841, 215001)),
+        'kpi::quantity_service_served_qty': 183841, 'kpi::quantity_service_demand_qty': 215001,
+        'kpi::quantity_service_opening_backlog_qty': 0, 'kpi::quantity_service_ending_backlog_qty': 31160,
+        'kpi::fully_served_customer_item_days': 0, 'kpi::active_customer_item_days': 42}
+    text = customer_service_diagnostic_text(metrics)
+    assert '85,51 %' in text and '0 / 42' in text
+    assert '183\u202f841' in text and '31\u202f160' in text
+    assert '0 unités en retard au début' in text
+    assert 'stock disponible' not in text
+
+
+def test_customer_service_diagnostic_does_not_invent_zero_for_missing_values():
+    text = customer_service_diagnostic_text({})
+    assert 'inconnue' in text and 'inconnu / inconnu' in text
+    assert '0 / 0' not in text and '100' not in text
