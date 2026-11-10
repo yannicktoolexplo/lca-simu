@@ -20,6 +20,7 @@ Les commandes se lancent depuis la racine du dépôt, qui contient `etudecas/`.
 | Reproduire le nominal historique de septembre | `python -m etudecas.regenerate --reference historical_20260920 --scenario nominal` | Ancienne configuration sur 1 825 jours ; ne reprend pas W. |
 | Refaire la livraison historique avec lots et comparaisons | `python -m etudecas.regenerate --reference historical_20260920 --delivery lots` | Quatre calculs historiques, carte et diagnostic ; [périmètre exact](docs/REGENERER_RESULTATS.md). |
 | Choisir une étude | `python -m etudecas.simulation.studies --help` | Sensibilité, rejeux, incertitude temporelle, cascades et études fournisseurs ; chaque mode garde ses règles et ses options. |
+| Chercher les seuils d'effet par paramètre | `python -B -m etudecas.simulation.sensibility.run_adaptive_sensitivity --help` | Recherche bornée à la hausse et à la baisse ; vérifie d'abord que les trois indicateurs sont mesurables. |
 | Recalculer et produire une carte | `python etudecas/run_etudecas_pipeline.py rebuild-map-5y` | Lance des calculs et crée un dossier de résultats ; détails ci-dessous. |
 
 `rebuild-map-5y` utilise par défaut un graphe **déjà préparé** ; il ne rejoue
@@ -85,6 +86,48 @@ cours ; les analyses non encore calculées y restent absentes. La carte finale
 attend tous les tirages et cas demandés réussis. Une exécution terminée n'est
 pas une qualification scientifique. Les références HTML précédentes restent
 conservées. L'ancien `rebuild-map-5y` utilise son parcours historique distinct.
+
+## Sensibilité par recherche de seuils
+
+```powershell
+python -B -m etudecas.simulation.sensibility.run_adaptive_sensitivity --baseline-manifest CHEMIN_NOMINAL/run_manifest.json --plan-only
+python -B -m etudecas.simulation.sensibility.run_adaptive_sensitivity --baseline-manifest CHEMIN_NOMINAL/run_manifest.json --output-dir etudecas/artifacts/testing/NOUVELLE_ETUDE_SEUILS
+```
+
+Cette étude parcourt les **19 facteurs globaux** exposés par le moteur, un seul
+à la fois, séparément à la hausse et à la baisse. Elle ne couvre pas toutes les
+déclinaisons par article, site ou fournisseur. `--parameters` permet de déclarer
+un sous-ensemble explicite. Le témoin est recalculé sur le même horizon que les
+variantes ; les indicateurs d'un nominal sur cinq ans ne servent pas de témoin
+à une variante annuelle.
+
+L'horizon par défaut est de **362 jours**, convention historique 2025 du modèle.
+Une fenêtre de 21 jours peut masquer les effets des délais et des stocks.
+Les paliers par défaut sont ×0,5, ×0,1, ×0,01 puis, dans l'autre sens, ×2, ×5,
+×20. Les bornes, saturations, paramètres effectivement inchangés et budgets
+arrêtent la recherche. Une absence d'effet dans ce périmètre ne prouve pas une
+insensibilité générale ; aucune monotonie globale n'est supposée.
+
+Les trois indicateurs sont suivis séparément :
+
+- disponibilité PF : part des lignes client/article/jour intégralement servies,
+  retards inclus ; ce n'est pas le taux de service en quantité ;
+- taux de replanification : révisions identifiées rapportées aux observations
+  comparables ; sans identités et versions de programme, il reste inconnu ;
+- coût du stock valorisé : `total_holding_cost`, capital immobilisé sur les
+  couples valorisés, distinct du coût total et de l'exploitation des entrepôts.
+
+Les seuils d'effet par défaut valent **0,1 point de pourcentage** pour chaque
+taux et **1 %** du coût témoin, avec un plancher d'une unité monétaire. Une hausse
+ou une baisse compte comme effet et conserve son signe. Un effet sur le coût
+seul ne vaut pas réussite sur les trois indicateurs.
+
+L'exécution normale refuse un indicateur requis non mesurable avant de lancer
+le balayage. `--allow-partial-indicators` autorise une exploration explicitement
+partielle ; elle ne valide jamais l'objectif des trois indicateurs. Les budgets
+par défaut sont 115 calculs, 48 heures et 20 GiB, vérifiés entre les cas, avec un
+seul calcul à la fois. Choisir un nouveau dossier de résultats ; le nominal et
+les anciens rapports restent conservés.
 
 ## Installation Minimale
 
