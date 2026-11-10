@@ -573,22 +573,19 @@ def inventory_holding_costs_by_node(data_dir: Path, case_input: Path | None) -> 
 
 def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[str, Any]:
     data_dir = output_dir / "data"
-    out: dict[str, float] = {}
+    out: dict[str, Any] = {}
 
     demand_rows = read_csv_rows(data_dir / "production_demand_service_daily.csv")
-    demand_line_count = 0
-    available_line_count = 0
-    for row in demand_rows:
-        required = max(0.0, to_float(row.get("required_with_backlog_qty"), 0.0))
-        served = max(0.0, to_float(row.get("served_qty"), 0.0))
-        if required <= 1e-9:
-            continue
-        demand_line_count += 1
-        if served + 1e-6 >= required:
-            available_line_count += 1
-    out["product_availability"] = (
-        round(available_line_count / demand_line_count, 9) if demand_line_count else 1.0
-    )
+    from etudecas.simulation.analysis.customer_service_metrics import customer_service_metrics, customer_service_scope
+    summary_path = output_dir / "summaries/first_simulation_summary.json"
+    service_summary = load_json(summary_path) if summary_path.is_file() else {}
+    source_graph = case_input or (Path(service_summary['input_file']) if service_summary.get('input_file') else None)
+    scope = customer_service_scope(load_json(source_graph), service_summary.get('scenario_id', 'scn:BASE')) if source_graph and source_graph.is_file() else {}
+    service_metrics = customer_service_metrics(demand_rows if scope.get('expected_pairs') else [],
+        expected_days=service_summary.get('sim_days'), expected_pairs=scope.get('expected_pairs'), expected_uom=scope.get('uom'))
+    if demand_rows and not scope.get('expected_pairs'):
+        service_metrics['customer_service_semantics_status'] = 'unknown_customer_service_scope'
+    out.update(service_metrics)
 
     # Plans are remaining states, not independent quantities per physical pass.
     # Unknown proposal revisions remain None, never a zero-change score.
