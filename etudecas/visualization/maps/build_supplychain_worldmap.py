@@ -62,6 +62,7 @@ except ModuleNotFoundError:
     from etudecas.visualization.maps.risk_payload import risk_pct, risk_ratio, supplier_risk_action_label, supplier_risk_worst_zone, supplier_risk_zone_color, supplier_risk_zone_counts_text, supplier_risk_zone_label, supplier_risk_zone_rank
 
 from etudecas.visualization.maps.simulation_payload import executed_shipment_day, observed_transport_lead
+from etudecas.simulation.analysis.production_replanning_metrics import replanning_rate_from_metrics
 from etudecas.visualization.maps.simulated_risk_lot_context import (
     build_simulated_risk_lot_context, reference_only_display_payload,
 )
@@ -578,11 +579,12 @@ def production_replanning_rate_denominator(
     horizon_days: int | None,
     production_constraint_csv: Path,
 ) -> float | None:
-    line_count = production_planning_line_count_from_constraint_csv(production_constraint_csv) or 0.0
-    pair_count = production_output_pair_count(raw)
-    daily_opportunities = float(pair_count * horizon_days) if pair_count > 0 and horizon_days and horizon_days > 0 else 0.0
-    denominator = max(line_count, daily_opportunities)
-    return denominator if denominator > 0 else None
+    # Keep the historical call signature, but never invent programme comparisons
+    # from a count of physical passes or a number of site/article/days.
+    summary = load_json_dict(production_constraint_csv.parent.parent / "summaries/first_simulation_summary.json")
+    metrics = summary.get("kpis") or {}
+    denominator = first_finite_metric(metrics, ["production_replanning_comparable_count"])
+    return denominator if replanning_rate_from_metrics(metrics) is not None and denominator and denominator > 0 else None
 
 
 def sensitivity_availability_percent(row: dict[str, Any]) -> float:
@@ -595,22 +597,8 @@ def sensitivity_replanning_rate_percent(
     *,
     baseline_production_planning_line_count: float | None = None,
 ) -> float | None:
-    rate = first_finite_metric(row, ["kpi::production_replanning_rate", "production_replanning_rate"])
-    if rate is not None:
-        return fraction_metric_to_percent(rate)
-
-    replanning_count = first_finite_metric(row, ["kpi::production_replanning_count", "production_replanning_count"])
-    if replanning_count is None:
-        return None
-    denominator = first_finite_metric(
-        row,
-        ["kpi::production_planning_line_count", "production_planning_line_count"],
-    )
-    if denominator is None or denominator <= 0:
-        denominator = baseline_production_planning_line_count
-    if denominator is None or denominator <= 0:
-        return None
-    return 100.0 * replanning_count / denominator
+    rate = replanning_rate_from_metrics(row)
+    return 100.0 * rate if rate is not None else None
 
 
 def collect_node_item_ids(node: dict[str, Any]) -> list[str]:
@@ -9303,12 +9291,9 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         return f"{fmt_money_short(max_value)} ({fmt_money_short(max_value - baseline_holding_cost)} vs baseline)"
 
     def derived_replanning_rate_from_count(count: float | None) -> float | None:
-        if count is None or math.isnan(count):
-            return None
-        denominator = baseline_production_planning_line_count
-        if denominator is None or denominator <= 0:
-            return None
-        return count / denominator
+        # A count without its own identified comparison denominator is unknown.
+        # In particular a scenario cannot borrow the nominal's opportunities.
+        return None
 
     def baseline_replanning_rate_label(row: dict[str, str], parameter_key: str) -> str:
         rate = safe_float(row.get("baseline_production_replanning_rate"))

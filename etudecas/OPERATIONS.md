@@ -112,8 +112,9 @@ Les trois indicateurs sont suivis séparément :
 
 - disponibilité PF : part des lignes client/article/jour intégralement servies,
   retards inclus ; ce n'est pas le taux de service en quantité ;
-- taux de replanification : révisions identifiées rapportées aux observations
-  comparables ; sans identités et versions de programme, il reste inconnu ;
+- taux de révision du programme prévisionnel de fabrication simulé : changements
+  de quantité ou de calendrier rapportés aux publications actives comparables ;
+  il ne mesure pas les révisions industrielles d'ordres de fabrication ;
 - coût du stock valorisé : `total_holding_cost`, capital immobilisé sur les
   couples valorisés, distinct du coût total et de l'exploitation des entrepôts.
 
@@ -122,12 +123,51 @@ taux et **1 %** du coût témoin, avec un plancher d'une unité monétaire. Une 
 ou une baisse compte comme effet et conserve son signe. Un effet sur le coût
 seul ne vaut pas réussite sur les trois indicateurs.
 
-L'exécution normale refuse un indicateur requis non mesurable avant de lancer
-le balayage. `--allow-partial-indicators` autorise une exploration explicitement
+Si l'ancien nominal ne contient pas ce journal de programme, le runner recalcule
+une seule fois un témoin avec le code courant et l'horizon demandé. Il refuse
+ensuite les variantes si un indicateur requis reste inconnu.
+`--allow-partial-indicators` autorise une exploration explicitement
 partielle ; elle ne valide jamais l'objectif des trois indicateurs. Les budgets
 par défaut sont 115 calculs, 48 heures et 20 GiB, vérifiés entre les cas, avec un
 seul calcul à la fois. Choisir un nouveau dossier de résultats ; le nominal et
 les anciens rapports restent conservés.
+
+### Mesure des révisions de production
+
+Le moteur publie en fin de journée le programme de lancement par site, article
+et semaine absolue du lundi au dimanche. Chaque publication conserve ses dates,
+sa version et sa couverture. Pour un même programme et une même couverture :
+
+`taux = nombre de comparaisons avec quantité OU calendrier modifié / nombre de comparaisons actives identifiées`.
+
+Une comparaison rapproche deux publications quotidiennes consécutives. Elle
+est active si au moins l'une des deux contient une quantité positive. La
+première publication positive crée le programme et ne compte pas comme une
+révision. Une annulation ultérieure compte ; une simple exécution ne compte
+pas : la quantité complète de chaque campagne est conservée une fois après
+son engagement. Dans le nominal actuel, cet engagement correspond à la création
+de campagne et peut précéder le premier travail physique ; il ne prouve aucune
+consommation. Sa base est `simulated_weekly_launch_programme_authorization_v1`.
+Le mode optionnel d'engagement au premier travail physique utilise la base
+distincte `simulated_weekly_launch_programme_v1`. Ne pas classer ensemble des
+taux de bases différentes. Les ordres fermes initiaux restent séparés.
+Les recommandations en retard gardent leur date absolue d'origine ; le suivi
+ne les déplace pas artificiellement au lendemain.
+
+La mesure compte des comparaisons de programmes, sans additionner KG et UN.
+Le taux est compris entre 0 et 100 %. Un dénominateur nul, un journal incomplet
+ou une couverture non établie donnent une valeur inconnue, jamais zéro par
+défaut. Les passages physiques et les attentes de matière ne servent pas de
+dénominateur ou de substitut.
+
+Preuves natives : `data/production_programme_snapshots.csv`, contrat
+`production_programme_revisions` et champs `production_replanning_*` du résumé.
+Le journal est activé par défaut pour l'exécution datée compatible, sans
+préchauffage ; `--no-production-programme-revision-journal` permet un
+témoin sans suivi. Les sensibilités conservent ce CSV même en mode résumé.
+Pour auditer les tirages Monte Carlo, conserver les sorties avec l'option
+`--keep-run-artifacts` ; les seuls KPI numériques ne remplacent pas le journal.
+Ces observations simulées ne démontrent pas la fidélité au planning industriel.
 
 ## Installation Minimale
 

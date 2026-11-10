@@ -22,12 +22,15 @@ from typing import Any, Callable
 
 from etudecas.simulation.analysis_batch_common import SUPPORTED_FACTORS, apply_scales
 from etudecas.simulation.analysis.production_daily_metrics import daily_plan_metrics
+from etudecas.simulation.analysis.production_replanning_metrics import (
+    JOURNAL_FILENAME, LABEL as REPLANNING_LABEL, programme_metrics_from_directory,
+)
 from etudecas.simulation.sensibility import run_supplier_parameter_sensitivity as supplier
 
 ROOT = Path(__file__).resolve().parents[3]
 METRICS = {
     "kpi::product_availability": "Disponibilité PF : lignes intégralement servies, retards inclus",
-    "kpi::production_replanning_rate": "Taux de replanification : révisions identifiées / observations comparables",
+    "kpi::production_replanning_rate": REPLANNING_LABEL,
     "kpi::inventory_cost": "Coût du capital immobilisé valorisé (sous-total si valorisation incomplète)",
 }
 PARAMETER_LABELS = {
@@ -304,8 +307,18 @@ def read_observability(nominal: Path) -> dict[str, Any]:
             planning = daily_plan_metrics(list(csv.DictReader(stream)))
         values["kpi::production_replanning_rate"] = finite(planning.get("production_replanning_rate"))
         semantics = planning.get("planning_semantics_status")
+    programme_metrics = programme_metrics_from_directory(nominal)
+    if programme_metrics is not None:
+        values["kpi::production_replanning_rate"] = finite(programme_metrics.get("production_replanning_rate"))
+        semantics = programme_metrics.get("planning_semantics_status")
     return {"values": values, "missing_indicators": [key for key, value in values.items() if value is None],
             "planning_semantics_status": semantics, "source_horizon_days": summary.get("sim_days"),
+            "production_replanning_basis": (programme_metrics or {}).get("production_replanning_basis"),
+            "production_replanning_comparable_count": (programme_metrics or {}).get("production_replanning_comparable_count"),
+            "production_replanning_coverage_complete": (programme_metrics or {}).get("production_replanning_coverage_complete"),
+            "production_replanning_diagnostics": (programme_metrics or {}).get("production_replanning_diagnostics"),
+            "programme_journal_present": (nominal / "data" / JOURNAL_FILENAME).is_file(),
+            "fresh_baseline_required": bool(values["kpi::production_replanning_rate"] is None),
             "purpose": "observabilité uniquement; ces valeurs ne sont pas le témoin du nouvel horizon",
             "economic_valuation": summary.get("economic_valuation", {"status": "unknown", "complete": False})}
 
@@ -390,7 +403,8 @@ def main(argv: list[str] | None = None) -> int:
     implementation = code_fingerprint()
     dependencies = [manifest, graph, *([floors] if floors is not None else [])]
     observability_files = [nominal / "summaries/first_simulation_summary.json",
-        nominal / "data/production_demand_service_daily.csv", nominal / "data/production_constraint_daily.csv"]
+        nominal / "data/production_demand_service_daily.csv", nominal / "data/production_constraint_daily.csv",
+        nominal / "data" / JOURNAL_FILENAME]
     def file_hashes(paths):
         values = {}
         for path in paths:
@@ -416,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
         "max_disk_gb": args.max_disk_gb, "min_free_disk_gb": args.min_free_disk_gb,
         "baseline_manifest": str(manifest), "input_graph": str(graph), "runtime": str(runner),
         "output": str(output), "observability_preflight": observed, "missing_indicators": observed["missing_indicators"],
+        "fresh_baseline_required": bool(observed["missing_indicators"]),
         "metric_definitions": METRICS, "down_levels": down, "up_levels": up,
         "criteria": {"rate_absolute_fraction": args.rate_delta, "cost_relative_fraction": args.cost_relative_delta,
                      "cost_absolute_monetary": args.cost_absolute_delta},
@@ -433,12 +448,9 @@ def main(argv: list[str] | None = None) -> int:
     if output.exists():
         raise FileExistsError("Choisir un dossier neuf; aucune reprise aveugle : " + str(output))
     output.mkdir(parents=True)
-    if observed["missing_indicators"] and not args.allow_partial_indicators:
-        report["status"] = "blocked_missing_indicators"
-        write_reports(output, report)
-        print(json.dumps({"status": report["status"], "output": str(output), "native_runs": 0})); return 2
-    if len(observed["missing_indicators"]) == len(METRICS):
-        report["status"] = "blocked_no_measurable_indicator"; write_reports(output, report); return 2
+    # Legacy exports cannot prove that the current runtime is unobservable.
+    # Only one fresh same-horizon baseline is permitted before the strict
+    # scheduler rechecks all three indicators and refuses any missing metric.
     def hashes():
         return file_hashes(dependencies)
     started = time.monotonic()
@@ -484,6 +496,8 @@ def main(argv: list[str] | None = None) -> int:
         case_summary = json.loads((Path(row["case_output_dir"]) / "summaries/first_simulation_summary.json").read_text(encoding="utf-8"))
         report.setdefault("completed_native_cases", []).append({"case_id": row["case_id"], "parameter": parameter,
             "factor": factor, "days": args.days, "metrics": metric_values(row),
+            "production_replanning_basis": row.get("kpi::production_replanning_basis"),
+            "production_replanning_comparable_count": row.get("kpi::production_replanning_comparable_count"),
             "economic_valuation": case_summary.get("economic_valuation", {"status": "unknown", "complete": False})})
         report["native_runs"] = len(report["completed_native_cases"])
         return row

@@ -71,6 +71,14 @@ from etudecas.simulation.analysis.factory_nervousness import (
     FACTORY_NERVOUSNESS_FIELDS,
     build_factory_nervousness_rows,
 )
+from etudecas.simulation.analysis.production_programme_journal import (
+    AUTHORIZATION_BASIS as PRODUCTION_PROGRAMME_AUTHORIZATION_BASIS,
+    BASIS as PRODUCTION_PROGRAMME_REVISION_BASIS,
+    JOURNAL_FIELDS as PRODUCTION_PROGRAMME_SNAPSHOT_FIELDS,
+    JOURNAL_FILENAME as PRODUCTION_PROGRAMME_SNAPSHOT_FILENAME,
+    SCHEMA_VERSION as PRODUCTION_PROGRAMME_REVISION_SCHEMA,
+    ProductionProgrammeJournal,
+)
 
 from etudecas.simulation.lot_trace.campaigns import LOT_EXECUTION_SEMANTICS_VERSION, ProductionBatchWip, make_batch_id, physical_batch_target_qty, production_week_index
 
@@ -7195,6 +7203,10 @@ def resolve_dated_mrp_risk_scope(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run first-pass supply simulation.")
     parser.add_argument(
+        "--production-programme-revision-journal", action=argparse.BooleanOptionalAction, default=True,
+        help="Observe EOD weekly manufacturing launch recommendations without changing decisions; disable for observational A/B checks.",
+    )
+    parser.add_argument(
         "--input",
         default="etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
         help="Simulation-ready graph JSON.",
@@ -13716,6 +13728,15 @@ def main() -> None:
     demand_pair_rows: list[dict[str, Any]] = []
     production_constraint_rows: list[dict[str, Any]] = []
     production_plan_event_rows: list[dict[str, Any]] = []
+    production_programme_revision_basis = (PRODUCTION_PROGRAMME_AUTHORIZATION_BASIS
+        if production_launch_commitment_policy is None else PRODUCTION_PROGRAMME_REVISION_BASIS)
+    production_programme_journal = (ProductionProgrammeJournal(
+        scenario_id=str(scenario.get("id") or args.scenario_id), origin_date=safety_calendar["start_date"],
+        commitment_policy=production_launch_commitment_policy)
+        if (args.production_programme_revision_journal and chain_planning_policy is not None
+            and production_execution_policy == "dated_releases_v1"
+            and args.lot_trace and not warmup_days)
+        else None)
     mrp_trace_rows: list[dict[str, Any]] = []
     mrp_order_rows: list[dict[str, Any]] = []
     production_cost_qty_by_day_pair: dict[tuple[int, str, str], float] = defaultdict(float)
@@ -17793,6 +17814,10 @@ def main() -> None:
                             production_campaign_started_day_by_pair[out_pair] = output_day
                             production_campaign_requested_qty_by_pair[out_pair] = campaign_requested_qty
                             production_campaign_target_qty_by_pair[out_pair] = campaign_started_qty
+                            if production_programme_journal is not None and record_day:
+                                production_programme_journal.record_launch(
+                                    campaign_id=campaign_id, node_id=nid, output_item_id=out_item,
+                                    uom=item_unit_map[out_item], day=output_day, qty=campaign_started_qty)
                             if programme_launch:
                                 if abs(campaign_started_qty-programme["qty"])>LOT_TRACE_EPS:
                                     raise ArithmeticError("A promoted programme must retain its complete original lot")
@@ -22366,6 +22391,15 @@ def main() -> None:
             (production_execution_snapshots, closing_plans, closing_requirements,
              closing_audits) = reconcile_production_execution_snapshot(closing_inputs,
                 available_by_pair=stock, firm_receipts_by_pair=closing_firms, produced_pairs=produced_pairs)
+            if production_programme_journal is not None and record_day:
+                # Pure publication after today's movements; no plan or campaign is changed.
+                for observed_pair in sorted(produced_pairs):
+                    observed_plan = closing_plans.get(observed_pair)
+                    if observed_plan is not None:
+                        production_programme_journal.observe(
+                            decision_day=output_day, node_id=observed_pair[0], output_item_id=observed_pair[1],
+                            uom=item_unit_map[observed_pair[1]], proposals=observed_plan.proposals,
+                            coverage_end_day_exclusive=output_day + horizon + 1)
             if manufactured_output_mrp_policy and record_day:
                 manufactured_output_mrp_rows.extend(manufactured_output_mrp_export_rows(closing_audits,
                     decision_day=output_day, phase="after_dispatch", modes=manufactured_output_mrp_modes,
@@ -23502,10 +23536,30 @@ def main() -> None:
     }
     if unknown_inventory_pairs:
         economic_warnings.append("incomplete_inventory_valuation_no_economic_ranking")
+    production_programme_revision_summary = (production_programme_journal.summary(expected_pairs=produced_pairs)
+        if production_programme_journal is not None else dict(
+            schema_version=PRODUCTION_PROGRAMME_REVISION_SCHEMA, basis=production_programme_revision_basis,
+            file="data/" + PRODUCTION_PROGRAMME_SNAPSHOT_FILENAME, enabled=False,
+            status="disabled" if not args.production_programme_revision_journal else "unsupported_execution_scope",
+            published_snapshot_count=0, observed_pairs=[],
+            expected_pairs=[dict(node_id=p[0], output_item_id=p[1]) for p in sorted(produced_pairs)],
+            complete_scope=False,
+            label="Révision du programme prévisionnel des lancements simulés",
+            commitment_policy=production_launch_commitment_policy or "campaign_creation_authorization",
+            semantics="Only consistent dated lot-traced zero-warmup production is observable; actual campaign commitment convention is identified by basis; no industrial OF rate is inferred"))
+    # Analyse completed publications after the simulation. The observer itself
+    # never chooses a target or computes a replanning decision.
+    from etudecas.simulation.analysis.production_replanning_metrics import production_programme_metrics
+    production_programme_revision_metrics = production_programme_metrics(
+        production_programme_journal.rows if production_programme_journal is not None else (),
+        expected_pairs=produced_pairs, enabled=production_programme_journal is not None,
+        basis=production_programme_revision_summary["basis"])
+    production_programme_revision_summary["metrics"] = production_programme_revision_metrics
     summary = {
         **({"initial_stock_availability": initial_stock_availability.audit()}
            if initial_stock_availability is not None else {}),
         "economic_valuation": economic_valuation,
+        "production_programme_revisions": production_programme_revision_summary,
         "demand_execution_contract": {
             "version": (customer_demand_policy if customer_demand_calendar is not None else "source_demand_separate_from_planning_v1"),
             "physical_demand_basis": ("source_customer_historical_week_allocated_to_current_day_integer_UN"
@@ -24986,6 +25040,8 @@ def main() -> None:
             "production_cost_allocation": production_cost_line_rows,
         },
         "kpis": {
+            **{key: value for key, value in production_programme_revision_metrics.items()
+               if not isinstance(value, (dict, list, tuple))},
             "total_demand": round(total_demand, 4),
             "measurement_starting_backlog": round(measurement_starting_backlog, 4),
             "warmup_backlog_cleared_qty": round(warmup_backlog_cleared_qty, 4),
@@ -26006,6 +26062,12 @@ def main() -> None:
             quality_release=bool(finished_goods_release_policies)))
         writer.writeheader()
         writer.writerows(production_plan_event_rows)
+
+    production_programme_snapshot_path = data_path(output_dir, PRODUCTION_PROGRAMME_SNAPSHOT_FILENAME)
+    with production_programme_snapshot_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=PRODUCTION_PROGRAMME_SNAPSHOT_FIELDS)
+        writer.writeheader()
+        writer.writerows(production_programme_journal.rows if production_programme_journal is not None else [])
 
     with production_campaign_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=PRODUCTION_CAMPAIGN_FIELDS

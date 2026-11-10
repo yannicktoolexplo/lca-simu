@@ -12,9 +12,43 @@ from etudecas.visualization.maps.map_payload_builder import (
     fmt_qty,
 )
 from etudecas.visualization.maps.simulation_payload import economic_cost_view
+from etudecas.simulation.analysis.production_replanning_metrics import replanning_rate_from_metrics
+
+
+def comparison_replanning_metrics(kpis: dict[str, Any], sweep_row: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Preserve unidentified revisions; input shortages are a different signal."""
+    source = kpis
+    if sweep_row is not None and any(str(key).removeprefix("kpi::").startswith("production_replanning_") for key in sweep_row):
+        source = sweep_row
+    def field(name):
+        return source.get("kpi::" + name, source.get(name))
+    count = to_float(field("production_replanning_count"))
+    if count is not None and (not math.isfinite(count) or count < 0 or not count.is_integer()):
+        count = None
+    denominator = to_float(field("production_replanning_comparable_count"))
+    if denominator is not None and (not math.isfinite(denominator) or denominator < 0 or not denominator.is_integer()):
+        denominator = None
+    return {"production_replanning_count": int(count) if count is not None else None,
+            "production_replanning_rate": replanning_rate_from_metrics(source),
+            "production_replanning_comparable_count": int(denominator) if denominator is not None else None,
+            "production_replanning_basis": field("production_replanning_basis"),
+            "production_replanning_label": field("production_replanning_label") or "Révision du programme simulé (périmètre non documenté)"}
 
 
 
+
+
+def select_comparable_production_programme(scenarios, nominal_kpis):
+    """No production ranking without a known rate and the same measurement basis."""
+    basis = nominal_kpis.get('production_replanning_basis')
+    eligible = [item for item in scenarios if basis
+        and (item.get('kpis') or {}).get('production_replanning_basis') == basis
+        and replanning_rate_from_metrics(item.get('kpis') or {}) is not None]
+    def key(item):
+        metrics = item['kpis']
+        count = to_float(metrics.get('production_replanning_count'))
+        return replanning_rate_from_metrics(metrics), count if count is not None else math.inf
+    return min(eligible, key=key) if eligible else None
 
 
 def to_float(x: Any) -> float | None:
@@ -400,28 +434,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         input_delay_volume_value = to_float(sweep_row.get("input_delay_volume")) if is_sweep else None
         if input_delay_volume_value is None:
             input_delay_volume_value = input_delay_volume
-        production_replanning_count_value = to_float(sweep_row.get("production_replanning_count")) if is_sweep else None
-        if production_replanning_count_value is None:
-            production_replanning_count_value = to_float(kpis.get("production_replanning_count"))
-        if production_replanning_count_value is None:
-            production_replanning_count_value = input_delay_count_value
-        production_replanning_rate_value = to_float(sweep_row.get("production_replanning_rate")) if is_sweep else None
-        if production_replanning_rate_value is None:
-            production_replanning_rate_value = to_float(kpis.get("production_replanning_rate"))
-        if production_replanning_rate_value is None:
-            planning_line_count = to_float(kpis.get("production_planning_line_count"))
-            if planning_line_count is None:
-                planning_line_count = float(
-                    sum(
-                        1
-                        for row in plan_rows
-                        if str(row.get("event_type") or "")
-                        or str(row.get("reason") or "")
-                        or (to_float(row.get("planned_qty_after_lot_rule")) or 0.0) > 0.0
-                    )
-                )
-            if planning_line_count and planning_line_count > 0:
-                production_replanning_rate_value = max(0.0, production_replanning_count_value or 0.0) / planning_line_count
+        replanning_metrics = comparison_replanning_metrics(kpis, sweep_row if is_sweep else None)
         total_cost_value = to_float(sweep_row.get("total_cost")) if is_sweep else None
         if total_cost_value is None:
             total_cost_value = max(0.0, to_float(kpis.get("total_cost")) or 0.0)
@@ -463,8 +476,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                     "lot_delay_count": int(sum(lot_delay_by_day.values())),
                     "input_delay_volume": input_delay_volume_value,
                     "input_delay_volume_delta": to_float(sweep_row.get("input_delay_volume_delta")) if is_sweep else 0.0,
-                    "production_replanning_count": int(production_replanning_count_value or 0),
-                    "production_replanning_rate": production_replanning_rate_value,
+                    **replanning_metrics,
                     "risk_input_amplitude_points": risk_input_amplitude_points,
                     "risk_event_count": len(risk_event_ids),
                     "configured_supplier_risk_count": configured_supplier_risk_count,
@@ -540,27 +552,17 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     eligible_costs = [scenario for scenario in scenarios if scenario["kpis"].get("economic_ranking_eligible")]
     best_cost = min(eligible_costs, key=lambda item: item["kpis"].get("economic_exposure", math.inf)) if eligible_costs and len(eligible_costs) == len(scenarios) else None
-    def replanning_sort_key(scenario: dict[str, Any]) -> tuple[float, float, float]:
-        kpis = scenario["kpis"]
-        rate = kpis.get("production_replanning_rate")
-        rate_key = float(rate) if rate is not None else math.inf
-        return (
-            rate_key,
-            float(kpis.get("production_replanning_count") or kpis.get("input_delay_count") or math.inf),
-            float(kpis.get("input_delay_volume") or math.inf),
-        )
-
     def replanning_text(kpis: dict[str, Any]) -> str:
-        rate = to_float(kpis.get("production_replanning_rate"))
+        rate = replanning_rate_from_metrics(kpis)
         count = to_float(kpis.get("production_replanning_count"))
-        if count is None:
-            count = to_float(kpis.get("input_delay_count"))
-        volume = to_float(kpis.get("input_delay_volume")) or 0.0
+        denominator = to_float(kpis.get("production_replanning_comparable_count"))
+        label = kpis.get("production_replanning_label") or "Révision du programme simulé"
         if rate is not None:
-            return f"taux replanification {fmt_pct(rate * 100.0)} ; volume associe {fmt_qty(volume, 0)}."
-        return f"taux replanification n/a ; volume associe {fmt_qty(volume, 0)} ; {fmt_qty(count or 0, 0)} lignes."
+            detail = f" ({fmt_qty(count, 0)} / {fmt_qty(denominator, 0)} comparaisons modifiées)" if count is not None and denominator else ""
+            return f"{label} : {fmt_pct(rate * 100.0)}{detail}."
+        return f"{label} : non mesurable. Les attentes de matière ne remplacent pas ce taux."
 
-    best_production = min(scenarios, key=replanning_sort_key)
+    best_production = select_comparable_production_programme(scenarios, nominal_kpis)
     worst_backlog = max(scenarios, key=lambda item: item["kpis"].get("max_backlog", 0.0))
     most_risk = max(
         scenarios,
@@ -597,9 +599,9 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 "#0f766e",
             ),
             card(
-                "Production la moins reportee",
-                best_production["label"],
-                replanning_text(best_production["kpis"]),
+                "Programme simulé le moins révisé" if best_production else "Révisions de programme non comparables",
+                best_production["label"] if best_production else "Base de comparaison non mesurable ou différente",
+                replanning_text(best_production["kpis"] if best_production else {}),
                 "#d97706",
             ),
             card(
@@ -773,9 +775,9 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     production_figure = build_line_chart_figure(
         {scenario["label"]: scenario["series"]["input_delays"] for scenario in scenarios},
-        title="Replanification production par manque d'intrants",
+        title="Attentes de production par manque d'intrants",
         y_label="Lignes reportees / jour",
-        note="Volume journalier associe au taux de replanification: jours ou une production attend de la matiere ou du PFI.",
+        note="Contraintes de production observées : ce nombre d'attentes est distinct des révisions du programme prévisionnel de fabrication.",
         event_like=True,
         series_styles=style_by_label,
     )
@@ -783,7 +785,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         figures["production_delays"] = enable_scenario_tube(
             production_figure,
             reference_value=0.0,
-            reference_label="objectif replanification 0",
+            reference_label="objectif attente 0",
             zero_floor=True,
             upper_percentile=1.0,
         )

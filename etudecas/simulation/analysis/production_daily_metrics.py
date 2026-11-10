@@ -93,12 +93,13 @@ def aggregate_production_days(rows, *, horizon_days=None):
                 if known > day:
                     raise ValueError('Une version de programme ne peut être connue après le jour analysé')
                 due = _day(row['proposal_due_day'])
-                key = (node, item, str(row['proposal_id']), due)
+                # A date is a target value, never part of persistent identity.
+                key = (node, item, str(row['proposal_id']))
                 version = str(row['proposal_version'])
                 value = _number(row['proposal_qty'])
-                candidate = (known, version, value)
-                if key in snapshots and snapshots[key][:2] == candidate[:2] and snapshots[key][2] != value:
-                    raise ValueError('Une même version de proposition porte deux quantités cibles')
+                candidate = (known, version, value, due)
+                if key in snapshots and snapshots[key][:2] == candidate[:2] and snapshots[key][2:] != candidate[2:]:
+                    raise ValueError('Une même version de proposition porte deux cibles')
                 if key not in snapshots or known > snapshots[key][0]:
                     snapshots[key] = candidate
                 elif known == snapshots[key][0] and version != snapshots[key][1]:
@@ -109,9 +110,9 @@ def aggregate_production_days(rows, *, horizon_days=None):
             if old is not None:
                 if snapshot[0] < old[0]:
                     raise ValueError('Les versions de proposition régressent dans le temps connu')
-                if snapshot[:2] == old[:2] and snapshot[2] != old[2]:
-                    raise ValueError('Une même version de proposition change de quantité cible')
-                changes.append((snapshot[2] != old[2],
+                if snapshot[:2] == old[:2] and snapshot[2:] != old[2:]:
+                    raise ValueError('Une même version de proposition change de cible')
+                changes.append((snapshot[2:] != old[2:],
                     100.0 * abs(snapshot[2] - old[2]) / max(old[2], snapshot[2], 1.0)))
             previous[key] = snapshot
         identifiable = complete and bool(changes)
@@ -125,6 +126,7 @@ def aggregate_production_days(rows, *, horizon_days=None):
             signal_status='programmes_identifies' if '' not in programmes else 'origine_inconnue',
             signal_semantics='flux_executé_et_enveloppe_des_etats_restants',
             plan_revision_count=sum(change for change, _ in changes) if identifiable else None,
+            plan_revision_comparable_count=len(changes) if identifiable else 0,
             plan_revision_magnitude_pct=sum(v for _, v in changes)/len(changes) if identifiable else None,
             plan_revision_status='versions_comparees' if identifiable else 'revision_inconnue',
             plan_versions_identified=complete,
@@ -158,7 +160,10 @@ def daily_plan_metrics(rows, *, horizon_days=None):
     count = sum(r['planned_qty_after_lot_rule'] > EPS or r['actual_qty'] > EPS for r in daily)
     return dict(line_adherence=sum(adherence)/len(adherence) if adherence else None,
         line_nervousness=changes, production_replanning_count=changes,
-        production_replanning_rate=changes/len(comparable) if identified else None,
+        production_replanning_comparable_count=sum(r['plan_revision_comparable_count'] for r in comparable),
+        production_replanning_rate=(changes/sum(r['plan_revision_comparable_count'] for r in comparable)
+                                    if identified else None),
+        production_replanning_basis='identified_proposal_comparisons_v2',
         production_planning_line_count=count,
         planning_semantics_status='versions_comparees' if identified else 'revision_inconnue',
         line_adherence_basis='moyenne_non_ponderee_ratios_site_article_execution_sur_enveloppe_pas_adherence_aux_OF',
