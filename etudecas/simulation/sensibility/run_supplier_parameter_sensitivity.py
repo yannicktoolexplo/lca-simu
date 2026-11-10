@@ -593,6 +593,12 @@ def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[
     # Plans are remaining states, not independent quantities per physical pass.
     # Unknown proposal revisions remain None, never a zero-change score.
     out.update(daily_plan_metrics(read_csv_rows(data_dir / "production_constraint_daily.csv")))
+    from etudecas.simulation.analysis.production_replanning_metrics import programme_metrics_from_directory
+    programme_metrics = programme_metrics_from_directory(output_dir)
+    if programme_metrics is not None:
+        out.update({key: value for key, value in programme_metrics.items() if key != "production_replanning_diagnostics"})
+        out["production_replanning_diagnostics_json"] = json.dumps(
+            programme_metrics["production_replanning_diagnostics"], ensure_ascii=False, sort_keys=True)
 
     stock_by_key: dict[tuple[int, str, str], float] = {}
     for row in read_csv_rows(data_dir / "production_input_stocks_daily.csv"):
@@ -652,6 +658,7 @@ def prune_case_output(output_dir: Path, *, artifact_mode: str = "summary") -> No
         output_dir / "reports",
         output_dir / "data" / "production_demand_service_daily.csv",
         output_dir / "data" / "production_constraint_daily.csv",
+        output_dir / "data" / "production_programme_snapshots.csv",
         output_dir / "data" / "production_output_products_daily.csv",
         output_dir / "data" / "production_factory_nervousness.csv",
         output_dir / "data" / "supplier_nominal_parameters.csv",

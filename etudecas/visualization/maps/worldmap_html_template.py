@@ -8927,7 +8927,7 @@ def html_template(
         lines.push(`Origines associées actives: ${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}`);
       }}
       if (Number(impact.production_delay_count || 0) > 0) {{
-        lines.push(`Replanification production: ${{impact.production_delay_count}} lignes ; volume associe=${{fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0)}}`);
+        lines.push(`Attentes de production: ${{impact.production_delay_count}} lignes ; volume associe=${{fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0)}}`);
       }}
       if (Number(impact.customer_backlog_max_qty || 0) > 0) {{
         lines.push(`Backlog client max: ${{fmtPanelQty(Number(impact.customer_backlog_max_qty) || 0, 0)}}`);
@@ -9567,7 +9567,7 @@ def html_template(
       return [
         absorption,
         simulatedRiskCascadeShortText(row.reading || "n/a", 70),
-        `Replanification: ${{reports}} lignes | Volume associe: ${{fmtPanelQty(volume, 0)}}`,
+        `Attentes de production: ${{reports}} lignes | Volume associe: ${{fmtPanelQty(volume, 0)}}`,
         `Backlog max: ${{fmtPanelQty(backlog, 0)}}`,
         conclusion,
       ];
@@ -11339,7 +11339,7 @@ def html_template(
           return {{
             pill: "Risques simules",
             title: `${{impact.stage_label || "Signal associé"}} - ${{nodeLabel}}`,
-            text: `Question métier : quels signaux accompagne ce scénario ? ${{impact.quality_note || "Association temporelle ; causalité aval non démontrée."}} Rôle carte: ${{impact.role || "noeud associé"}}. Origine: ${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}. Déclencheur: ${{impact.primary_trigger || "n/a"}}. Période: ${{impact.period || "n/a"}}. Replanifications: ${{impact.production_delay_count || 0}} lignes.`,
+            text: `Question métier : quels signaux accompagne ce scénario ? ${{impact.quality_note || "Association temporelle ; causalité aval non démontrée."}} Rôle carte: ${{impact.role || "noeud associé"}}. Origine: ${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}. Déclencheur: ${{impact.primary_trigger || "n/a"}}. Période: ${{impact.period || "n/a"}}. Attentes de production: ${{impact.production_delay_count || 0}} lignes.`,
             cls,
           }};
         }}
@@ -15033,6 +15033,13 @@ def html_template(
       return `${{diff > 0 ? "+" : ""}}${{fmtPanelQty(diff, digits)}}`;
     }}
 
+    function scenarioProgrammeReplanningRate(kpis) {{
+      const raw = (kpis || {{}}).production_replanning_rate;
+      if (raw === null || raw === undefined || typeof raw === "boolean" || (typeof raw === "string" && !raw.trim())) return null;
+      const value = Number(raw);
+      return Number.isFinite(value) && value >= 0 && value <= 1 ? value : null;
+    }}
+
     function scenarioComparisonCardsHtml() {{
       const scenarios = scenarioComparisonSelectedScenarioList();
       const allScenarios = scenarioComparisonScenarios();
@@ -15040,26 +15047,34 @@ def html_template(
         return '<div class="panelEmptyState">Aucun scenario selectionne.</div>';
       }}
       const scenarioReplanningText = (kpis) => {{
-        const rate = Number(kpis.production_replanning_rate);
-        const volume = Number(kpis.input_delay_volume || 0);
-        const count = Number(kpis.production_replanning_count ?? kpis.input_delay_count ?? 0);
-        if (Number.isFinite(rate)) {{
-          return `taux replanification ${{fmtPanelQty(rate * 100, 1)}}% ; volume associe ${{fmtPanelQty(volume, 0)}}.`;
+        const rate = scenarioProgrammeReplanningRate(kpis);
+        const label = kpis.production_replanning_label || "Révision du programme simulé";
+        if (rate !== null) {{
+          const count = kpis.production_replanning_count;
+          const denominator = kpis.production_replanning_comparable_count;
+          const detail = count !== null && count !== undefined && denominator > 0
+            ? ` (${{fmtPanelQty(count, 0)}} / ${{fmtPanelQty(denominator, 0)}} comparaisons modifiées)` : "";
+          return `${{label}} : ${{fmtPanelQty(rate * 100, 1)}}%${{detail}}.`;
         }}
-        return `taux replanification n/a ; volume associe ${{fmtPanelQty(volume, 0)}} ; ${{fmtPanelQty(count, 0)}} lignes.`;
+        return `${{label}} : non mesurable. Les attentes de matière ne remplacent pas ce taux.`;
       }};
       const nominal = allScenarios.find(s => s.is_reference) || allScenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || ""))) || allScenarios[0] || scenarios[0];
       const nominalKpis = (nominal && nominal.kpis) || {{}};
       const bestCost = businessComparableCostSelection(scenarios, nominal);
-      const bestProduction = scenarios.reduce((best, item) => {{
+      const referenceReplanningBasis = nominalKpis.production_replanning_basis;
+      const comparableProduction = scenarios.filter(item => referenceReplanningBasis
+        && (item.kpis || {{}}).production_replanning_basis === referenceReplanningBasis
+        && scenarioProgrammeReplanningRate(item.kpis) !== null);
+      const bestProduction = comparableProduction.reduce((best, item) => {{
+        if (!best) return item;
         const a = item.kpis || {{}};
         const b = best.kpis || {{}};
-        const aRate = Number.isFinite(Number(a.production_replanning_rate)) ? Number(a.production_replanning_rate) : Infinity;
-        const bRate = Number.isFinite(Number(b.production_replanning_rate)) ? Number(b.production_replanning_rate) : Infinity;
-        const aKey = [aRate, Number(a.production_replanning_count ?? a.input_delay_count ?? 0), Number(a.input_delay_volume || 0)];
-        const bKey = [bRate, Number(b.production_replanning_count ?? b.input_delay_count ?? 0), Number(b.input_delay_volume || 0)];
+        const aRate = scenarioProgrammeReplanningRate(a);
+        const bRate = scenarioProgrammeReplanningRate(b);
+        const aKey = [aRate, Number(a.production_replanning_count ?? Infinity)];
+        const bKey = [bRate, Number(b.production_replanning_count ?? Infinity)];
         return (aKey[0] < bKey[0] || (aKey[0] === bKey[0] && aKey[1] < bKey[1])) ? item : best;
-      }}, scenarios[0]);
+      }}, null);
       const mostRisk = scenarios.reduce((best, item) => {{
         const a = item.kpis || {{}};
         const b = best.kpis || {{}};
@@ -15067,7 +15082,7 @@ def html_template(
       }}, scenarios[0]);
       const refText = `Base de comparaison : disponibilité produit ${{fmtPanelQty(Number(nominalKpis.fill_rate || 0) * 100, 1)}}% ; exposition économique ${{fmtPanelQty(nominalKpis.economic_exposure, 0)}} (${{nominalKpis.valuation_complete === true ? "couverture des taux configurés complète" : "sous-total connu ; valorisation incomplète ou non documentée"}}). Amorcage client: ${{Number(nominalKpis.startup_backlog_days || 0)}} j, pic ${{fmtPanelQty(nominalKpis.startup_backlog_peak || 0, 0)}}.`;
       const bestCostKpis = bestCost ? bestCost.kpis : {{}};
-      const bestProductionKpis = bestProduction.kpis || {{}};
+      const bestProductionKpis = (bestProduction && bestProduction.kpis) || {{}};
       const mostRiskKpis = mostRisk.kpis || {{}};
       return [
         scenarioComparisonCard("Reference", nominal.label || "Reference", refText, "#2563eb"),
@@ -15078,8 +15093,8 @@ def html_template(
           "#0f766e"
         ),
         scenarioComparisonCard(
-          "Production la moins reportee",
-          bestProduction.label || "n/a",
+          bestProduction ? "Programme simulé le moins révisé" : "Révisions de programme non comparables",
+          bestProduction ? bestProduction.label : "Base de comparaison non mesurable ou différente",
           scenarioReplanningText(bestProductionKpis),
           "#d97706"
         ),
