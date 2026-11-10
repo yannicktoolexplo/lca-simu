@@ -110,8 +110,9 @@ insensibilité générale ; aucune monotonie globale n'est supposée.
 
 Les trois indicateurs sont suivis séparément :
 
-- disponibilité PF : part des lignes client/article/jour intégralement servies,
-  retards inclus ; ce n'est pas le taux de service en quantité ;
+- critère historique `product_availability` : part des journées client/article
+  entièrement servies, retards inclus. Il ne mesure pas le stock disponible à
+  Muret ; « journées entièrement servies » est le libellé métier précis ;
 - taux de révision du programme prévisionnel de fabrication simulé : changements
   de quantité ou de calendrier rapportés aux publications actives comparables ;
   il ne mesure pas les révisions industrielles d'ordres de fabrication ;
@@ -122,6 +123,15 @@ Les seuils d'effet par défaut valent **0,1 point de pourcentage** pour chaque
 taux et **1 %** du coût témoin, avec un plancher d'une unité monétaire. Une hausse
 ou une baisse compte comme effet et conserve son signe. Un effet sur le coût
 seul ne vaut pas réussite sur les trois indicateurs.
+
+Un taux de journées entièrement servies nul peut coexister avec des livraisons
+importantes : tant qu'un arriéré demeure, la journée échoue à ce critère binaire.
+Présenter séparément la part de demande servie en quantité et le retard final.
+Cette part divise la quantité servie par la demande cumulée plus l'arriéré
+initial de la fenêtre ; elle inclut les rattrapages et ne mesure pas la
+ponctualité. La disponibilité physique se lit dans les stocks utilisables du
+site concerné, pas dans ce compteur de service client. Un critère déjà à zéro
+ne peut plus baisser : il ne suffit pas pour étudier toute dégradation.
 
 Si l'ancien nominal ne contient pas ce journal de programme, le runner recalcule
 une seule fois un témoin avec le code courant et l'horizon demandé. Il refuse

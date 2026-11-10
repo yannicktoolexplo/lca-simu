@@ -90,7 +90,7 @@ une autre règle au nominal. L'essai court ci-dessus vérifie l'activation réel
 ## Livraison et reprise
 
 - [Règles de mesure et commandes](../../OPERATIONS.md#mesure-des-révisions-de-production).
-- [Bilan court, exemples de versions cliquables](../../resultats/replanification_production_20261110/bilan.html).
+- [Bilan clarifié, service client et exemples de versions cliquables](../../resultats/replanification_production_20261110/bilan_service.html) ; le premier HTML reste conservé.
 - [Manifeste des preuves locales](../../artifacts/testing/replanification_production_20261110/final_manifest.json) : `artifacts/testing/replanification_production_20261110/`
   (manifeste final et reçus des contrôles), sorties natives sous
   `artifacts/testing/rp20261110_native21_21b619fa/`.
@@ -106,3 +106,36 @@ qu'un coût de possession seul change les décisions physiques. Le traitement
 des refus F3/transferts reste un chantier distinct avant toute qualification
 globale ou reprise de la campagne complète. Aucune nouvelle campagne Monte
 Carlo, annuelle ou de cinq ans n'a été exécutée pour ce correctif.
+
+## Clarification du zéro de service client
+
+L'ancien titre « Disponibilité stricte PF » était trompeur. Le calcul compte
+les journées client/article où la demande du jour **et tous les retards
+antérieurs** sont soldés. Les 42 observations sont 2 produits × 21 jours ;
+aucune ne solde le retard, mais des quantités sont servies dès le troisième jour.
+
+| Cas simulé | Demande nouvelle | Quantité servie | Part servie en quantité | Retard final |
+| --- | ---: | ---: | ---: | ---: |
+| Nominal | 215 001 | 183 841 | 85,51 % | 31 160 |
+| Demande ×2 | 430 001 | 367 681 | 85,51 % | 62 320 |
+
+Les 84 bilans quotidiens des deux cas ferment exactement. Exemple nominal,
+article 268967 au 3 janvier : 2 563 unités demandées ce jour, 5 126 en retard,
+2 563 servies ; le retard reste de 5 126. Cela échoue au critère strict sans
+signifier zéro livraison. L'affectation des unités aux commandes du jour n'est
+pas démontrée sans registre d'affectation. La part servie en quantité inclut
+les rattrapages ; elle n'est pas un taux de livraison à l'heure.
+
+À Muret, le stock utilisable reste positif à chaque fin des 21 journées pour
+les deux produits : minimum 1 007 916 UN pour 268967 et 309 155 UN pour 268091.
+Le zéro de service strict ne démontre donc pas un stock indisponible à Muret.
+Les retards sont bien simulés ; leur origine entre amorçage, anticipation des
+expéditions et délai aval reste à départager. Un indicateur binaire déjà nul
+ne distingue plus les dégradations supplémentaires et ne doit pas être le
+seul indicateur de réponse à la demande.
+
+Le nouveau HTML affiche séparément la part servie en quantité et le nombre de
+journées entièrement servies. Aucun calcul moteur, définition de KPI, paramètre
+ou résultat natif n'est changé ; aucun nouvel essai n'est nécessaire pour cette
+clarification. Les preuves CSV et de génération sont conservées sous
+`artifacts/testing/disponibilite_stricte_20261110/`.
