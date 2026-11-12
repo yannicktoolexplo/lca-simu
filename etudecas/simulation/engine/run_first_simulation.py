@@ -6946,6 +6946,66 @@ def scale_physical_allocations(allocations: list[dict[str, Any]], factor: float,
     return scaled
 
 
+def transport_receipt_parent_allocations(
+    allocations: list[dict[str, Any]], *, dispatched_qty: float, received_qty: float, uom: Any,
+) -> list[dict[str, Any]]:
+    """Allocate surviving transport quantities without changing dispatched parents.
+
+    Countable units use exact cumulative integer shares of the rounded receipt,
+    not the lane's unrounded reliability. Origin contributions are quantities
+    attributed to orders and follow each parent's surviving share; they may stay
+    fractional even when the transported carrier contains whole UN.
+    """
+    if isinstance(dispatched_qty, bool) or isinstance(received_qty, bool):
+        raise ValueError("Transport receipt quantities must not be boolean")
+    dispatched = require_physical_integer(dispatched_qty, uom)
+    received = require_physical_integer(received_qty, uom)
+    if dispatched <= 0 or received > dispatched:
+        raise ValueError("Transport receipt must not exceed its positive dispatch")
+    quantities = []
+    for allocation in allocations:
+        if (not isinstance(allocation, dict) or not allocation.get("lot_id")
+                or isinstance(allocation.get("qty"), bool)):
+            raise ValueError("Transport receipt requires identified physical parent allocations")
+        quantity = require_physical_integer(allocation.get("qty"), uom)
+        if quantity <= 0:
+            raise ValueError("Transport parent quantities must be positive")
+        quantities.append(quantity)
+    if not quantities or abs(math.fsum(quantities) - dispatched) > LOT_TRACE_EPS:
+        raise ValueError("Transport parents must conserve the dispatched quantity")
+    if received == dispatched:
+        return allocations  # Preserve nominal structures and metadata exactly.
+    if received <= 0:
+        return []
+    countable = normalize_unit(uom) == "UN"
+    cumulative = 0 if countable else 0.0
+    previous = 0.0
+    survivors = []
+    for index, (allocation, original) in enumerate(zip(allocations, quantities)):
+        cumulative += int(original) if countable else original
+        boundary = (float(cumulative * int(received) // int(dispatched)) if countable
+                    else received if index == len(quantities) - 1
+                    else received * cumulative / dispatched)
+        quantity = boundary - previous
+        previous = boundary
+        if quantity <= LOT_TRACE_EPS:
+            continue
+        surviving = {**allocation, "qty": quantity}
+        if "origin_production_contributions" in allocation:
+            contributions = LotLedger._normalize_origin_contributions(allocation["origin_production_contributions"])
+            surviving["origin_production_contributions"] = {
+                identity: contribution * quantity / original
+                for identity, contribution in contributions.items()
+            }
+            if "origin_production_contributions_json" in allocation:
+                surviving["origin_production_contributions_json"] = LotLedger._origin_contributions_json(
+                    surviving["origin_production_contributions"])
+        survivors.append(surviving)
+    if abs(math.fsum(row["qty"] for row in survivors) - received) > LOT_TRACE_EPS:
+        raise ValueError("Surviving parents must conserve the physical receipt")
+    return survivors
+
+
 def normalize_unit(unit: Any) -> str:
     s = str(unit or "").strip().upper()
     aliases = {
@@ -21251,13 +21311,15 @@ def main() -> None:
                                 "materialize_backorder_origin": True,
                             }
                         )
-                    if internal_receipt is not None:
+                    if internal_receipt is not None and chunk_delivered_qty > LOT_TRACE_EPS:
                         opening_purchase_availability.add_order({
                             "order_type": "internal_transfer_delivery", "mrp_order_id": mrp_order_id,
                             "node_id": dst, "item_id": item_id, "src_node_id": lane["src"], "edge_id": lane["edge_id"],
                             "receipt_qty": chunk_delivered_qty, "physical_delivery_day": arrival_day, "arrival_day": available_day,
                             "departure_day": departure_day_for_trace, "shipment_id": shipment_id,
-                            "parent_allocations": chunk_parent_allocations,
+                            "parent_allocations": transport_receipt_parent_allocations(
+                                chunk_parent_allocations, dispatched_qty=chunk_pull_qty,
+                                received_qty=chunk_delivered_qty, uom=shipment_uom),
                             "handling_unit_id": handling_unit_id, "trace_status": shipment_trace_status,
                             "trace_reason": shipment_trace_reason, "risk_decision_day": output_day,
                             "risk_event_ids": risk_event_ids, "causal_event_ids": risk_mult.get("event_ids"),
