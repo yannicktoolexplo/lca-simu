@@ -1,19 +1,23 @@
 # Cascades de risques et lots — 12 novembre 2026
 
-La priorité demandée pour le 13 novembre est engagée avec quatre calculs frais
-de 56 jours et une [vue interactive des cascades et lots](../../resultats/cascades_lots_20261112/cascades_et_lots.html).
-L'explorateur des fichiers Excel reste de côté. Les cartes et références
-antérieures sont conservées.
+La demande précisée est de retrouver les incidents **dans la carte complète et
+ses deux suivis de lots existants**. L'intégration est livrée dans la
+[carte nominale enrichie](../../resultats/campagne_complete_20261109/carte_nominale_reel_2025.html),
+avec les lots propres aux trois scénarios de risques déjà calculés sur 56 jours.
+L'explorateur des fichiers Excel reste de côté ; aucune nouvelle simulation
+n'est nécessaire pour cette intégration.
 
-La vue distingue deux effets : **une expédition qui existe et subit un risque**,
-et **un départ empêché avant création de l'expédition**. Cliquer sur une cascade,
-un incident, une transaction puis un lot donne les événements natifs, la
-généalogie disponible, les campagnes et la comparaison au témoin. Les identités
-de lots restent propres à chaque calcul. Les boutons du cas bloqué ouvrent
-explicitement les lots du témoin, sans créer de lots fictifs dans la cascade.
-Le bouton **Cascades et lots · 56 jours** ajouté à la carte nominale ouvre cette
-vue. L'intégration ne change que ce lien ; tous les anciens graphiques et blocs
-de données restent identiques après son retrait.
+Le parcours est **Risques simulés → scénario → lot exposé → Parcours
+simplifié des lots ou Suivi de lots**. Les incidents sont dépliables dans la
+fiche du lot et donnent accès aux expéditions concernées. Le retour au nominal
+rétablit ses propres lots, graphiques et observations réelles de 2025.
+Les numéros identiques de deux calculs ne désignent pas le même lot physique.
+
+La [vue séparée des cascades](../../resultats/cascades_lots_20261112/cascades_et_lots.html)
+reste un complément pour comparer les mécanismes. Elle distingue une expédition
+existante exposée à un incident d'un départ empêché avant création d'expédition.
+Dans ce dernier cas, ses boutons ouvrent explicitement les lots du témoin,
+sans inventer de lot reçu dans le calcul perturbé.
 
 ## Calculs conservés et comparaison
 
@@ -89,6 +93,12 @@ aucune réception avant J56. Les indicateurs natifs donnent, pour les 25,
 `departure_executed=1`, `arrival_executed=0`, `execution_status=in_transit`.
 Elles sont réellement en transit, et non seulement réservées.
 
+Ces expéditions proviennent de **deux lots partiellement exposés** :
+124 208 unités expédiées sur un lot initial de 1 101 534 unités, et 115 200 sur
+un lot de 126 795 unités. Une quantité expédiée exposée ne signifie donc pas
+que tout le stock du lot est endommagé. Les incidents superposés sur une même
+expédition ne multiplient jamais la quantité.
+
 Les allocations aux lots sources sont réconciliées à 100 %. L'absence de lot
 reçu et de généalogie de réception dans la fenêtre est attendue : les réceptions
 prévues arrivent après l'horizon. Le taux technique 1,0 de couverture dans
@@ -155,10 +165,66 @@ neuf contrôles de parsing/comptage et 18 contrôles de liaison HTML/sources.
 Les refus des premières candidates sont conservés. Empreinte de la page
 publiée, identique à cette candidate :
 `c59d8a57752fa3da804b6c3e691b4aec759bb23267b94d6f885f854dfdeeb31e`.
-Empreinte de la carte nominale avec le seul lien de navigation ajouté :
+Empreinte de la première intégration, avec le seul lien de navigation ajouté :
 `2187fdd0bcc35f8d7e2ae1dabf36c7abcbb920d046c97597c1add20f46d8500a`.
 L'ancienne version complète de cette carte est conservée sous
 `cascades_lots_20261112/previous_nominal_map.html`.
+
+## Incidents dans les deux suivis existants
+
+Les preuves de cette intégration sont regroupées dans
+`etudecas/artifacts/testing/carte_risques_lots_20261112/` : protocole,
+construction des contextes, patch HTML reproductible et revue indépendante.
+Le refus de la première candidate est conservé : le second lot exposé n'était
+pas ouvrable dans le suivi classique, l'export omettait les incidents et
+l'identité calculée pendant un changement de scénario pouvait être mélangée.
+Les manifestes et empreintes des versions intermédiaires restent disponibles ;
+leurs HTML ont été supprimés pour limiter le stockage, après remplacement par
+la candidate finale. La carte antérieure livrée est archivée avant intégration.
+
+Ce second lot vient d'un ordre de production initial en cours. Son type de
+création n'entre pas dans le filtre historique de sélection et son modèle
+d'affichage n'était pas précalculé. La vue de repli conserve ses quatre
+événements natifs : création et blocage à J41, libération et départ à J55.
+Les 115 200 unités partent ; 11 595 restent dans cette occurrence. L'arrivée
+à J99 reste prévue et hors des 56 jours observés. Aucun descendant reçu ni
+consommation amont manquante ne sont inventés. L'élargissement du filtre
+applicatif général reste à traiter après le gel des sources.
+
+Les contextes de lots, caches de parcours, sélections et dates sont séparés
+entre calculs. Leurs fiches distinguent les expéditions effectuées des arrivées
+prévues. Les effets connus d'une expédition viennent de son enregistrement
+natif : par exemple, 44 jours de transport, dont 42 jours supplémentaires,
+et un multiplicateur de coût de transport de 4. Il s'agit des effets combinés
+appliqués à l'expédition, sans les attribuer isolément à chaque incident.
+Le scénario interne garde un index d'exposition vide : les transferts bloqués
+avant création d'expédition ne deviennent pas de faux lots exposés.
+
+La V3 finale a passé **73 contrôles CSV indépendants, cinq contrôles statiques
+et 43 contrôles JavaScript en V8**, ainsi que doctor. La revue exécute les
+vraies fonctions de sélection et d'ouverture avec un DOM simulé : elle couvre
+le bon lot dans les deux suivis, les expéditions, les filtres, la limite J55,
+les exports et le parcours D → nominal → C → D. Les quatre caches sont
+réinitialisés ; un changement de contexte pendant un export est refusé.
+Les 48 blocs compressés d'origine restent strictement identiques. L'horizon
+nominal de 1 825 jours reste distinct des calculs de risques de 56 jours.
+
+Le [manifeste indépendant](../../artifacts/testing/carte_risques_lots_20261112/validator/manifest.json)
+autorise cette livraison exploratoire ; le
+[manifeste de livraison](../../artifacts/testing/carte_risques_lots_20261112/delivery_manifest.json)
+relie la candidate, la carte effectivement écrite et son archive. Empreinte
+finale : `6e50ae9ee78b90131e080f97cfc325088359ada37ef35172d3a451e1dfc37a8e`.
+La carte précédente complète est conservée dans
+`carte_risques_lots_20261112/previous_nominal_map.html` ; le code applicatif
+garde l'empreinte `236ab838600cdfaa1e1c1f8c01a3b6a175f0991555dec434bcc6c5cc00293946`.
+
+Le gate formel reste **refusé**, faute de preuve `browser` et de qualification
+globale correspondant à cette carte. Il est conservé sous
+`toolbox/gate-0bc033b345d149779537516a0f7fc30d/manifest.json` dans les preuves
+de l'intégration. Aucun navigateur n'est relancé après les refus de sécurité
+antérieurs. Les mocks ne certifient ni mise en page ni téléchargement réel.
+Les refus globaux A/D et d'exposition non vide C restent explicitement ouverts ;
+aucune nouvelle référence ni calibration industrielle n'est promue.
 
 ## Suite prioritaire
 
