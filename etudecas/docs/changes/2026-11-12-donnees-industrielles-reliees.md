@@ -13,6 +13,74 @@ parcourir toute la période, les différentes versions MRP, la demande, les règ
 de sécurité, les tailles de lots et les nomenclatures disponibles. Les tableaux
 sont paginés ; les points de stock sont représentés sans interpolation.
 
+## Parcours interactif d'une arrivée
+
+La deuxième livraison ajoute une **enquête synchronisée** au même explorateur.
+Choisir une matière, un site et une arrivée observée ou prévue. Trois colonnes
+montrent ensemble les données amont, le contexte local et le MRP. Un clic sur
+un mouvement, un stock, une ligne de carnet ou de plan recentre article, site,
+date et contexte ; l'historique permet de revenir à une étape précédente.
+L'adresse conserve la ligne sélectionnée et le type de date pour rouvrir
+l'étape. Les anciennes entrées par article/site/date restent compatibles.
+
+Une livraison prévue du carnet et sa disponibilité prévue sont deux choix
+distincts. Un mouvement hebdomadaire est ancré au lundi de sa période, avec
+son repère source du dimanche conservé : ce lundi n'est pas présenté comme
+le jour industriel exact d'arrivée. La version MRP par défaut est la dernière
+calculée au plus tard à cette borne ; une version explicite reste consultable,
+avec avertissement si elle est ultérieure. La vue compare aussi le plan précédent
+sur les mêmes semaines et permet de parcourir les prévisions successives d'une
+même semaine. Une semaine absente reste inconnue, jamais une entrée nulle déduite.
+
+Le parcours amont repose sur **48 liaisons sourcées** : 29 relations décrites
+dans le classeur structurel, 17 rapprochements de contexte FIA/article/site et
+deux anciennes relations PF vers Muret réconciliant explicitement 1910 et 1920.
+Les trois catégories sont affichées séparément. La coprésence d'un article sur
+plusieurs sites ne suffit pas à créer une relation amont. Les routes candidates
+001893 et 002612 vers Gaillac sont exclues de ces relations documentées.
+
+Pour 693055 à Avène, le parcours ouvre les mouvements, stocks, plans et carnet
+de Gaillac. Les sorties amont restent des candidates à examiner ; ni leur
+proximité ni une quantité concordante ne prouvent l'identité de l'expédition.
+Les délais prévisionnels FIA de 70 et 10 jours ne sont pas soustraits d'une
+arrivée pour inventer un départ réel. Chez les fournisseurs externes, les
+historiques opérationnels absents restent inconnus.
+
+Deux ancrages évitent une confusion de site : **movement:1067**, 693055/Avène,
+correspond à 1 190 kg au repère du 19 janvier, période du 20 au 27 janvier ;
+les 600 kg reçus à Avène sont **movement:1070**, repère du 9 février, période
+du 10 au 17 février. La ligne de carnet de 600 kg livrable le 27 janvier est
+à Gaillac. Ces trois événements ne sont pas fusionnés.
+
+Le dossier local `etudecas/artifacts/testing/parcours_arrivees_20261112/`
+conserve `journey_core.js`, l'UI, l'extraction des liaisons et les preuves
+indépendantes de cette deuxième livraison. Les 58 040 lignes opérationnelles
+de la première livraison restent identiques ; seules les liaisons sont ajoutées
+au jeu embarqué. La carte nominale et ses deux interfaces de lots ne changent pas.
+
+La contre-vérification de cette deuxième livraison passe 23 oracles de cellules,
+3 192 contrôles des liaisons et de la conservation du jeu initial, 595 contrôles
+du HTML et 376 contrôles V8, dont 343 sur les calculs de contexte et 33 sur la
+navigation. Ces derniers exécutent notamment la remontée à un mouvement de
+Gaillac, la synchronisation article/site/date/MRP, le retour arrière, la
+réouverture par adresse, les deux dates du carnet et le carnet amont lorsque
+c'est la seule donnée fournie. Les 34 contrôles DOM de l'auteur passent aussi.
+Les manifestes finaux de cette version sont dans `parcours_arrivees_20261112/`.
+Leur portée reste une vérification technique en mémoire ; la revue visuelle
+dans un navigateur demeure non exécutée.
+
+L'empreinte de la page publiée V2, identique à la candidate vérifiée, est
+`b6fb5e31b15f1c29be2dfd28149a69fa4f10585c49022df103506aa9b2d08eb7`.
+La publication au chemin existant conserve la première page sous
+`parcours_arrivees_20261112/previous_explorer_v1.html`. Les liens de la carte
+n'ont pas besoin d'être modifiés.
+Le manifeste de publication est
+`etudecas/artifacts/testing/parcours_arrivees_20261112/delivery_manifest.json`.
+Deux premières attentes du validateur ont été corrigées en lecture seule
+(article numérique Excel comparé à une chaîne ; champ `items` du graphe actif
+traité initialement comme un champ singulier). Ces refus sont conservés ;
+aucune donnée ni règle de navigation n'a été modifiée pour les faire passer.
+
 ## Périmètre et conventions
 
 L'extraction couvre **58 040 lignes**, **14 feuilles dans neuf classeurs** :
@@ -96,10 +164,10 @@ et recherche trop large d'un ancien texte de titre au lieu du div visible.
 Les rapports refusés sont conservés. Des objets URL bornés sont fournis au
 DOM simulé pour exercer réellement les quatre liens de site.
 
-Empreintes SHA-256 de la publication : explorateur
+Empreintes SHA-256 de la première livraison : explorateur
 `4fd933e19c22e77f13214583a97a0094d1c0b16485de0f84638431e35dc8a0f9` ; carte
 `af8d5af3864dcd928c1b48865a15046550801c196149e3d5c9c4ec7ca861a56f`.
-Les fichiers publiés sont identiques aux candidats vérifiés ; l'ancienne carte
+Les fichiers publiés à cette étape sont identiques aux candidats vérifiés ; l'ancienne carte
 avec dates reste conservée dans le dossier de preuves.
 
 Le nominal, les deux suivis de lots, ses courbes et les observations ajoutées
