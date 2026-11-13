@@ -52,7 +52,7 @@ les sécurités du nominal actuel. La mémoire du contrôleur se construit alors
 depuis J0 : copier les 60 jours de mise en régime de l'archive changerait les
 conditions initiales.
 
-Livraison locale :
+Livraison précédente avec l'enveloppe complète, conservée :
 [`01_demonstration_complete_risques_etat_20261113.html`](../../resultats/01_demonstration_complete_risques_etat_20261113.html).
 L'enveloppe d'origine ouvre la nouvelle carte de risques par défaut et conserve
 ses 50 ressources historiques sans modification. Le contexte nominal actuel
@@ -66,6 +66,50 @@ du témoin. Les axes des quatre graphiques de risques couvrent seulement
 J0–J55, avec les dates du 01/01 au 25/02. Les 48 blocs compressés du nominal
 restent identiques. V8 utilise un DOM simulé : ce n'est pas une vérification
 visuelle du navigateur. Preuve : `validator/current_map/manifest.json`.
+
+## Carte seule et accès à toutes les occurrences
+
+À la demande suivante de l'utilisateur, la livraison à ouvrir devient la
+[carte seule](../../resultats/carte_cascades_etat_20261113.html), sans l'enveloppe
+de présentation et ses autres vues. Le réseau et ses interactions de risques
+restent disponibles ; aucun nouveau suivi de lots n'est développé.
+
+L'audit des identifiants constate que les données embarquaient déjà les
+135 incidents du calcul, couverts par 133 racines et 47 parcours regroupés.
+Le sélecteur proposait uniquement les parcours et la recherche n'incluait pas
+l'identifiant de l'incident. Deux plafonds silencieux limitaient également les
+listes à 80 et 120 éléments, même s'ils ne tronquaient pas les 47 parcours présents.
+
+La correction conserve les parcours et ajoute une vue de chaque incident,
+recherchable par son identifiant natif, sans additionner les deux représentations.
+Les valeurs et les données de simulation restent identiques. Les preuves de
+cette modification d'affichage sont séparées dans
+`etudecas/artifacts/testing/carte_cascades_seule_20261113/`. Elles distinguent la
+nouvelle révision d'interface de la révision native ayant produit les résultats.
+
+Le fichier fourni `data/source/Exemple chaine causale.xlsx`, feuille `Template`,
+contient également 21 lignes décrivant des chaînes : 18 risques, deux mesures
+de protection et un exemple illustratif. Toutes les lignes `A2:L22` sont
+consultables séparément sur la carte, avec leurs conditions, effets décrits et
+cellules source. Ce catalogue n'ajoute aucun incident aux 135 événements simulés.
+Il ne reçoit ni date d'occurrence ni intensité inventée. Vingt entrées ont au
+moins un acteur explicitement raccordable au réseau ; les transporteurs
+génériques, la mention Floride et le fournisseur fictif `VDXXX` restent signalés
+lorsqu'ils ne sont pas raccordés. La présence d'une chaîne documentée ne prouve
+pas qu'elle s'est réalisée. Le fichier source fourni est conservé sans modification.
+
+Les contrôles de cette livraison passent : génération du gabarit en mémoire,
+158 contrôles V8 des modes et sélections natifs (dont un jeu de 151 incidents,
+au-delà des anciens plafonds), 93 contrôles V8 du catalogue et 160 contrôles
+indépendants des cellules et raccordements. Le fichier livré a pour SHA-256
+`4a7319fd7e5ff5087e87e41153cc55b6d1c0230fb22392d1ed9ddec7775f58b2`.
+Les premières attentes erronées du harnais sur le tri et un espace final Excel
+restent conservées comme refus d'oracle ; les contrôles corrigés comparent les
+clés réellement triées et les cellules brutes, sans modifier les données évaluées.
+Le navigateur n'est pas exécuté. La qualification scientifique globale de
+l'ancien calcul reste refusée ; aucune nouvelle simulation n'est lancée pour
+cette modification d'affichage. Le bilan borné est dans
+`artifacts/testing/carte_cascades_seule_20261113/final_manifest.json`.
 
 ## Compatibilité exécutée sur le code courant
 
