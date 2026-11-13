@@ -633,6 +633,33 @@ Les colonnes historiques `demand_qty`, `requirement`, `arrival_day`, `receipt`,
 avec le fichier et le champ exacts cités dans « Où vérifier chaque calcul ». Elles
 ne créent aucun synonyme supplémentaire dans le raisonnement métier.
 
+Dans `production_output_products_daily.csv`, trois champs demandent une
+distinction supplémentaire dès qu'un lot se fabrique sur plusieurs jours :
+
+| Champ | Sens à conserver |
+|---|---|
+| `executed_qty` | Travail effectué dans la journée, exprimé en équivalents de produits finis ; une fraction peut rester dans un lot inachevé. |
+| `wip_end_qty` | Avancement du lot encore inachevé en fin de journée, dans la même unité de travail. |
+| `released_qty` et `produced_qty` | Quantité devenue utilisable : nouveaux lots immédiatement utilisables et libérations de lots antérieurs. Ce n'est pas uniquement une fabrication du jour ni uniquement une libération qualité. |
+
+La fabrication physique des **nouveaux lots terminés** est l'événement
+`production_output` de `production_lot_events.csv`. Les achèvements d'ordres
+initiaux sont `opening_production_order` ; la libération d'un lot antérieurement
+retenu est `stock_availability_release`. Les unités physiques de produits finis,
+leurs stocks et les livraisons restent entiers. Un avancement de travail
+fractionnaire ne constitue pas un produit fini fractionnaire.
+
+```text
+encours_fin = encours_debut + travail_du_jour - nouveaux_lots_termines
+```
+
+Dans cette formule, `encours_debut` et `encours_fin` sont l'avancement des lots
+inachevés aux deux bornes de la journée ; `travail_du_jour` est leur travail
+supplémentaire ; `nouveaux_lots_termines` est la quantité physique achevée.
+Toutes sont exprimées en équivalents de produits finis pour le bilan ; les lots
+terminés constituent, eux, des unités physiques entières. Le bilan concerne les
+nouveaux travaux, distincts de l'hypothèse d'encours des ordres initiaux.
+
 ## 0. Initialiser le calcul
 
 Au 1er janvier, le moteur charge une seule fois :
@@ -715,6 +742,54 @@ demande_physique_jour(j)
 **Sortie :** prévision future restante.
 **Preuves :** `mrp_forecast_consumption_daily.csv`,
 `customer_forecast_projection_weekly.csv`, `customer_demand_daily.csv`.
+
+### Variante mensuelle explicite, séparée de la référence
+
+Le candidat `calendar_month_actual_demand_v1` consomme le budget du **mois
+calendaire** avec la demande réelle déjà connue. Il s'active avec
+`--forecast-consumption-policy calendar_month_actual_demand_v1` sur le moteur
+ou le runner de sensibilité courant ; la référence hebdomadaire reste le défaut.
+Les points d'entrée `regenerate.py` et `current_reference.py` n'exposent pas ce
+nouvel argument. Le candidat est limité à 365 jours et à une origine en début
+de mois, en attendant sa qualification pour les projections plus longues.
+
+```text
+reste_du_mois = max(budget_du_mois - demande_reelle_cumulee_du_mois, 0)
+prevision_par_jour_futur = reste_du_mois / nombre_de_jours_futurs_du_mois
+```
+
+Dans ces deux formules, `budget_du_mois` est la prévision connue au début du
+mois ; `demande_reelle_cumulee_du_mois` additionne la demande reçue depuis le
+premier jour jusqu'à la décision, même si une partie n'a pas été livrée ;
+`reste_du_mois` est la prévision non consommée ; `nombre_de_jours_futurs_du_mois`
+compte les jours après la décision et avant la fin du mois ;
+`prevision_par_jour_futur` est le besoin prévisionnel journalier restant.
+Sans jour futur, ce reliquat expire : aucune division par zéro.
+
+L'exemple de quatre semaines donne 1 000 − 300 = 700 UN à répartir sur trois
+semaines de même longueur, soit 700/3 chacune. Après 250 UN supplémentaires de
+demande réelle, il reste 450 UN, soit 225 sur chacune des deux semaines suivantes.
+Ce sont des **besoins prévisionnels**, pas des quantités de fabrication imposées :
+stocks, encours, lots et capacités continuent de déterminer les fabrications.
+
+Le total mensuel est **reconstruit**, faute d'export mensuel indépendant : somme
+des taux journaliers des prévisions sources connus au premier jour du mois.
+Les semaines sont proratisées sur les jours du mois ; un mois n'est pas assimilé
+à quatre semaines. Le repli existant vers une période connue voisine est compté
+en jours et en quantité dans l'audit. Les cellules source suspectes ne sont pas
+corrigées. Les versions de prévision connues plus tard ne réécrivent pas ce budget.
+
+Le moteur réévalue ce reliquat chaque jour avec la demande connue, à la cadence
+de sa revue MRP existante. Cette cadence quotidienne est une **hypothèse de
+modélisation** ; l'industriel a décrit un réétalement hebdomadaire. Les exemples
+aux fins de semaines sont conservés, sans prétendre avoir confirmé leur cadence
+ERP exacte. Le premier du mois réinitialise uniquement le compteur de prévision :
+retard client, stock, encours et ordres fermes persistent.
+
+**Preuves distinctes :** `monthly_forecast_qty`, `period_kind=calendar_month`,
+`budget_source_vintage_days`, `budget_source_rows`, `budget_fallback_days`,
+`budget_source_qty` et `budget_fallback_qty` dans le même CSV d'audit.
+`weekly_forecast_qty` reste vide pour ce candidat.
 
 ## 3. Construire les besoins datés de produits finis
 
