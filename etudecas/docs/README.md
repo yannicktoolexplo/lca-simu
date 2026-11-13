@@ -32,6 +32,10 @@ rapproche la consommation mensuelle des prévisions, les horizons figés, les
 transferts de Gaillac et le packaging 338929 avec le code actif. Il distingue
 les règles reçues, les écarts démontrés et les corrections encore à réaliser.
 
+La [variante de consommation mensuelle et la comparaison des productions](changes/2026-11-13-consommation-mensuelle-production-mines-albi.md)
+décrivent l'implémentation explicite, les essais appariés et les limites de
+comparaison aux résultats rapportés par Mines Albi.
+
 ## Modifier le logiciel
 
 - [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).
