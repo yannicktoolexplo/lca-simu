@@ -4,8 +4,9 @@ Travail du 13 novembre 2026, sur `dev_yannick`, à partir du commit `6fcb2ba0c`.
 Les preuves sont conservées dans
 `etudecas/artifacts/testing/mensuel_mines_albi_20261113/`.
 
-Le [rapport interactif](../../resultats/comparaison_production_mensuelle_mines_albi_20261113.html)
-sépare l'essai mensuel exploratoire du nominal annuel antérieurement publié.
+Le [rapport interactif avec les données industrielles](../../resultats/comparaison_production_reel_donnees_mines_albi_20261113.html)
+sépare l'essai mensuel exploratoire, le nominal annuel antérieurement publié
+et la courbe industrielle reconstruite depuis les étuis.
 **Conclusion : le programme est moins souvent révisé, mais la production ne
 se rapproche pas uniformément des observations.** La référence n'est pas promue.
 
@@ -75,43 +76,47 @@ la courbe grise représente les entrées à D1920. Leur grille mesure un stock
 comprenant la marchandise en contrôle. Il faut leurs exports datés, les formules
 et la définition de leur compensation pour reproduire la comparaison.
 
-### Comparaison visuelle avec les courbes photographiées
+### Courbe industrielle calculée depuis les données
 
-Le [comparatif enrichi des photos](../../resultats/comparaison_production_avec_photos_mines_albi_20261113.html)
-ajoute un troisième onglet aux deux vues précédentes. Il superpose nos cumuls
-physiques journaliers à **18 jalons approximatifs** lus dans les captures :
-production estimée à partir des étuis en noir, simulation Mines Albi v2c en
-orange, et dernier point de la série intitulée « Entrées à D1920 » en gris,
-dans une vue séparée. Le sens de ce dernier flux reste non qualifié ici.
+Le [comparatif avec le réel issu des fichiers](../../resultats/comparaison_production_reel_donnees_mines_albi_20261113.html)
+utilise comme courbe noire la **production réelle estimée depuis les étuis**.
+Les repères noirs lus sur la photographie ne sont plus une référence active.
+Les quantités proviennent directement de la colonne « Sorties_article_scan3 »
+du fichier `Flow_Data_Inventory_movements.xlsx`, pour 338929 à 1810 et 333362 à
+1430, puis de leur coefficient de nomenclature dans `268091.xlsx` et
+`268967.xlsx`. L'opposé de la sortie signée d'étuis est divisé par ce coefficient,
+égal à un dans les deux cas. Ce calcul reste une estimation de fabrication,
+distincte d'un registre industriel d'ordres exécutés.
 
-Chaque lecture possède une plage de quantité et une fenêtre de dates. Ces
-plages décrivent l'incertitude d'une lecture manuelle, pas un intervalle de
-confiance statistique. Il n'y a ni fichier image local étalonné en pixels, ni
-série CSV Mines Albi ; les traits éventuels entre jalons servent seulement
-de guides. Le dernier point visible n'est pas placé arbitrairement au
-31 décembre et aucun plateau n'est prolongé après ce point.
+L'extraction brute et la contre-revue indépendante confirment **46 semaines
+renseignées pour 268091 et 36 pour 268967**, sur 51 semaines complètes du
+6 janvier au 28 décembre. Elles contiennent respectivement 14 et 12 zéros
+explicites. Les cinq et quinze autres semaines n'ont pas de ligne : elles
+restent inconnues. Les fragments du 1er au 5 janvier et du 29 au 31 décembre
+ne sont pas non plus renseignés. Le véritable cumul calendaire depuis le
+1er janvier est donc indéterminé.
 
-Pour **268967**, le défaut de calendrier ressort dans les deux modèles.
-Notre ancien nominal est à 0,22 million au repère du 30 juin, contre une
-lecture d'environ 0,20–0,25 million pour Mines Albi et 0,45–0,70 million pour
-la production estimée sur la photo. Au repère du 30 septembre, notre nominal
-est à 1,19 million, contre environ 0,65–0,90 pour Mines Albi et 0,80–1,00 pour
-la production estimée. Les dates photographiées sont incertaines d'environ
-deux semaines : le tableau présente aussi la plage de notre cumul sur toute
-cette fenêtre. Les modèles produisent peu au début puis rattrapent fortement ;
-un volume final seul ne permet pas de valider le calendrier.
+La vue de données présente les volumes hebdomadaires ou le **cumul des seules
+semaines renseignées**, avec des trous visibles. Le cumul reprend après un trou
+en additionnant uniquement les semaines connues ; il ne prétend pas retrouver
+le volume physique manquant. Les simulations sont agrégées et masquées sur les
+**mêmes semaines**. Pour les calculs de 135 jours, la semaine du 12 au 18 mai
+est exclue car le calcul s'arrête le 15 mai. Aucun volume observé ou simulé
+n'est inventé pour compléter ces périodes.
 
-Pour **268091**, Mines Albi prend beaucoup d'avance au premier trimestre,
-puis la production estimée le rattrape. Notre nominal est proche de cette
-estimation au milieu de l'année, mais reste plus bas au dernier point visible.
-Ce constat est visuel et descriptif, sans classement statistique des modèles.
+La simulation orange Mines Albi reste une lecture photographique incertaine,
+dans un mode visuel séparé : son cumul complet ne peut pas être comparé
+numériquement à un cumul de semaines connues sans sa série d'origine. La série
+grise reste consultable dans l'ancien comparatif photographique, sans qualification
+de réception physique brute. Aucun pourcentage précis contre la photo n'est ajouté.
+L'[ancienne comparaison photographique](../../resultats/comparaison_production_avec_photos_mines_albi_20261113.html)
+est conservée séparément, avec ses intervalles de lecture et sa provenance.
 
-L'année complète de notre courbe provient toujours de l'**ancien nominal**.
-Les nouveaux essais hebdomadaire et mensuel restent arrêtés au 15 mai ; leurs
-valeurs sont inconnues après cette date, sans ligne horizontale artificielle.
-Aucun calcul de simulation ni aucun paramètre MRP n'est changé pour ajuster
-les courbes à la photographie. Les preuves de cette extension sont sous
-`artifacts/testing/comparaison_photos_mines_20261113/`.
+Le nominal annuel archivé et les nouveaux essais limités au 15 mai gardent
+leurs versions et leurs limites précédentes. Aucun nouveau calcul de simulation
+ni aucun paramètre MRP n'est changé pour construire la courbe industrielle.
+Les preuves de cette correction sont sous
+`artifacts/testing/courbe_reelle_donnees_20261113/`.
 
 ## Résultats et statut des calculs
 
