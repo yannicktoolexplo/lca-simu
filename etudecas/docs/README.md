@@ -27,6 +27,11 @@ La [couverture et les limites](COVERAGE_AND_LIMITS.md) précisent ce qui reste
 partiel. Une règle documentée et une empreinte inchangée ne constituent pas une
 validation industrielle.
 
+Le [retour industriel du 13 novembre 2026](changes/2026-11-13-retour-industriel-mrp.md)
+rapproche la consommation mensuelle des prévisions, les horizons figés, les
+transferts de Gaillac et le packaging 338929 avec le code actif. Il distingue
+les règles reçues, les écarts démontrés et les corrections encore à réaliser.
+
 ## Modifier le logiciel
 
 - [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).
