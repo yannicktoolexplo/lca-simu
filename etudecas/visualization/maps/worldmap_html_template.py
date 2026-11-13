@@ -12500,6 +12500,10 @@ def html_template(
         return;
       }}
       currentPanelMode = mode;
+      if (mode === "ops") {{
+        selectedSimulatedRiskCascadeKey = "";
+        if (typeof resetCascadeMapOverlay === "function") resetCascadeMapOverlay();
+      }}
       setLotTraceRunContext(mode === "simulated_risk" ? (SIMULATED_RISK_LOT_CONTEXT.run_key || "risk:unavailable") : "nominal");
       lastFactoryPanelRenderKey = "";
       applyModeUi();

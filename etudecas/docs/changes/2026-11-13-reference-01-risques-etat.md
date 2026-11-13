@@ -111,6 +111,50 @@ l'ancien calcul reste refusée ; aucune nouvelle simulation n'est lancée pour
 cette modification d'affichage. Le bilan borné est dans
 `artifacts/testing/carte_cascades_seule_20261113/final_manifest.json`.
 
+## Onglet nominal et parcours complet sur la carte
+
+La livraison suivante est la
+[carte Nominal et Cascades](../../resultats/carte_nominal_cascades_20261113.html).
+Elle montre seulement ces deux onglets, avec les gestionnaires natifs. Le nominal
+conserve ses 48 blocs de données, ses 1 825 jours et ses observations de 2025.
+Entrer dans cet onglet efface la sélection d'incident et les surbrillances
+documentaires, ferme leurs fenêtres et masque le panneau de parcours. Le mode
+risques conserve ses données propres de 56 jours.
+
+Le tracé précédent était limité pour des raisons identifiées : aucun des
+135 incidents ne renseigne de produit fini ou client aval observé ; la fermeture
+diagnostique dépendait de ces champs et s'arrêtait à trois niveaux ; le cadrage
+restait global. Les 133 racines diagnostiques et 47 parcours sont des regroupements,
+pas une généalogie d'incidents : chaque `causal_root_id` natif est son propre
+identifiant d'incident.
+
+Le nouveau panneau, visible sur la carte, complète le trajet par les recettes
+déjà embarquées dans `json_panel` et les liaisons du modèle. Il conserve le couple
+site/article : transport du même article, puis changement d'article uniquement
+par une recette à lot et ratios d'entrée positifs. Les couples déjà visités
+arrêtent les cycles, sans couper arbitrairement le parcours à trois étapes.
+Les champs `from/to/items` définissent les routes ; leurs anciens identifiants
+contenant `DC-1910` ne remplacent pas la destination actuelle `DC-1920`.
+
+Exemple : l'intrant 338928 à Avène rejoint le produit fini 268091, puis Muret
+et le client ; il ne rejoint pas arbitrairement le produit fini 268967 de Gien.
+Le produit 038005 à Gien suit au contraire la recette de 268967. Les liaisons
+locales renseignées sont en trait plein ; la suite structurelle possible est
+en pointillés. Ce dessin n'attribue aucune rupture client à l'incident : les
+flux physiques des deux témoins restent identiques sur les 56 jours calculés.
+
+Le cadrage suit la sélection et réserve une zone géographique hors du panneau
+de parcours. Un fournisseur sans coordonnées, `SDC-VD0956464A`, reste présent
+dans le panneau avec « localisation inconnue » ; aucune position n'est inventée.
+Les 135 incidents, les 47 parcours et les 21 chaînes documentées sont conservés.
+
+Les preuves de cette retouche d'affichage sont dans
+`artifacts/testing/carte_nominal_cascades_20261113/`. La vérification porte sur
+le graphe et les vrais gestionnaires JavaScript sous DOM simulé, pas sur un
+rendu navigateur. Le style des liens est compatible avec la version Plotly
+2.32.0 embarquée ([attributs officiels de cette version](https://github.com/plotly/plotly.js/blob/v2.32.0/src/traces/scattergeo/attributes.js#L99)).
+Aucune simulation, donnée industrielle ou recette n'est modifiée.
+
 ## Compatibilité exécutée sur le code courant
 
 La configuration V3 exacte a été retrouvée dans le snapshot de provenance
