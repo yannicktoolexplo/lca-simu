@@ -1,5 +1,8 @@
 # Cascades de risques et lots — 12 novembre 2026
 
+Suite : [reprise des cascades dépendant de l'état le 13 novembre](2026-11-13-cascades-dependantes-etat.md),
+avec comparaison à quatre cas dans la même carte et limites de l'essai annuel.
+
 La demande précisée est de retrouver les incidents **dans la carte complète et
 ses deux suivis de lots existants**. L'intégration est livrée dans la
 [carte nominale enrichie](../../resultats/campagne_complete_20261109/carte_nominale_reel_2025.html),
