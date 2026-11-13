@@ -75,6 +75,44 @@ la courbe grise représente les entrées à D1920. Leur grille mesure un stock
 comprenant la marchandise en contrôle. Il faut leurs exports datés, les formules
 et la définition de leur compensation pour reproduire la comparaison.
 
+### Comparaison visuelle avec les courbes photographiées
+
+Le [comparatif enrichi des photos](../../resultats/comparaison_production_avec_photos_mines_albi_20261113.html)
+ajoute un troisième onglet aux deux vues précédentes. Il superpose nos cumuls
+physiques journaliers à **18 jalons approximatifs** lus dans les captures :
+production estimée à partir des étuis en noir, simulation Mines Albi v2c en
+orange, et dernier point de la série intitulée « Entrées à D1920 » en gris,
+dans une vue séparée. Le sens de ce dernier flux reste non qualifié ici.
+
+Chaque lecture possède une plage de quantité et une fenêtre de dates. Ces
+plages décrivent l'incertitude d'une lecture manuelle, pas un intervalle de
+confiance statistique. Il n'y a ni fichier image local étalonné en pixels, ni
+série CSV Mines Albi ; les traits éventuels entre jalons servent seulement
+de guides. Le dernier point visible n'est pas placé arbitrairement au
+31 décembre et aucun plateau n'est prolongé après ce point.
+
+Pour **268967**, le défaut de calendrier ressort dans les deux modèles.
+Notre ancien nominal est à 0,22 million au repère du 30 juin, contre une
+lecture d'environ 0,20–0,25 million pour Mines Albi et 0,45–0,70 million pour
+la production estimée sur la photo. Au repère du 30 septembre, notre nominal
+est à 1,19 million, contre environ 0,65–0,90 pour Mines Albi et 0,80–1,00 pour
+la production estimée. Les dates photographiées sont incertaines d'environ
+deux semaines : le tableau présente aussi la plage de notre cumul sur toute
+cette fenêtre. Les modèles produisent peu au début puis rattrapent fortement ;
+un volume final seul ne permet pas de valider le calendrier.
+
+Pour **268091**, Mines Albi prend beaucoup d'avance au premier trimestre,
+puis la production estimée le rattrape. Notre nominal est proche de cette
+estimation au milieu de l'année, mais reste plus bas au dernier point visible.
+Ce constat est visuel et descriptif, sans classement statistique des modèles.
+
+L'année complète de notre courbe provient toujours de l'**ancien nominal**.
+Les nouveaux essais hebdomadaire et mensuel restent arrêtés au 15 mai ; leurs
+valeurs sont inconnues après cette date, sans ligne horizontale artificielle.
+Aucun calcul de simulation ni aucun paramètre MRP n'est changé pour ajuster
+les courbes à la photographie. Les preuves de cette extension sont sous
+`artifacts/testing/comparaison_photos_mines_20261113/`.
+
 ## Résultats et statut des calculs
 
 Les deux calculs de 60 jours sont terminés : même demande réelle, mêmes
