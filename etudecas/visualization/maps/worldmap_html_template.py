@@ -4160,6 +4160,7 @@ def html_template(
     let hoverClearTimeout = null;
     let simulatedRiskViewMode = "state";
     let selectedSimulatedRiskCascadeKey = "";
+    let simulatedRiskCascadeViewMode = "incidents";
     let simulatedRiskCascadeStageFilter = "all";
     let simulatedRiskCascadeFamilyFilter = "all";
     let simulatedRiskCascadeTextFilter = "";
@@ -8973,7 +8974,37 @@ def html_template(
       }};
     }}
 
+    function simulatedRiskCascadeViewSelectHtml(id) {{
+      const paths = (SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_path_groups || []).length;
+      const incidents = (SIMULATED_RISK_GLOBAL_DIAGNOSTIC.events || []).length;
+      return `<label>Afficher <select id="${{id}}"><option value="paths">Parcours regroupés (${{paths}})</option><option value="incidents">Tous les incidents (${{incidents}})</option></select></label>`;
+    }}
+
+    function setSimulatedRiskCascadeViewMode(mode) {{
+      simulatedRiskCascadeViewMode = mode === "paths" ? "paths" : "incidents";
+      selectedSimulatedRiskCascadeKey = "";
+      updateSimulatedRiskControls();
+      renderSimulatedRiskGlobalDiagnostic();
+      draw();
+    }}
+
+    function bindSimulatedRiskCascadeViewSelect(select) {{
+      if (!select) return;
+      select.value = simulatedRiskCascadeViewMode;
+      if (!select.dataset.cascadeViewBound) {{
+        select.dataset.cascadeViewBound = "1";
+        select.addEventListener("change", event => setSimulatedRiskCascadeViewMode(event.target.value));
+      }}
+    }}
+
+    function installSimulatedRiskCascadeViewSelect() {{
+      const box = document.getElementById("simulatedRiskControlsBox");
+      if (box && !document.getElementById("simulatedRiskCascadeViewMode")) box.insertAdjacentHTML("afterbegin", simulatedRiskCascadeViewSelectHtml("simulatedRiskCascadeViewMode"));
+      bindSimulatedRiskCascadeViewSelect(document.getElementById("simulatedRiskCascadeViewMode"));
+    }}
+
     function simulatedRiskCascadeRows() {{
+      if (simulatedRiskCascadeViewMode === "incidents") return (SIMULATED_RISK_GLOBAL_DIAGNOSTIC.events || []).map(row => ({{...row, ui_selection_key: `incident|${{row.event_id}}`}})).sort((a,b) => Number(b.impact_score || 0) - Number(a.impact_score || 0));
       const groupedRows = Array.isArray(SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_path_groups)
         ? SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_path_groups
         : [];
@@ -9060,7 +9091,7 @@ def html_template(
 
     function simulatedRiskCascadeKey(row, idx = 0) {{
       if (!row) return "";
-      return String(row.business_path_key || row.root_key || row.event_id || `${{row.stage || "cascade"}}|${{row.supplier_id || ""}}|${{row.item_id || ""}}|${{row.root_day ?? idx}}`);
+      return String(row.ui_selection_key || row.business_path_key || row.root_key || row.event_id || `${{row.stage || "cascade"}}|${{row.supplier_id || ""}}|${{row.item_id || ""}}|${{row.root_day ?? idx}}`);
     }}
 
     function simulatedRiskCascadeKeyForRow(row) {{
@@ -9108,6 +9139,8 @@ def html_template(
       const text = String(simulatedRiskCascadeTextFilter || "").trim().toLowerCase();
       if (text) {{
         const haystack = [
+          row.event_id,
+          ...(Array.isArray(row.event_ids) ? row.event_ids : []),
           row.root_cause_label,
           row.label,
           row.supplier_label,
@@ -9430,6 +9463,7 @@ def html_template(
     }}
 
     function setSelectedSimulatedRiskCascade(key, shouldDraw = true) {{
+      if (key) simulatedRiskCascadeViewMode = String(key).startsWith("incident|") ? "incidents" : "paths";
       selectedSimulatedRiskCascadeKey = String(key || "");
       const selected = selectedSimulatedRiskCascade();
       if (selectedSimulatedRiskCascadeKey && !selected) selectedSimulatedRiskCascadeKey = "";
@@ -9853,9 +9887,9 @@ def html_template(
       const rows = filteredSimulatedRiskCascadeRows();
       const selected = selectedSimulatedRiskCascade();
       const detailRow = selected || rows[0] || null;
-      const listHtml = diversifiedSimulatedRiskCascadeRows(rows, 80).map(simulatedRiskCascadeListItemHtml).join("");
+      const listHtml = diversifiedSimulatedRiskCascadeRows(rows, rows.length).map(simulatedRiskCascadeListItemHtml).join("");
       const html = `
-        <div id="simRiskCascadeExplorerHost" class="riskCascadeExplorer">
+        <div id="simRiskCascadeExplorerHost" class="riskCascadeExplorer">${{simulatedRiskCascadeViewSelectHtml("simRiskCascadeExplorerViewMode")}}
           <div class="riskScenarioSection">Explorateur de cascades dynamiques fournisseur</div>
           <div class="riskScenarioMuted">Lecture: selectionner une cascade pour voir la cause supply, l'effet local, la propagation aval, l'action recommandee et le surlignage carte.</div>
           <div class="riskCascadeExplorerControls">
@@ -9887,6 +9921,7 @@ def html_template(
         </div>
       `;
       container.insertAdjacentHTML("afterbegin", html);
+      bindSimulatedRiskCascadeViewSelect(document.getElementById("simRiskCascadeExplorerViewMode"));
       const stageFilter = document.getElementById("simRiskCascadeExplorerStageFilter");
       const familyFilter = document.getElementById("simRiskCascadeExplorerFamilyFilter");
       const textFilter = document.getElementById("simRiskCascadeExplorerTextFilter");
@@ -12258,6 +12293,7 @@ def html_template(
     }}
 
     function updateSimulatedRiskControls() {{
+      installSimulatedRiskCascadeViewSelect();
       normalizeSimulatedRiskViewMode();
       const hasState = simulatedRiskStateHasNodes();
       const hasCampaign = simulatedRiskCampaignHasNodes();
@@ -12332,7 +12368,7 @@ def html_template(
       }}
       if (cascadeSelect) {{
         const options = ['<option value="">Toutes les cascades</option>'];
-        diversifiedSimulatedRiskCascadeRows(filteredCascades, 120).forEach((row) => {{
+        diversifiedSimulatedRiskCascadeRows(filteredCascades, filteredCascades.length).forEach((row) => {{
           const key = simulatedRiskCascadeKeyForRow(row);
           const title = row.root_cause_label || row.label || key;
           const stage = simulatedRiskCascadeStageLabel(row);
