@@ -53,6 +53,32 @@ _CONTINUOUS_RELIEF_KEYS = {
     "maximum_relief_step_per_day",
 }
 
+_CUSTOMER_RELIEF_ACTIONS = frozenset({
+    "order_multiplier", "safety_stock_multiplier", "production_target_multiplier",
+})
+
+
+def _customer_relief_only_actions(actions: Mapping[str, Any]) -> bool:
+    """Prove reduction-only targets; timing and physical capacity stay neutral."""
+    if not isinstance(actions, Mapping):
+        return False
+    for name, bound in CONTROL_BOUNDS.items():
+        value = actions.get(name, bound.neutral)
+        if isinstance(value, bool):
+            return False
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return False
+        if not math.isfinite(number):
+            return False
+        if name in _CUSTOMER_RELIEF_ACTIONS:
+            if not 0.0 < number <= 1.0:
+                return False
+        elif number != float(bound.neutral):
+            return False
+    return True
+
 
 def _finite_number(
     value: Any,
@@ -125,6 +151,42 @@ class StateFeedbackControlProviderV3(StateFeedbackControlProviderV2):
             payload.get("continuous_relief")
         )
         self._continuous_enabled = bool(self._continuous_spec["enabled"])
+        # Check requested values too: the generic loader may clamp an unsafe
+        # request to a neutral bound. Such a policy is not qualified here.
+        self._customer_cover_requests_relief_only = True
+        for playbook in payload["playbooks"].values():
+            requested_commands = playbook.get("commands")
+            if requested_commands is None:
+                requested_commands = [playbook]
+            if not all(_customer_relief_only_actions(command.get("actions", {}))
+                       for command in requested_commands):
+                self._customer_cover_requests_relief_only = False
+
+    def supports_physical_customer_cover(self) -> bool:
+        """Qualify this V3's entire reachable action profile, not its file hash.
+
+        Every playbook, including fallback and unused playbooks, must only
+        reduce order/safety/production targets. V2 gates return to neutral;
+        slew interpolation cannot leave the interval between valid targets.
+        The continuous layer only changes order/production within its parsed
+        positive minima and one. This does not qualify arbitrary V3 controls.
+        """
+        if not self._customer_cover_requests_relief_only or self.fallback_policy not in self.playbooks:
+            return False
+        if not all(
+            _customer_relief_only_actions(command["actions"])
+            for commands in self.playbooks.values() for command in commands
+        ):
+            return False
+        for name in ("minimum_order_multiplier", "minimum_production_target_multiplier"):
+            value = self._continuous_spec[name]
+            if isinstance(value, bool) or not math.isfinite(float(value)) or not 0.0 < float(value) <= 1.0:
+                return False
+        for name in ("order_relief_gain", "production_relief_gain"):
+            value = self._continuous_spec[name]
+            if isinstance(value, bool) or not math.isfinite(float(value)) or not 0.0 <= float(value) <= 0.5:
+                return False
+        return all(math.isfinite(float(value)) and float(value) >= 0.0 for value in self.slew_limits.values())
 
     def _parse_continuous_relief(self, raw: Any) -> dict[str, Any]:
         label = "continuous_relief"
@@ -471,6 +533,7 @@ class StateFeedbackControlProviderV3(StateFeedbackControlProviderV2):
                 ),
                 "continuous_relief_integral_action": False,
                 "continuous_relief_future_information_access": False,
+                "physical_customer_cover_relief_only_capability": self.supports_physical_customer_cover(),
             }
         )
         return metadata

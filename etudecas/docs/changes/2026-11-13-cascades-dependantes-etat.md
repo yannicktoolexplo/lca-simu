@@ -1,5 +1,11 @@
 # Reprise des cascades dépendant de l'état — 13 novembre 2026
 
+Précision ultérieure de l'utilisateur : la référence visée est
+[`01_demonstration_complete`](2026-11-13-reference-01-risques-etat.md), qui combine
+risques endogènes et pilotage V3. Le présent suivi conserve l'investigation 2×2
+effectuée avant cette identification ; ses résultats ne constituent pas un
+rejeu de `01`.
+
 La demande est de reprendre la version la plus complète des cascades simulées,
 avec leurs réactions aux états de la chaîne, puis leurs effets sur les lots.
 Le suivi isolé des expéditions exposées livré le 12 novembre ne démontre pas

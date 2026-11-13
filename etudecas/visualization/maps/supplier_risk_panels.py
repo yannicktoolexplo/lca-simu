@@ -2131,9 +2131,9 @@ def build_simulated_supplier_risk_metrics(
         configured_source_counts: dict[str, int] = defaultdict(int)
         applied_source_counts: dict[str, int] = defaultdict(int)
         family_scores: dict[str, float] = defaultdict(float)
-        for event in configured_events:
-            family = supplier_risk_family_for_event(event)
-            source_kind = supplier_risk_event_source_kind(event)
+        for event_id in configured_ids:
+            family = event_family_by_id.get(event_id, "other")
+            source_kind = event_source_by_id.get(event_id, "scenario")
             family_counts[family] += 1
             configured_family_counts[family] += 1
             configured_source_counts[source_kind] += 1
@@ -2274,6 +2274,7 @@ def build_simulated_risk_global_diagnostic_payload(
         for event in configured_events
         if str(event.get("event_id") or "").strip()
     }
+    configured_events = list(event_by_id.values())
     applied_rows = read_csv_rows(data_root / "supplier_risk_events_applied_daily.csv")
     demand_rows = read_csv_rows(data_root / "production_demand_service_daily.csv")
     plan_rows = read_csv_rows(data_root / "production_plan_events.csv")

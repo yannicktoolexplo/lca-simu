@@ -102,6 +102,7 @@ from etudecas.simulation.engine.control_provider_v2 import (
 )
 
 from etudecas.simulation.engine.control_provider_v3 import (
+    StateFeedbackControlProviderV3,
     load_state_feedback_control_provider_v3,
 )
 
@@ -2947,15 +2948,31 @@ def resolve_depot_safety_protection(payload, *, source_policy_pairs, **route_con
     return {pair for depots in routes.values() for pair in depots if pair in source_policy_pairs}
 
 
+def customer_cover_supports_relief_only_v3(provider, *, control_probe=False):
+    """Only the concrete validated V3 reduction-only profile is qualified."""
+    return (not control_probe and type(provider) is StateFeedbackControlProviderV3
+            and provider.supports_physical_customer_cover())
+
+
+def validate_customer_cover_relief_order_multiplier(value):
+    """A qualified customer control may defer an order, never enlarge it."""
+    if isinstance(value, bool) or not math.isfinite(float(value)) or not 0.0 < float(value) <= 1.0:
+        raise ValueError("Qualified customer cover requires a finite relief-only order multiplier in (0, 1]")
+
+
 def resolve_customer_physical_cover(payload, *, nodes, demand_pairs, lanes_by_dest_item,
                                     dated_planning, stochastic_leads=False, warmup_days=0,
-                                    demand_perturbation=False, controls=False, review_days=1):
+                                    demand_perturbation=False, controls=False, review_days=1,
+                                    control_provider=None, control_probe=False):
     """Opt-in final-customer boundary; no new customer inventory policy is inferred."""
     if payload is None:
         return {}
     if payload != "physical_demand_cover_v1":
         raise ValueError("Unknown customer replenishment policy")
-    if not dated_planning or stochastic_leads or warmup_days or demand_perturbation or controls or review_days != 1:
+    has_controls = bool(controls or control_probe or getattr(control_provider, "enabled", False))
+    qualified_control = customer_cover_supports_relief_only_v3(control_provider, control_probe=control_probe)
+    if (not dated_planning or stochastic_leads or warmup_days or demand_perturbation or review_days != 1
+            or (has_controls and not qualified_control)):
         raise ValueError("Physical customer cover requires dated planning, deterministic daily review, known exogenous demand, no warmup or controls")
     kinds = {str(n.get("id")): n.get("type") for n in nodes}
     result = {}
@@ -13615,7 +13632,10 @@ def main() -> None:
         nodes=nodes, demand_pairs=demand_pairs, lanes_by_dest_item=lanes_by_dest_item,
         dated_planning=dated_component_planning, stochastic_leads=args.stochastic_lead_times,
         warmup_days=warmup_days, demand_perturbation=demand_perturbation.enabled,
-        controls=bool(control_provider.enabled or control_probe is not None), review_days=review_period_days)
+        controls=bool(control_provider.enabled or control_probe is not None), review_days=review_period_days,
+        control_provider=control_provider, control_probe=control_probe is not None)
+    customer_cover_v3_relief_only = bool(customer_physical_cover_routes
+        and customer_cover_supports_relief_only_v3(control_provider, control_probe=control_probe is not None))
     customer_demand_policy = graph_meta.get("customer_demand_policy")
     customer_demand_calendar = None
     customer_demand_policy_rows: list[dict[str, Any]] = []
@@ -20058,6 +20078,8 @@ def main() -> None:
                 needed = neutral_needed = decision["customer_physical_order_qty"]
             q_mrp_base_qty = max(0.0, neutral_needed)
             q_after_safety_stock_control_qty = max(0.0, needed)
+            if customer_cover_v3_relief_only and pair in customer_physical_cover_routes:
+                validate_customer_cover_relief_order_multiplier(order_multiplier)
             needed *= order_multiplier
             if pair in customer_known_demand_pairs:
                 needed = min(needed,customer_physical_cover_decisions[pair]["customer_physical_order_qty"])
@@ -24237,7 +24259,10 @@ def main() -> None:
                 "pending": "unallocated_shortage_remains_backlog_not_new_commitment_firm_allocated_shipments_netted_once",
                 "forecast_customer_stock_reserve": "zero_no_inferred_customer_safety_stock",
                 "constraints": "existing_dispatch_capacity_stock_lots_UN_and_transport_preserved",
-                "limits": "BASE_deterministic_daily_single_route_no_warmup_controls_or_demand_perturbation",
+                "limits": ("BASE_deterministic_daily_single_route_relief_only_V3_no_warmup_or_demand_perturbation"
+                           if customer_cover_v3_relief_only else
+                           "BASE_deterministic_daily_single_route_no_warmup_controls_or_demand_perturbation"),
+                **({"control_compatibility": "qualified_relief_only_v3_t_plus_1"} if customer_cover_v3_relief_only else {}),
             }} if customer_physical_cover_routes else {}),
             **({"customer_dispatch_forecast_policy": {
                 "schema_version": 1,"mode": "known_demand_only_v1",
