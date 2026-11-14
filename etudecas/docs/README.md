@@ -45,6 +45,11 @@ L'[audit des règles MRP du 14 novembre](changes/2026-11-14-audit-regles-mrp.md)
 examine chaque étape, sa place dans le système, ses preuves et les corrections
 prioritaires hors capacité ; le moteur et le nominal restent conservés.
 
+La [suite de l’audit et les tests discriminants](changes/2026-11-14-tests-regles-mrp.md)
+étend la couverture à 51 mécanismes : passage de mois dans le moteur, transferts,
+protection hebdomadaire, ordres fermes et information connue à la décision.
+Elle conserve les défauts reproduits et distingue les règles exécutées des règles seulement relues.
+
 ## Modifier le logiciel
 
 - [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).

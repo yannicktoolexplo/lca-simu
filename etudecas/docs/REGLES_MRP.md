@@ -1238,6 +1238,23 @@ Une promesse fournisseur ne prouve pas une expédition. Une réception physique
 ne prouve pas encore la disponibilité. La libération déplace une quantité du
 stock détenu vers le stock disponible sans créer une seconde réception.
 
+## Protection hebdomadaire particulière de 693055
+
+Le parcours `current` installe l’adaptateur `source_week_close_only_v1`
+pour 693055 à D1810 (`M-1810`). Il conserve les valeurs source des jours de
+sécurité, mais n’impose le plancher de stock qu’à la clôture du samedi.
+Entre ces clôtures, le plancher est relâché ; les besoins physiques datés
+restent présents et les stocks peuvent passer sous la protection source.
+
+Cette règle est une hypothèse active du modèle, pas une pratique industrielle
+confirmée. Elle ne s’applique pas automatiquement aux autres articles ni à
+D1920. Le calcul générique de protection quotidienne ne décrit donc pas à lui
+seul tout le parcours courant. La configuration est dans
+`config/mrp_reference_20261013/protocol.json`, et son consommateur dans
+`simulation/reference_mrp/weekly_protection.py`.
+La [suite de l’audit](changes/2026-11-14-tests-regles-mrp.md) compare les deux
+cadences avec les mêmes besoins, stocks et valeurs de protection.
+
 ## Règles de libération et de transfert actives
 
 | Flux | Traitement au site de fabrication | Transport paramétré | Traitement après réception à destination |
