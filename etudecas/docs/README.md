@@ -40,6 +40,11 @@ Le [recalcul hebdomadaire du reliquat mensuel](changes/2026-11-14-recalcul-hebdo
 ajoute la cadence demandée, son activation et la comparaison courte de ses
 effets sur les lots et l'attente client.
 
+Le [placement des fabrications selon la capacité](changes/2026-11-14-placement-capacitaire-production.md)
+réserve la charge avant lancement et compare deux essais de 135 jours au réel.
+Le gain synthétique ne se retrouve pas pour 268967 avec la capacité actuelle ;
+la comparaison précise aussi les limites de qualification et les quantités en transit.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes

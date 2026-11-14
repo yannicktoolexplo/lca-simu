@@ -367,6 +367,8 @@ def main() -> None:
     parser.add_argument('--forecast-consumption-policy',
                         choices=('weekly_actual_orders_v1', MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY),
                         help='Current reference only: explicit consumption variant; monthly variants require --days at most365.')
+    parser.add_argument('--production-capacity-planning-policy', choices=('finite_lot_calendar_v1',),
+                        help='Current reference only: explicitly place new production lots on known capacity.')
     parser.add_argument('--output-dir', type=Path)
     parser.add_argument('--with-map', action='store_true', help='Build the complete offline map with both lot views, annual panel and 2025 source comparisons.')
     parser.add_argument('--comparison-run', type=Path,
@@ -379,6 +381,10 @@ def main() -> None:
         parser.error('--days must be positive')
     if args.forecast_consumption_policy is not None and args.reference != 'current':
         parser.error('--forecast-consumption-policy requires --reference current')
+    if args.production_capacity_planning_policy is not None and args.reference != 'current':
+        parser.error('--production-capacity-planning-policy requires --reference current')
+    if args.production_capacity_planning_policy is not None and (args.days or 1825) > 365:
+        parser.error('Finite production placement requires --days at most365')
     if args.forecast_consumption_policy in (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY) and (args.days or 1825) > 365:
         parser.error('Monthly forecast-consumption variants require --days at most365')
     if args.reference == 'current':
@@ -399,6 +405,8 @@ def main() -> None:
                    '--output-dir', str(output)]
         if args.forecast_consumption_policy is not None:
             command.extend(['--forecast-consumption-policy', args.forecast_consumption_policy])
+        if args.production_capacity_planning_policy is not None:
+            command.extend(['--production-capacity-planning-policy', args.production_capacity_planning_policy])
         graph = output / 'input_graph.json'
         map_path = output / 'maps' / f'supply_graph_{output.name}.html'
         base_map_path = output / 'maps' / f'.base_supply_graph_{output.name}.html'
