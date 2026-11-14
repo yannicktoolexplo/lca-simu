@@ -4,7 +4,7 @@ Travail du 13 novembre 2026, sur `dev_yannick`, à partir du commit `6fcb2ba0c`.
 Les preuves sont conservées dans
 `etudecas/artifacts/testing/mensuel_mines_albi_20261113/`.
 
-Le [comparatif des volumes, des trois courbes et de la grille](../../resultats/comparaison_production_grille_mines_albi_volumes_20261114.html)
+Le [comparatif des écarts au réel, des trois courbes et de la grille](../../resultats/comparaison_production_ecarts_au_reel_20261114.html)
 réunit les données réelles, Mines Albi et notre simulateur hebdomadaire sur le
 même graphique pour chaque produit. Les versions précédentes restent conservées.
 **Conclusion : le programme est moins souvent révisé, mais la production ne
@@ -133,7 +133,7 @@ pas exécuté et la qualification globale antérieure reste refusée.
 
 #### Estimation de la grille d'acceptation — 14 novembre
 
-Le [comparatif avec les volumes et la grille Mines Albi](../../resultats/comparaison_production_grille_mines_albi_volumes_20261114.html)
+Le [comparatif avec les écarts au réel et la grille Mines Albi](../../resultats/comparaison_production_ecarts_au_reel_20261114.html)
 ajoute les sept critères à la même simulation annuelle archivée, sans modifier
 les trois courbes. Les chiffres Mines sont rapportés depuis la capture ; nos
 calculs utilisent les sources numériques. Leur code et leurs définitions
@@ -149,34 +149,44 @@ sans ventilation du contrôle : son inclusion reste une hypothèse de comparaiso
 | Critère estimé | Seuil de la capture | 268091 | 268967 |
 |---|---|---:|---:|
 | Conservation locale à Muret, écart maximal sur 365 jours | 0 UN | 0 UN | 0 UN |
-| Production annuelle simulée ; écart au réel distinct | ±10 % pour l'écart au réel | 4 825 715 UN ; écart non établi | 1 509 200 UN ; écart non établi |
+| Production annuelle simulée ; écart descriptif au cumul réel documenté | Critère annuel ±10 % non certifié | 4 825 715 UN ; −3,81 % au cumul documenté | 1 509 200 UN ; +19,41 % au cumul documenté |
 | Biais moyen du stock physique | ±10 % | +14,80 % | +17,99 % |
 | Pire trimestre, erreur de moyenne de stock | ≤30 % | 40,20 % | 73,91 % |
 | Corrélation des trajectoires de stock | ≥0,7 | 0,855 | 0,199 |
 | Relevés hebdomadaires au stock physique nul | 0 | 0 sur 52 | 0 sur 52 |
 | Gain face à un stock constant, erreur absolue moyenne | ≥25 % sous cette définition | −71,80 % | −35,05 % |
 
-Les **quantités simulées en fin de première année sont connues**. Elles sont
-comparées directement au dernier volume orange lu sur la photo :
+Les **quantités simulées en fin de première année sont connues**. La référence
+des écarts est désormais le **cumul réel documenté**, pour chaque simulateur.
+Toutes les quantités du tableau suivant sont en unités physiques :
 
-| Produit | Notre simulation au 31 décembre 2025 | Mines Albi, fin de courbe approximative | Écart entre les deux simulations |
-|---|---:|---:|---:|
-| 268091 | 4 825 715 UN | environ 4 800 000 UN | environ +0,5 % |
-| 268967 | 1 509 200 UN | environ 1 150 000 UN | environ +31,2 % |
+| Produit | Réel documenté | Mines, fin de photo | Écart Mines − réel | Notre fin 2025 | Écart notre simulation − réel |
+|---|---:|---:|---:|---:|---:|
+| 268091 | 5 016 700 | environ 4 800 000 | environ −216 700 ; −4,3 % | 4 825 715 | −190 985 ; −3,81 % |
+| 268967 | 1 263 850 | environ 1 150 000 | environ −113 850 ; −9,0 % | 1 509 200 | +245 350 ; +19,41 % |
 
-Pour 268091, l'écart est inférieur à la précision de lecture de la photo.
-Les dates finales Mines restent incertaines ; ces différences descriptives
-ne deviennent pas un critère d'erreur annuelle face à l'industriel.
-Le cumul industriel estimé depuis les emballages reste affiché séparément :
-5 016 700 UN sur 46 semaines et 1 263 850 UN sur 36 semaines documentées.
-Les [preuves de comparaison des volumes](../../artifacts/testing/production_fin_annee_20261114/final_manifest.json)
-complètent celles de la grille. La [version précédente](../../resultats/comparaison_production_grille_mines_albi_20261114.html)
+Formules : `écart_UN = volume_simulé − réel_documenté`, puis
+`écart_pourcent = 100 × écart_UN / réel_documenté`. `volume_simulé` désigne
+le volume comparé du simulateur, en unités ; `réel_documenté` le cumul de
+production industrielle estimée depuis les emballages sur les semaines
+renseignées ; `écart_UN` la différence signée en unités, `écart_pourcent`
+cette différence relative à la référence, en pourcentage.
+
+Cette comparaison des valeurs de fin de courbe reste **descriptive** : le réel
+ne couvre que 46 et 36 semaines, les dates finales et les volumes Mines sont
+incertains, et les couvertures diffèrent. Elle ne remplace pas un biais annuel
+industriel à périmètre identique et ne permet pas de certifier le seuil ±10 %.
+Le [manifeste des écarts au réel](../../artifacts/testing/ecarts_au_reel_20261114/final_manifest.json)
+documente cette limite et les contrôles. La [comparaison précédente entre les volumes](../../resultats/comparaison_production_grille_mines_albi_volumes_20261114.html)
 est conservée ; les six autres critères et les trois courbes restent inchangés.
 
 Le volume de production sur les **seules semaines connues** reste calculable :
 −4,38 % pour 268091 sur 46 semaines et −23,23 % pour 268967 sur 36 semaines.
 Ce ne sont pas des erreurs annuelles. Aucun score global comparable sur sept
 critères n'est attribué.
+Les volumes simulés hors des semaines industrielles renseignées, soit 28 800
+et 539 000 UN, expliquent la différence entre ce calcul à périodes identiques
+et les écarts descriptifs de fin de courbe affichés au-dessus.
 
 Les formules choisies sont :
 
