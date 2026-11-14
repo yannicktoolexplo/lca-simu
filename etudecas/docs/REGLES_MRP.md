@@ -1240,12 +1240,19 @@ stock détenu vers le stock disponible sans créer une seconde réception.
 
 ## Règles de libération et de transfert actives
 
-| Flux | Délai de disponibilité après arrivée physique | Transport conservé | Nœud de stockage pendant le traitement |
-|---|---:|---:|---:|
-| 268091 Avène → Muret | 10 jours ouvrés après l’arrivée | environ 2,5 jours | Muret : physiquement reçu, détenu puis disponible |
-| 268967 Gien → Muret | 15 jours ouvrés après l’arrivée | environ 2,5 jours | Muret : physiquement reçu, détenu puis disponible |
-| 773474 Gaillac → Gien | 33 jours ouvrés | 10 jours calendaires | 6 jours ouvrés |
-| 693055 Gaillac → Avène | 28 jours ouvrés | 7 jours calendaires | 7 jours ouvrés |
+| Flux | Traitement au site de fabrication | Transport paramétré | Traitement après réception à destination |
+|---|---|---|---|
+| 268091 Avène → Muret | Pas de contrôle PF supplémentaire avant ce transfert | 2,5 jours, arrondis à 2 dans l'exécution | 10 jours ouvrés à Muret |
+| 268967 Gien → Muret | Pas de contrôle PF supplémentaire avant ce transfert | 2,5 jours, arrondis à 2 dans l'exécution | 15 jours ouvrés à Muret |
+| 773474 Gaillac → Gien | 33 jours ouvrés à Gaillac après achèvement simulé | 10 jours calendaires | 6 jours ouvrés à Gien |
+| 693055 Gaillac → Avène | 28 jours ouvrés à Gaillac après achèvement simulé | 7 jours calendaires | 7 jours ouvrés à Avène |
+
+Ce tableau décrit les paramètres exécutés, pas des durées industrielles toutes
+identifiées. Pour 773474, placer les 33 jours après l'achèvement est une hypothèse
+explicite ; les 10 jours issus de FIA ne prouvent pas seuls un transit physique.
+Pour 693055, les 7 jours de transport restent une hypothèse distincte de la
+référence FIA de 70 jours. L'[audit des règles du 14 novembre](changes/2026-11-14-audit-regles-mrp.md)
+distingue les règles à conserver, corriger ou confirmer, sans changer ces paramètres.
 
 Pour les deux PF, la fabrication termine à l’usine, le lot suit le transport
 existant, puis le stock est enregistré physiquement à Muret comme détenu pendant
