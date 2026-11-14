@@ -1596,6 +1596,43 @@ Par ordre d’impact structurel :
 - Les invariants CSV prouvent le calcul et sa traçabilité ; ils ne certifient pas
   à eux seuls que le modèle reproduit parfaitement l’ERP industriel.
 
+## Variante explicite de placement sur capacité
+
+`--production-capacity-planning-policy finite_lot_calendar_v1` place les nouvelles
+propositions de fabrication sur la capacité déclarée, après calcul des besoins
+nets et des lots. Cette option ne modifie pas la référence par défaut. Elle est
+limitée à 365 jours et exige le calendrier daté exact, la traçabilité des lots et
+la continuation des lots d'une campagne déjà engagée dans la même journée.
+
+Pour chaque usine et article, la somme du travail réservé et du nouveau travail
+d'une journée ne dépasse pas sa capacité. Un lot de 100 unités à 25 unités par
+jour occupe quatre journées. Les dates sont placées au plus tard parmi les
+créneaux admissibles, après recherche d'un calendrier réalisable ; un besoin
+déjà en retard ne fait pas avancer tous les besoins lointains. Quantité,
+identifiant et date de besoin restent ceux de la proposition MRP.
+
+Les fabrications engagées réservent seulement leur travail restant, sans
+refabriquer les quantités déjà exécutées. Le conditionnement initial réserve
+également la machine à partir de sa date connue. Le soir utilise les créneaux à
+partir du lendemain ; le recalcul du matin utilise la capacité restante connue
+ce jour-là. Les besoins de composants suivent la nouvelle date de lancement.
+Le dépôt 1920 conserve ses besoins nets, sa sécurité source et l'absence de lot
+usine imposé au transfert.
+
+La disponibilité planifiée est le maximum entre le calendrier existant lié au
+lancement et la fin du travail suivie du contrôle. `tau_process` reste une marge
+de planification : il n'est pas ajouté comme durée physique après fabrication.
+L'audit `production_capacity_plan_daily.csv` distingue la décision, le besoin,
+le lancement, les journées de travail, la fin physique et la disponibilité.
+
+Limites : la capacité future est une hypothèse nominale, non une observation
+future ; les matières sont contrôlées lors de l'exécution. Le plafond de
+lancements hebdomadaire reste contrôlé à l'exécution, sans réservation dans ce
+calendrier. Les machines partagées entre articles et le gel industriel de quatre
+ou huit semaines ne sont pas déduits. Les dates promises des engagements
+existants ne sont pas recalculées conjointement avec le conditionnement initial.
+Ce placement ne constitue donc pas un ordonnanceur industriel complet.
+
 ## Sources actives du calcul
 
 - `etudecas/config/mrp_reference_20261013.json` ;

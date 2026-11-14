@@ -642,6 +642,8 @@ def main(argv=None):
     parser.add_argument("--forecast-consumption-policy",
         choices=("weekly_actual_orders_v1", MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY),
         help="Explicit forecast-consumption variant; omitted preserves the retained reference")
+    parser.add_argument("--production-capacity-planning-policy", choices=("finite_lot_calendar_v1",),
+        help="Explicit placement of new lots on known capacity; omitted preserves the retained reference")
     parser.add_argument("--scan3-mode", choices=SCAN3_MODES, default="legacy_residual",
         help="Keep the delivered residual injection, or retain J/Scan3 as audit evidence only")
     parser.add_argument("--prepare-only", action="store_true")
@@ -651,6 +653,8 @@ def main(argv=None):
         raise ValueError("Current reference supports 1 to1825 days, nominal only")
     if args.forecast_consumption_policy in (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY) and args.days > 365:
         raise ValueError("Monthly forecast-consumption variants are limited to365 days")
+    if args.production_capacity_planning_policy is not None and args.days > 365:
+        raise ValueError("Finite production placement is limited to365 days")
     validate_scan3_mode(args.scan3_mode, args.days)
     output = Path(args.output_dir).resolve()
     if not output.is_relative_to(ROOT/"etudecas") or output.exists():
@@ -665,6 +669,9 @@ def main(argv=None):
             tail[tail.index("--forecast-consumption-policy") + 1] = args.forecast_consumption_policy
         else:
             tail.extend(["--forecast-consumption-policy", args.forecast_consumption_policy])
+    if args.production_capacity_planning_policy is not None:
+        graph["meta"]["production_capacity_planning_policy"] = args.production_capacity_planning_policy
+        tail.extend(["--production-capacity-planning-policy", args.production_capacity_planning_policy])
     for placeholder, value in (("__INPUT_GRAPH__", rel(output/"input_graph.json")),
                                ("__OUTPUT_DIR__", rel(output)), ("__DAYS__", str(args.days))):
         tail[tail.index(placeholder)] = value
@@ -675,6 +682,7 @@ def main(argv=None):
         forecast_mode=forecast_mode, scan3_reconciliation_mode=args.scan3_mode,
         forecast_consumption_policy=graph["meta"].get("forecast_consumption_policy"),
         forecast_consumption_override=args.forecast_consumption_policy,
+        production_capacity_planning_policy=graph["meta"].get("production_capacity_planning_policy"),
         customer_demand_policy=CUSTOMER_DEMAND_MODE,
         customer_demand_source=graph["meta"]["current_reference_customer_demand_source"],
         last_simulated_date=(ORIGIN+timedelta(days=args.days-1)).isoformat(),

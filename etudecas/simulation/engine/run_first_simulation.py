@@ -40,6 +40,18 @@ from etudecas.simulation.engine.monthly_forecast import (
     calendar_month_bounds, remaining_month_budget, weekly_review_month_budget,
 )
 MONTHLY_FORECAST_POLICIES = (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY)
+from etudecas.simulation.engine.finite_production_schedule import (
+    ProductionLotRequest, schedule_production_lots,
+)
+FINITE_PRODUCTION_POLICY = "finite_lot_calendar_v1"
+FINITE_PRODUCTION_FIELDS = [
+    "decision_day", "phase", "node_id", "item_id", "policy", "proposal_id", "qty",
+    "requested_day", "baseline_release_day", "baseline_available_day", "planned_start_day",
+    "physical_finish_day", "available_day", "work_days", "allocations_json",
+    "reserved_allocations_json", "capacity_exceptions_json",
+    "nominal_capacity_qty", "capacity_known_day", "first_work_day", "reserved_work_qty",
+    "delay_days", "start_margin_shortfall_days", "status",
+]
 from etudecas.simulation.engine.mrp_planning import (
     ExternalComponentDemandCalendar, FirmReceipt, LotSizing, Requirement, SupplierOffer,
     plan_dated_requirements, plan_sourced_requirements, serve_external_component_requirements,
@@ -4280,6 +4292,7 @@ def plan_component_network(
     production_floor_pairs: set | None = None,
     campaign_receipt_context_by_pair: Mapping | None = None,
     manufacturing_calendar_by_pair: Mapping | None = None,
+    manufacturing_capacity_by_pair: Mapping | None = None,
     source_safety_by_pair: Mapping | None = None,
     safety_requirements_by_pair: Mapping | None = None,
     allocated_sourcing_by_pair: Mapping | None = None,
@@ -4425,6 +4438,7 @@ def plan_component_network(
                 or not isinstance(context, dict) or context.get("fixed_floor_mode") != "additive"):
             raise ValueError("Internal anticipation requires an explicitly protected pure transfer and additive source safety")
     plans, reserve_quantities, sourced_plans, protected_plans = {}, {}, {}, {}
+    capacity_audits = {}
     applied_protection_points, coverage_protection_audits = {}, {}
     industrial_audits, prospective_audits, anticipated_audits, source_safety_audits = {}, {}, {}, {}
     manufactured_output_audits = {}
@@ -4658,6 +4672,13 @@ def plan_component_network(
             if pair in protected_plans:
                 protected_plans[pair] = replace(protected_plans[pair], plan=plan,
                     protection=manufacturing_protection_balances(plan, applied_protection_points[pair]))
+        if pair in (manufacturing_capacity_by_pair or {}):
+            plan, capacity_rows = finite_manufacturing_plan(plan, requirements=pair_requirements,
+                firm_receipts=receipts.get(pair, ()), context=manufacturing_capacity_by_pair[pair])
+            capacity_audits[pair] = capacity_rows
+            if pair in protected_plans:
+                protected_plans[pair] = replace(protected_plans[pair], plan=plan,
+                    protection=manufacturing_protection_balances(plan, applied_protection_points[pair]))
         plans[pair] = plan
         for proposal in plan.proposals:
             if pair in (allowed_industrial_internal | allowed_anticipated_internal) and proposal.qty <= LOT_TRACE_EPS:
@@ -4753,6 +4774,14 @@ def plan_component_network(
             if pair in protected_plans:
                 protected_plans[pair] = replace(protected_plans[pair], plan=updated_plan,
                     protection=manufacturing_protection_balances(updated_plan, applied_protection_points[pair]))
+        if pair in (manufacturing_capacity_by_pair or {}):
+            updated_plan, capacity_rows = finite_manufacturing_plan(updated_plan,
+                requirements=requirements[pair], firm_receipts=receipts[pair],
+                context=manufacturing_capacity_by_pair[pair])
+            capacity_audits[pair] = capacity_rows
+            if pair in protected_plans:
+                protected_plans[pair] = replace(protected_plans[pair], plan=updated_plan,
+                    protection=manufacturing_protection_balances(updated_plan, applied_protection_points[pair]))
         # With firm quantities allocated first even when late, changing only a
         # firm date cannot change the uncovered quantities or new proposal dates.
         # Fail explicitly if that planner contract changes: upstream requirements
@@ -4764,6 +4793,7 @@ def plan_component_network(
         "campaign_remaining_qty": campaign_requirements.get(pair, 0.0),
         "reserve_requirement_qty": reserve_quantities.get(pair, 0.0),
         "firm_receipts": receipts.get(pair, ()),
+        **({"finite_capacity_plan": capacity_audits[pair]} if pair in capacity_audits else {}),
         **({"campaign_credit_canonicalization": campaign_credit_canonicalizations[pair]}
            if pair in campaign_credit_canonicalizations else {}),
         **({"sourced_plan": sourced_plans[pair]} if pair in sourced_plans else {}),
@@ -5648,6 +5678,110 @@ def manufacturing_controlled_capacity(nominal_capacity, *, capacity_multiplier):
     return nominal_capacity * capacity_multiplier if nominal_capacity > 0.0 else float("inf")
 
 
+def finite_manufacturing_plan(plan, *, requirements, firm_receipts, context):
+    """Reserve known production capacity without changing a netted lot quantity.
+
+    Source tau remains in the original start-to-availability calendar. Physical
+    work and quality availability are evaluated separately, then their maximum
+    is used; no extra tau duration is appended to physical work. Future rates
+    are the declared nominal assumption, never realized future risk events.
+    Component feasibility remains conditional on the dated upstream plan.
+    """
+    if not plan.proposals:
+        return plan, []
+    if not context.get("intraday", False):
+        raise ValueError("Finite production planning requires intraday continuation of engaged physical lots")
+    rate = float(context["capacity_qty"])
+    if not math.isfinite(rate) or rate <= 0:
+        raise ValueError("Finite production planning requires an explicit positive capacity")
+    first = max(plan.decision_day, context["first_work_day"])
+    committed = tuple(context.get("opening_work", ()))
+    active = float(context.get("active_remaining_qty", 0.0))
+    total_work = math.fsum(r.qty for r in plan.proposals) + active + math.fsum(r[2] for r in committed)
+    through = max(max(r.requested_day for r in plan.proposals),
+                  max((r[1] for r in committed), default=first), first)
+    through += max(366, math.ceil(total_work / rate) + 31)
+    if through - first > 3660:
+        raise ValueError("Finite production calendar exceeds its bounded ten-year planning support")
+    closed = set(context.get("closed_days", ()))
+    capacity = {d: (0.0 if d in closed else rate) for d in range(first, through + 1)}
+    if context.get("current_capacity_qty") is not None and first == plan.decision_day:
+        capacity[first] = min(capacity[first], max(0.0, context["current_capacity_qty"]))
+    reserved = {d: 0.0 for d in capacity}
+    # Initial conditioning consumes the same machine before new production.
+    # Its source G date is a known earliest date, not future observed execution.
+    for _identity, earliest, quantity in sorted(committed, key=lambda row: (row[1], row[0])):
+        left = float(quantity)
+        for d in range(max(first, earliest), through + 1):
+            used = min(left, max(0.0, capacity[d] - reserved[d]))
+            reserved[d] += used; left -= used
+            if left <= LOT_TRACE_EPS:
+                break
+        if left > LOT_TRACE_EPS:
+            raise ValueError("Initial production work exceeds the finite capacity calendar")
+    active_finish = first - 1
+    left = active
+    for d in range(first, through + 1):
+        if left <= LOT_TRACE_EPS:
+            break
+        used = min(left, max(0.0, capacity[d] - reserved[d]))
+        reserved[d] += used; left -= used
+        if used > 0:
+            active_finish = d
+    if left > LOT_TRACE_EPS:
+        raise ValueError("Engaged production work exceeds the finite capacity calendar")
+    # The controller cannot start a new campaign during a day that began with
+    # an active one; intraday continuation only finishes its already engaged lots.
+    first_new = max(first, active_finish + 1) if active > LOT_TRACE_EPS else first
+    supply_context = dict(context["supply_calendar"])
+    start_calendar = dated_supply_release_calendar(
+        decision_day=first_new, through_day=through, **supply_context)
+    allowed_starts = {d for d, _available in start_calendar if d <= through}
+    by_start, index = {}, 0
+    for d in range(first_new, through + 1):
+        while start_calendar[index][0] < d:
+            index += 1
+        by_start[d] = start_calendar[index][1]
+    receipt_days = supply_context.get("receipt_days", 0)
+    by_finish = {d: supplier_receipt_available_day(d, receipt_days,
+        origin_date=supply_context["origin_date"], calendar="monday_friday",
+        nonworking_dates=supply_context.get("receipt_nonworking_dates", frozenset()))
+        for d in range(first_new, through + 1)}
+    requests = []
+    for row in plan.proposals:
+        physical_due = max((d for d, available in by_finish.items() if available <= row.requested_day),
+                           default=first_new - 1)
+        requests.append(ProductionLotRequest(row.proposal_id, row.qty, physical_due,
+            row.requested_day, row.release_day))
+    result = schedule_production_lots(requests, decision_day=plan.decision_day,
+        first_work_day=first_new, capacity_known_day=context["known_day"],
+        capacity_by_day={d: capacity[d] for d in range(first_new, through + 1)},
+        reserved_by_day={d: reserved[d] for d in range(first_new, through + 1)},
+        availability_by_start_day=by_start, availability_by_finish_day=by_finish,
+        allow_intraday=context.get("intraday", False), allowed_start_days=allowed_starts)
+    old = {row.proposal_id: row for row in plan.proposals}
+    moved, audit = [], []
+    for lot in result.lots:
+        if lot.start_day is None:
+            raise ValueError("A new lot cannot be placed within the finite capacity calendar")
+        row = old[lot.request.proposal_id]
+        moved.append(replace(row, release_day=lot.start_day, available_day=lot.available_day))
+        audit.append(dict(policy=FINITE_PRODUCTION_POLICY, proposal_id=row.proposal_id, qty=row.qty,
+            requested_day=row.requested_day, baseline_release_day=row.release_day,
+            baseline_available_day=row.available_day, planned_start_day=lot.start_day,
+            physical_finish_day=lot.physical_finish_day, available_day=lot.available_day,
+            work_days=len(lot.allocations), allocations_json=json.dumps(lot.allocations, separators=(",", ":")),
+            reserved_allocations_json=json.dumps({d:q for d,q in reserved.items() if q > 0}, separators=(",", ":")),
+            capacity_exceptions_json=json.dumps({d:q for d,q in capacity.items() if q != rate}, separators=(",", ":")),
+            nominal_capacity_qty=rate, capacity_known_day=context["known_day"], first_work_day=first_new,
+            reserved_work_qty=active + math.fsum(r[2] for r in committed), delay_days=lot.delay_days,
+            start_margin_shortfall_days=lot.start_margin_shortfall_days, status=lot.status))
+    moved_by_id = {row.proposal_id: row for row in moved}
+    scheduled = reschedule_dated_plan(plan, requirements=requirements, firm_receipts=firm_receipts,
+        proposals=[moved_by_id[row.proposal_id] for row in plan.proposals])
+    return scheduled, audit
+
+
 def calendarize_manufacturing_plan(plan, *, requirements, firm_receipts, closed_days,
                                   process_days, receipt_days=0, origin_date="2025-01-01",
                                   receipt_nonworking_dates=frozenset()):
@@ -5725,7 +5859,8 @@ def dated_supply_release_calendar(*, decision_day, through_day, physical_lead_da
 def dated_production_release(*, decision_day, snapshot_day, requirements, available_qty,
                              firm_receipts, lead_days, lot_sizing, protection=(),
                              campaign_remaining_qty=0.0, executed_wip_qty=0.0,
-                             manufacturing_calendar=None, availability_by_release=None):
+                             manufacturing_calendar=None, availability_by_release=None,
+                             manufacturing_capacity=None, capacity_audit=None):
     """Re-net last evening's dated needs against today's physical availability.
 
     Only a new launch is requested. Existing campaigns continue through their
@@ -5752,6 +5887,11 @@ def dated_production_release(*, decision_day, snapshot_day, requirements, availa
     if manufacturing_calendar is not None:
         plan = calendarize_manufacturing_plan(plan, requirements=requirements,
             firm_receipts=receipts, **manufacturing_calendar)
+    if manufacturing_capacity is not None:
+        plan, rows = finite_manufacturing_plan(plan, requirements=requirements,
+            firm_receipts=receipts, context=manufacturing_capacity)
+        if capacity_audit is not None:
+            capacity_audit.extend(rows)
     due = math.fsum(r.qty for r in plan.proposals if r.release_day <= decision_day)
     return due, plan
 
@@ -7418,6 +7558,8 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Explicit planning-only consumption override; default preserves graph policy. Monthly candidate uses a calendar-month budget known at opening and is limited to365days.",
     )
+    parser.add_argument("--production-capacity-planning-policy", choices=[FINITE_PRODUCTION_POLICY],
+        default=None, help="Explicit finite-capacity placement of new lots; leaves physical capacities and nominal reference unchanged.")
     parser.add_argument(
         "--mrp-nonbinding-standard-order-pair", action="append", default=[], metavar="NODE,ITEM",
         help="Treat the standard order quantity as a reference, not a mandatory multiple or delivery-splitting rule, for this destination pair.",
@@ -12535,6 +12677,17 @@ def main() -> None:
     production_execution_policy = graph_meta.get("production_execution_policy")
     if production_execution_policy not in (None, "dated_releases_v1"):
         raise ValueError("Unknown production execution policy")
+    production_capacity_planning_policy = (args.production_capacity_planning_policy
+        or graph_meta.get("production_capacity_planning_policy"))
+    if production_capacity_planning_policy not in (None, FINITE_PRODUCTION_POLICY):
+        raise ValueError("Unknown finite production capacity planning policy")
+    if production_capacity_planning_policy is not None and sim_days > 365:
+        raise ValueError("Finite production placement is limited to365days before long-horizon qualification")
+    if production_capacity_planning_policy is not None and (
+            production_execution_policy != "dated_releases_v1"
+            or graph_meta.get("dated_supply_calendar_policy") != "exact_release_calendar_v1"
+            or not args.lot_trace or warmup_days):
+        raise ValueError("Finite production planning requires dated lot-traced exact-calendar execution without warmup")
     production_launch_commitment_policy = graph_meta.get("production_launch_commitment_policy")
     if production_launch_commitment_policy not in (None, "first_physical_execution_v1"):
         raise ValueError("Unknown production launch commitment policy")
@@ -12544,6 +12697,8 @@ def main() -> None:
     production_intraday_policy = graph_meta.get("production_intraday_policy")
     if production_intraday_policy not in (None, "continue_engaged_campaign_v1"):
         raise ValueError("Unknown intraday production policy")
+    if production_capacity_planning_policy is not None and production_intraday_policy is None:
+        raise ValueError("Finite production planning requires intraday continuation of engaged physical lots")
     if production_intraday_policy is not None and (
             production_execution_policy != "dated_releases_v1" or not args.lot_trace):
         raise ValueError("Intraday campaigns require dated production and physical lot tracing")
@@ -14152,6 +14307,7 @@ def main() -> None:
     cum_output_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     production_execution_snapshots: dict = {}
+    production_capacity_plan_rows: list[dict] = []
     production_execution_snapshot_rows: list[dict] = []
     production_launch_commitment_rows: list[dict] = []
     production_programme_book = None
@@ -15793,6 +15949,33 @@ def main() -> None:
     if dated_component_planning and args.output_profile == "full":
         with data_path(output_dir, "mrp_dated_plan_weekly.csv").open("w", encoding="utf-8", newline="") as f:
             csv.DictWriter(f, fieldnames=dated_plan_weekly_fields).writeheader()
+    finite_capacity_scope = ({pair for pair in produced_pairs
+        if math.isfinite(process_capacity_by_output_pair.get(pair, 0.0))
+        and process_capacity_by_output_pair.get(pair, 0.0) > 0
+        and pair in exact_supply_calendar_contexts}
+        if production_capacity_planning_policy is not None else set())
+    if production_capacity_planning_policy is not None and not finite_capacity_scope:
+        raise ValueError("Finite production planning has no output with a known positive capacity")
+
+    def finite_capacity_context(pair, *, decision_day, first_work_day, current_capacity_qty=None):
+        if pair not in finite_capacity_scope:
+            return None
+        opening = tuple((str(row["source_marker"]), int(row["physical_delivery_day"]),
+                         max(0.0, row["target_qty"] - row["completed_qty"]))
+            for row in (opening_pack_orders.rows.values() if opening_pack_orders is not None else ())
+            if row["pair"] == pair and row["target_qty"] > row["completed_qty"])
+        return dict(capacity_qty=process_capacity_by_output_pair[pair], known_day=decision_day,
+            first_work_day=first_work_day, current_capacity_qty=current_capacity_qty,
+            closed_days=manufacturing_closed_days.get(pair, ()),
+            active_remaining_qty=max(0.0, open_production_campaign_qty_by_pair.get(pair, 0.0)),
+            opening_work=opening, supply_calendar=exact_supply_calendar_contexts[pair],
+            intraday=production_intraday_policy is not None)
+
+    def record_finite_capacity(rows, pair, *, decision_day, phase):
+        if decision_day >= warmup_days:
+            production_capacity_plan_rows.extend(dict(row, decision_day=decision_day-warmup_days,
+                phase=phase, node_id=pair[0], item_id=pair[1]) for row in rows)
+
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
         output_day = day - warmup_days
@@ -17773,6 +17956,7 @@ def main() -> None:
                         execution_lead = supplier_receipt_available_day(day + base_lead, release_policy["receipt_days"],
                             origin_date=safety_calendar["start_date"], calendar="monday_friday",
                             nonworking_dates=site_receipt_nonworking_dates.get(out_pair[0], frozenset())) - day
+                    capacity_release_audit = []
                     desired_qty, refreshed_plan = dated_production_release(
                         decision_day=day, snapshot_day=snapshot.get("decision_day"),
                         requirements=snapshot.get("requirements", ()), available_qty=max(0.0, stock[out_pair]),
@@ -17781,12 +17965,16 @@ def main() -> None:
                         campaign_remaining_qty=campaign_remaining_start_qty,
                         executed_wip_qty=active_wip.executed_qty if active_wip is not None else 0.0,
                         manufacturing_calendar=manufacturing_calendar_by_pair.get(out_pair),
+                        manufacturing_capacity=finite_capacity_context(out_pair, decision_day=day,
+                            first_work_day=day, current_capacity_qty=cap),
+                        capacity_audit=capacity_release_audit,
                         availability_by_release=(dated_supply_release_calendar(
                             decision_day=day, through_day=max(day, max((r.due_day for r in snapshot.get("requirements", ())), default=day),
                                 max((p.day for p in snapshot.get("protection", ())), default=day)),
                             **exact_supply_calendar_contexts[out_pair])
                             if out_pair in exact_supply_calendar_contexts else None),
                     )
+                    record_finite_capacity(capacity_release_audit, out_pair, decision_day=day, phase="morning_release")
                     # Local pilot: accept only at the physical execution instant.
                     # Until this point no programme credit or component has entered planning.
                     if (production_programme_book is not None and refreshed_plan is not None
@@ -19293,6 +19481,8 @@ def main() -> None:
                     receipt_nonworking_dates=site_receipt_nonworking_dates.get(pair[0], frozenset()),
                     origin_date=safety_calendar["start_date"]) for pair, policy in finished_goods_release_policies.items()} or None,
                 manufacturing_calendar_by_pair=manufacturing_calendar_by_pair or None,
+                manufacturing_capacity_by_pair={pair: finite_capacity_context(pair,
+                    decision_day=day, first_work_day=day+1) for pair in finite_capacity_scope} or None,
                 safety_requirements_by_pair=local_safety_forecast_inputs(local_safety_calendar,
                     decision_day=day, through_day=day+horizon, item_unit_map=item_unit_map),
                 source_safety_by_pair={pair: {
@@ -19379,6 +19569,8 @@ def main() -> None:
                 } for pair in produced_pairs}
             for planned_pair, plan in dated_plans.items():
                 audit = dated_plan_audits[planned_pair]
+                record_finite_capacity(audit.get("finite_capacity_plan", ()), planned_pair,
+                    decision_day=day, phase="evening_plan")
                 if record_day:
                     envelope = audit.get("industrial_purchase_envelope")
                     if envelope is not None:
@@ -22555,6 +22747,9 @@ def main() -> None:
             (production_execution_snapshots, closing_plans, closing_requirements,
              closing_audits) = reconcile_production_execution_snapshot(closing_inputs,
                 available_by_pair=stock, firm_receipts_by_pair=closing_firms, produced_pairs=produced_pairs)
+            for pair, closing_audit in closing_audits.items():
+                record_finite_capacity(closing_audit.get("finite_capacity_plan", ()), pair,
+                    decision_day=day, phase="closing_plan")
             if production_programme_journal is not None and record_day:
                 # Pure publication after today's movements; no plan or campaign is changed.
                 for observed_pair in sorted(produced_pairs):
@@ -24297,6 +24492,23 @@ def main() -> None:
                 "preserved": "BOM_forecasts_demands_stocks_safety_tau_process_quality_release_transport",
                 "constraint_csv": "one_row_per_physical_pass; sum_actual_qty_per_day; cap_qty_is_remaining_not_additive",
             }} if production_intraday_policy is not None else {}),
+            **({"production_capacity_planning_policy": {
+                "mode": production_capacity_planning_policy,
+                "scope": [list(pair) for pair in sorted(finite_capacity_scope)],
+                "unknown_capacity_pairs_not_scheduled": [list(pair) for pair in sorted(produced_pairs-finite_capacity_scope)],
+                "rule": "net_quantities_then_earliest_feasible_bounds_then_latest_noninterleaved_whole_lots",
+                "physical_capacity": "unchanged_nominal_rate_and_declared_closures; current_remaining_capacity_known_at_morning_release",
+                "future_capacity": "nominal_scenario_not_observed_future_risk_realizations",
+                "reserved_work": "remaining_engaged_work_and_pending_initial_conditioning_not_executed_WIP_or_finished_receipts",
+                "tau": "original_start_to_availability_margin_combined_by_maximum_with_physical_completion_and_control_not_added_twice",
+                "materials": "dated_BOM_exploded_at_scheduled_start; physical_execution_still_checks_materials; no_full_joint_capacity_material_optimizer",
+                "resources": "one_modeled_process_output_per_capacity_calendar; unmodeled_shared_product_load_is_unknown",
+                "weekly_launch_quota": "still_checked_at_physical_launch_not_reserved_by_this_calendar",
+                "existing_promises": "unchanged; initial_Pack_and_active_campaign_can_delay_an_existing_firm_receipt",
+                "industrial_frozen_horizon": "not_inferred_or_added_by_this_capacity_rule",
+                "audit_csv": "data/production_capacity_plan_daily.csv",
+                "audit_rows": len(production_capacity_plan_rows),
+            }} if production_capacity_planning_policy is not None else {}),
             **({"manufacturing_closures": {
                 "rows": graph_meta["manufacturing_closures"]["rows"],
                 "scope": [list(pair) for pair in sorted(manufacturing_closed_days)],
@@ -26171,6 +26383,12 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(demand_pair_rows)
+
+    if production_capacity_planning_policy is not None:
+        with data_path(output_dir, "production_capacity_plan_daily.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=FINITE_PRODUCTION_FIELDS)
+            writer.writeheader()
+            writer.writerows(production_capacity_plan_rows)
 
     if forecast_consumption_policy is not None:
         with data_path(output_dir, "mrp_forecast_consumption_daily.csv").open("w", encoding="utf-8", newline="") as f:
