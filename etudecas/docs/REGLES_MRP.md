@@ -749,8 +749,8 @@ Le candidat `calendar_month_actual_demand_v1` consomme le budget du **mois
 calendaire** avec la demande réelle déjà connue. Il s'active avec
 `--forecast-consumption-policy calendar_month_actual_demand_v1` sur le moteur
 ou le runner de sensibilité courant ; la référence hebdomadaire reste le défaut.
-Les points d'entrée `regenerate.py` et `current_reference.py` n'exposent pas ce
-nouvel argument. Le candidat est limité à 365 jours et à une origine en début
+Les points d'entrée `regenerate.py` et `current_reference.py` exposent également
+cet argument explicite. Le candidat est limité à 365 jours et à une origine en début
 de mois, en attendant sa qualification pour les projections plus longues.
 
 ```text
@@ -790,6 +790,57 @@ retard client, stock, encours et ordres fermes persistent.
 `budget_source_vintage_days`, `budget_source_rows`, `budget_fallback_days`,
 `budget_source_qty` et `budget_fallback_qty` dans le même CSV d'audit.
 `weekly_forecast_qty` reste vide pour ce candidat.
+
+### Recalcul hebdomadaire du reliquat mensuel
+
+La variante `calendar_month_weekly_review_v1` applique la cadence hebdomadaire
+décrite par l'utilisateur. À la fin du dimanche, après la demande de ce jour,
+elle prépare les jours suivants ; le taux reste fixe jusqu'à la prochaine revue.
+Le choix du dimanche est une convention déclarée, pas une date ERP observée.
+À l'ouverture du mois, le nouveau budget est réparti sur les jours du mois.
+
+```text
+reste_a_la_revue = max(budget_du_mois - demande_connue_a_la_revue, 0)
+taux_journalier = reste_a_la_revue / jours_du_mois_apres_la_revue
+besoin_de_la_semaine = taux_journalier × jours_de_cette_semaine_dans_le_mois
+```
+
+Dans la première formule, `budget_du_mois` est la prévision reconstruite avec
+les versions connues au premier jour ; `demande_connue_a_la_revue` est la demande
+réelle cumulée du mois jusqu'au dimanche inclus, livrée ou non ;
+`reste_a_la_revue` est le besoin prévisionnel résiduel, borné à zéro.
+Dans la deuxième, `taux_journalier` est la prévision par jour à venir ;
+`reste_a_la_revue` est ce reliquat ; `jours_du_mois_apres_la_revue` compte les jours
+calendaires restants. Sans jour restant, le taux est nul.
+Dans la troisième, `besoin_de_la_semaine` est la prévision de cette semaine ;
+`taux_journalier` est le taux figé à la revue ;
+`jours_de_cette_semaine_dans_le_mois` vaut sept pour une semaine entière et moins
+pour une semaine à cheval sur deux mois.
+
+Exemple sur quatre semaines entières : budget 1 000, demande connue 300 à la
+première revue → 700/3 par semaine. Demande supplémentaire de 250 à la revue
+suivante → 450/2 = 225 par semaine. La demande et les retards restent suivis
+chaque jour. Les ordres engagés, stocks et encours ne sont pas remis à zéro au
+changement de mois. La fabrication découle ensuite du MRP daté, avec ses stocks,
+réceptions, lots, délais et capacités ; ce calcul n'impose pas quatre lots égaux.
+
+Entre deux revues, distinguer le **reste comptable actualisé** du **programme
+prévisionnel figé**. Après une revue à 700/21 par jour, 100 de demande arrivent
+le lundi : le reste comptable devient 600, mais les vingt jours futurs restent
+prévus à 700/21 jusqu'à la revue suivante. Même en cas de dépassement du budget
+en cours de semaine, aucune remise à zéro anticipée du taux n'est ajoutée.
+
+L'audit exporte `review_observed_through_day` (dernier jour consommé pour le
+taux), `review_first_forecast_day` (premier jour de son application),
+`review_demand_qty`, `review_remaining_month_qty`, `review_future_days`,
+`unreviewed_actual_demand_qty` et `monthly_remaining_after_actual_qty`.
+`remaining_forecast_qty` est le taux figé multiplié par les jours futurs,
+et non nécessairement le reste comptable courant.
+
+Activation : `--forecast-consumption-policy calendar_month_weekly_review_v1`
+avec `--days` au plus 365. Les deux anciennes politiques restent disponibles.
+Les budgets mensuels, le repli source et l'absence de qualification industrielle
+gardent les mêmes limites que le candidat quotidien.
 
 ## 3. Construire les besoins datés de produits finis
 

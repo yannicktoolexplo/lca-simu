@@ -10,6 +10,9 @@ import subprocess
 import sys
 import time
 import uuid
+from etudecas.simulation.engine.monthly_forecast import (
+    MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -361,6 +364,9 @@ def main() -> None:
     parser.add_argument('--days', type=int, help='Omit to keep the retained 1825-day horizon.')
     parser.add_argument('--forecast-mode', choices=('source_priority', 'coherent_scenario'), default='coherent_scenario',
                         help='Current reference only: coherent_scenario is maintained; source_priority remains available explicitly for comparison.')
+    parser.add_argument('--forecast-consumption-policy',
+                        choices=('weekly_actual_orders_v1', MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY),
+                        help='Current reference only: explicit consumption variant; monthly variants require --days at most365.')
     parser.add_argument('--output-dir', type=Path)
     parser.add_argument('--with-map', action='store_true', help='Build the complete offline map with both lot views, annual panel and 2025 source comparisons.')
     parser.add_argument('--comparison-run', type=Path,
@@ -371,6 +377,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.days is not None and args.days < 1:
         parser.error('--days must be positive')
+    if args.forecast_consumption_policy is not None and args.reference != 'current':
+        parser.error('--forecast-consumption-policy requires --reference current')
+    if args.forecast_consumption_policy in (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY) and (args.days or 1825) > 365:
+        parser.error('Monthly forecast-consumption variants require --days at most365')
     if args.reference == 'current':
         if args.scenario != 'nominal' or args.delivery or args.base_map:
             parser.error('The current reference supports the nominal calculation and --with-map; historical risk deliveries require --reference historical_20260920.')
@@ -387,6 +397,8 @@ def main() -> None:
                    '--days', str(args.days if args.days is not None else 1825),
                    '--forecast-mode', args.forecast_mode,
                    '--output-dir', str(output)]
+        if args.forecast_consumption_policy is not None:
+            command.extend(['--forecast-consumption-policy', args.forecast_consumption_policy])
         graph = output / 'input_graph.json'
         map_path = output / 'maps' / f'supply_graph_{output.name}.html'
         base_map_path = output / 'maps' / f'.base_supply_graph_{output.name}.html'
