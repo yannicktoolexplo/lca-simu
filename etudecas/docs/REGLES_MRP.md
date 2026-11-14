@@ -1131,6 +1131,13 @@ le plan est recalculé.
 Pour 338929 à Avène et 333362 à Gien, la quantité standard source est marquée
 non contraignante : elle ne devient pas arbitrairement un minimum de commande.
 
+Le délai court annoncé pour 338929 suppose un stock prêt chez le fournisseur.
+La frontière fournisseur agrégée actuelle utilise capacité, lot, rendement et
+délai, mais ne déduit pas ce stock physique pour établir ses promesses. Une
+constante de 14 jours ne représente donc pas à elle seule la règle industrielle
+« délai court tant que le fournisseur possède le stock ». Cette condition, son
+épuisement et le réapprovisionnement associé restent à modéliser explicitement.
+
 Trois stocks gérés localement existent aussi hors explosion de BOM : 001848 à
 Gien, 001893 à Gaillac et 002612 à Gaillac. Leurs lots et protections sont des
 **politiques candidates du scénario**, pas des règles ERP industrielles prouvées.
@@ -1386,10 +1393,18 @@ consommation_autres_références[t]
 La convention métier cible est que `écart_raccordement_Scan3` serve à l'audit,
 sans devenir automatiquement un besoin, une commande ou un prélèvement.
 La référence historique conservée possède toutefois un adaptateur distinct :
-son mode par défaut `legacy_residual` peut publier un besoin résiduel observé
+son mode par défaut `legacy_residual` peut publier un besoin résiduel reconstruit
 en clôture de semaine. Le mode `audit_only` retire cette publication physique,
 mais conserve la réconciliation de planification propre à la référence.
 Ces mécanismes ne constituent pas une ventilation industrielle par format.
+
+La provenance par allocation distingue ce résidu d'une observation directe.
+L'étiquette quotidienne `physical_demand_source` ne garantit toutefois pas la
+provenance de toute la quantité consommée : un résidu reconstruit et une
+observation directe peuvent être regroupés sous une étiquette quotidienne
+déterminée par la présence de cette observation. Pour rapprocher les données industrielles,
+séparer les allocations observées, reconstruites et estimées ; ne pas compter
+toute une journée comme observée sur la seule base de cette colonne.
 
 | Périmètre contrôlé | Référence packaging | Matières ou vrac Scan3 | Théorie BOM pour le packaging | Écart constaté |
 |---|---:|---:|---:|---:|

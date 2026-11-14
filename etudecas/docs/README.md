@@ -50,6 +50,11 @@ La [suite de l’audit et les tests discriminants](changes/2026-11-14-tests-regl
 protection hebdomadaire, ordres fermes et information connue à la décision.
 Elle conserve les défauts reproduits et distingue les règles exécutées des règles seulement relues.
 
+Les [essais dédiés aux règles encore peu éprouvées](changes/2026-11-14-essais-regles-dedies.md)
+comparent les effets du lissage et de la marge de planification, suivent les lots
+jusqu'au dépôt et vérifient achats et libérations. Ils reproduisent aussi le
+défaut de provenance quotidienne et délimitent la règle fournisseur encore absente.
+
 ## Modifier le logiciel
 
 - [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).
