@@ -4,7 +4,7 @@ Travail du 13 novembre 2026, sur `dev_yannick`, à partir du commit `6fcb2ba0c`.
 Les preuves sont conservées dans
 `etudecas/artifacts/testing/mensuel_mines_albi_20261113/`.
 
-Le [comparatif à trois courbes complètes disponibles](../../resultats/comparaison_production_3_courbes_completes_20261114.html)
+Le [comparatif à trois courbes et grille d'acceptation](../../resultats/comparaison_production_grille_mines_albi_20261114.html)
 réunit les données réelles, Mines Albi et notre simulateur hebdomadaire sur le
 même graphique pour chaque produit. Les versions précédentes restent conservées.
 **Conclusion : le programme est moins souvent révisé, mais la production ne
@@ -130,6 +130,71 @@ Le [manifeste de livraison](../../artifacts/testing/trois_courbes_completes_2026
 relie les contrôles indépendants aux empreintes des données et du HTML livré.
 Les interactions JavaScript sont contrôlées en mémoire ; le navigateur n'est
 pas exécuté et la qualification globale antérieure reste refusée.
+
+#### Estimation de la grille d'acceptation — 14 novembre
+
+Le [comparatif avec la grille Mines Albi](../../resultats/comparaison_production_grille_mines_albi_20261114.html)
+ajoute les sept critères à la même simulation annuelle archivée, sans modifier
+les trois courbes. Les chiffres Mines sont rapportés depuis la capture ; nos
+calculs utilisent les sources numériques. Leur code et leurs définitions
+complètes ne sont pas disponibles : les résultats ci-dessous restent des
+estimations selon des conventions explicites.
+
+Le périmètre principal est le **stock physique à D1920, contrôle inclus**.
+Il est comparé aux 52 relevés du lundi, du 6 janvier au 29 décembre 2025,
+avec la clôture simulée du dimanche précédent. La photo initiale du 1er janvier
+est exclue des indicateurs hebdomadaires. L'Excel fournit un « Stock Total »,
+sans ventilation du contrôle : son inclusion reste une hypothèse de comparaison.
+
+| Critère estimé | Seuil de la capture | 268091 | 268967 |
+|---|---|---:|---:|
+| Conservation locale à Muret, écart maximal sur 365 jours | 0 UN | 0 UN | 0 UN |
+| Production annuelle par rapport au réel | ±10 % | Indéterminée | Indéterminée |
+| Biais moyen du stock physique | ±10 % | +14,80 % | +17,99 % |
+| Pire trimestre, erreur de moyenne de stock | ≤30 % | 40,20 % | 73,91 % |
+| Corrélation des trajectoires de stock | ≥0,7 | 0,855 | 0,199 |
+| Relevés hebdomadaires au stock physique nul | 0 | 0 sur 52 | 0 sur 52 |
+| Gain face à un stock constant, erreur absolue moyenne | ≥25 % sous cette définition | −71,80 % | −35,05 % |
+
+Le volume de production sur les **seules semaines connues** reste calculable :
+−4,38 % pour 268091 sur 46 semaines et −23,23 % pour 268967 sur 36 semaines.
+Ce ne sont pas des erreurs annuelles. Aucun score global comparable sur sept
+critères n'est attribué.
+
+Les formules choisies sont :
+
+- Biais : `100 × (moyenne(S) − moyenne(R)) / moyenne(R)`.
+  `S` désigne les stocks physiques simulés et `R` les stocks industriels aux
+  mêmes dates, en unités. Le pire trimestre prend le plus grand biais
+  trimestriel en valeur absolue.
+- Corrélation : coefficient de Pearson entre les séries `S` et `R`, avec
+  `S` les stocks physiques simulés et `R` les stocks industriels aux mêmes dates.
+- Gain : `100 × (1 − MAE(S,R) / MAE(C,R))`.
+  `S` est le stock simulé, `R` le stock industriel, `C` un stock toujours égal
+  à la moyenne industrielle ; `MAE` est la moyenne des écarts en valeur absolue.
+  Un gain négatif signifie que cette référence constante est plus proche
+  des observations selon l'erreur choisie. Sa moyenne est calculée après coup
+  pour l'évaluation ; elle n'est pas injectée dans les décisions MRP.
+- Conservation locale : `stock_fin = stock_début + réceptions − départs`.
+  Les stocks, réceptions et départs sont les quantités physiques à Muret,
+  en unités. Une libération du contrôle change l'état, pas la quantité physique.
+
+Les variantes testées conservent aussi la clôture du lundi, l'erreur absolue
+trimestrielle et les gains calculés avec l'erreur quadratique ou sa racine.
+Ces variantes ne changent pas les échecs du pire trimestre et du gain, ni
+le contraste entre les corrélations des deux produits. Le disponible seul
+reste un diagnostic de périmètre distinct : le confondre avec le physique
+ferait artificiellement passer les deux biais moyens sous 10 %.
+
+Le zéro du stock physique ne mesure pas le service client. Pour 268091,
+le stock disponible simulé est nul du 8 au 22 avril, soit 15 jours. Chaque
+jour, le stock physique est entièrement retenu en contrôle, sans quantité
+réservée ; cela ne prouve pas 15 jours de rupture client réelle.
+
+Les preuves et les contrôles effectivement exécutés sont reliés dans le
+[manifeste de la grille](../../artifacts/testing/grille_mines_albi_20261114/final_manifest.json).
+La fermeture vérifiée à Muret ne qualifie ni toute la nomenclature, ni
+l'ensemble du modèle industriel. Le navigateur n'est pas exécuté.
 
 #### Vue de données précédente, conservée
 
