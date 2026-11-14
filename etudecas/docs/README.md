@@ -41,6 +41,10 @@ rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes
 industrielles encore inconnues.
 
+L'[audit des règles MRP du 14 novembre](changes/2026-11-14-audit-regles-mrp.md)
+examine chaque étape, sa place dans le système, ses preuves et les corrections
+prioritaires hors capacité ; le moteur et le nominal restent conservés.
+
 ## Modifier le logiciel
 
 - [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).
