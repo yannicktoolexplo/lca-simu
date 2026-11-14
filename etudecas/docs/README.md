@@ -36,6 +36,11 @@ La [variante de consommation mensuelle et la comparaison des productions](change
 décrivent l'implémentation explicite, les essais appariés et les limites de
 comparaison aux résultats rapportés par Mines Albi.
 
+L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
+rapproche stocks, mouvements, production, demande, prévisions et finance sur
+2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes
+industrielles encore inconnues.
+
 ## Modifier le logiciel
 
 - [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).
