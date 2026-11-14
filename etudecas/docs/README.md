@@ -36,6 +36,10 @@ La [variante de consommation mensuelle et la comparaison des productions](change
 décrivent l'implémentation explicite, les essais appariés et les limites de
 comparaison aux résultats rapportés par Mines Albi.
 
+Le [recalcul hebdomadaire du reliquat mensuel](changes/2026-11-14-recalcul-hebdomadaire-mensuel.md)
+ajoute la cadence demandée, son activation et la comparaison courte de ses
+effets sur les lots et l'attente client.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes

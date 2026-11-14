@@ -36,8 +36,10 @@ from etudecas.simulation.engine.model_semantics import (
 from etudecas.simulation.engine.opening_receipt_execution import OpeningReceiptExecutionLedger
 from etudecas.simulation.engine.monthly_forecast import (
     MONTHLY_CONSUMPTION_FIELDS, MONTHLY_CONSUMPTION_POLICY,
-    calendar_month_bounds, remaining_month_budget,
+    WEEKLY_REVIEW_MONTHLY_FIELDS, WEEKLY_REVIEW_MONTHLY_POLICY,
+    calendar_month_bounds, remaining_month_budget, weekly_review_month_budget,
 )
+MONTHLY_FORECAST_POLICIES = (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY)
 from etudecas.simulation.engine.mrp_planning import (
     ExternalComponentDemandCalendar, FirmReceipt, LotSizing, Requirement, SupplierOffer,
     plan_dated_requirements, plan_sourced_requirements, serve_external_component_requirements,
@@ -4788,10 +4790,10 @@ def resolve_forecast_consumption(payload, *, source_forecast, missing_period_pol
     """Constrain the candidate to final customers supplied with modeled manufactured PF."""
     if payload is None:
         return set()
-    if (payload not in ("weekly_actual_orders_v1", MONTHLY_CONSUMPTION_POLICY) or not source_forecast
+    if (payload not in ("weekly_actual_orders_v1", *MONTHLY_FORECAST_POLICIES) or not source_forecast
             or missing_period_policy != "last_known_period_v1"
             or production_execution_policy != "dated_releases_v1" or target_bucket_days != 1):
-        prefix = "Monthly" if payload == MONTHLY_CONSUMPTION_POLICY else "Weekly"
+        prefix = "Monthly" if payload in MONTHLY_FORECAST_POLICIES else "Weekly"
         raise ValueError(prefix + " forecast consumption requires source forecasts, last-known periods, dated production and daily target buckets")
     kinds = {str(node.get("id")): node.get("type") for node in nodes}
     scope = set()
@@ -5187,7 +5189,7 @@ class RollingMrpForecast:
                  customer_demand_policy: str | None = None) -> None:
         self.customer_projection = customer_demand_policy == "source_customer_history_v1"
         if self.customer_projection and (missing_period_policy != "last_known_period_v1"
-                or consumption_policy not in ("weekly_actual_orders_v1", MONTHLY_CONSUMPTION_POLICY)
+                or consumption_policy not in ("weekly_actual_orders_v1", *MONTHLY_FORECAST_POLICIES)
                 or annual_projection_policy is not None):
             raise ValueError("Customer projections require known periods and actual-order consumption, without annual source replacement")
         if missing_period_policy not in (None, "last_known_period_v1"):
@@ -5198,12 +5200,12 @@ class RollingMrpForecast:
         if annual_projection_policy is not None and missing_period_policy != "last_known_period_v1":
             raise ValueError("Annual forecast projection requires last-known source periods")
         self.annual_projection_policy = annual_projection_policy
-        if consumption_policy not in (None, "weekly_actual_orders_v1", MONTHLY_CONSUMPTION_POLICY):
+        if consumption_policy not in (None, "weekly_actual_orders_v1", *MONTHLY_FORECAST_POLICIES):
             raise ValueError("Unknown forecast consumption policy")
         if consumption_policy is not None and missing_period_policy != "last_known_period_v1":
             raise ValueError("Weekly forecast consumption requires last-known source periods")
         self.consumption_policy = consumption_policy
-        if consumption_policy == MONTHLY_CONSUMPTION_POLICY and (
+        if consumption_policy in MONTHLY_FORECAST_POLICIES and (
                 date.fromisoformat(origin_date).day != 1 or annual_projection_policy is not None):
             raise ValueError("Monthly consumption requires a month-opening origin and no annual source replacement")
         self._monthly_budgets: dict = {}
@@ -5278,7 +5280,7 @@ class RollingMrpForecast:
             for (vintage, pair), plan in sorted(self._plans.items()):
                 for target_day in plan:
                     self._period_vintages[pair, target_day].append(vintage)
-        if (self.customer_projection or self.consumption_policy == MONTHLY_CONSUMPTION_POLICY) and any(not any(v <= 0 and (v, pair) in self._plans
+        if (self.customer_projection or self.consumption_policy in MONTHLY_FORECAST_POLICIES) and any(not any(v <= 0 and (v, pair) in self._plans
                 for v in self.vintages) for pair in self.demand_pairs):
             raise ValueError("Every customer must have a forecast known at simulation opening")
 
@@ -5349,7 +5351,7 @@ class RollingMrpForecast:
 
     def consumption_audit(self, pair: tuple[str, str], decision_day: int) -> dict[str, Any]:
         """Whole current week minus arrived orders; unused forecast expires, never becoming backlog."""
-        if self.consumption_policy == MONTHLY_CONSUMPTION_POLICY:
+        if self.consumption_policy in MONTHLY_FORECAST_POLICIES:
             return self.monthly_consumption_audit(pair, decision_day)
         key = (pair, decision_day)
         if key in self._consumption_cache:
@@ -5391,11 +5393,14 @@ class RollingMrpForecast:
         key = (pair, decision_day)
         if key in self._consumption_cache:
             return self._consumption_cache[key]
-        row = dict.fromkeys(FORECAST_CONSUMPTION_FIELDS + MONTHLY_CONSUMPTION_FIELDS, "")
+        weekly_review = self.consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY
+        row = dict.fromkeys(FORECAST_CONSUMPTION_FIELDS + MONTHLY_CONSUMPTION_FIELDS
+                           + (WEEKLY_REVIEW_MONTHLY_FIELDS if weekly_review else []), "")
         row.update(day=decision_day, node_id=pair[0], item_id=pair[1], uom="UN",
                    policy=self.consumption_policy, status="awaiting_today_observation",
                    period_kind="calendar_month",
-                   redistribution_review="daily_asof_uniform_future_days_weekly_example_equivalent_not_confirmed_ERP_cadence",
+                   redistribution_review=("sunday_close_effective_monday_and_calendar_month_opening"
+                       if weekly_review else "daily_asof_uniform_future_days_weekly_example_equivalent_not_confirmed_ERP_cadence"),
                    budget_basis="known_source_daily_rates_at_month_open_declared_nearest_period_fallback")
         if 0 <= decision_day < self.consumption_revision:
             start, end = calendar_month_bounds(self.origin_date, decision_day)
@@ -5422,8 +5427,14 @@ class RollingMrpForecast:
             row.update(status="known_calendar_month_consumed", period_start_day=start,
                        period_end_day=end, month_opening_day=start,
                        today_arrived_qty=self._observed_demands[pair][decision_day])
-            row.update(remaining_month_budget(budget["monthly_forecast_qty"], self._observed_demands[pair],
-                       start_day=start, decision_day=decision_day, end_day=end))
+            if weekly_review:
+                row.update(weekly_review_month_budget(
+                    budget["monthly_forecast_qty"], self._observed_demands[pair],
+                    origin_date=self.origin_date, start_day=start,
+                    decision_day=decision_day, end_day=end))
+            else:
+                row.update(remaining_month_budget(budget["monthly_forecast_qty"], self._observed_demands[pair],
+                           start_day=start, decision_day=decision_day, end_day=end))
         self._consumption_cache[key] = row
         return row
 
@@ -7403,7 +7414,7 @@ def parse_args() -> argparse.Namespace:
         help="Use dated meta.mrp_forecasts for planning only; physical customer demand stays unchanged.",
     )
     parser.add_argument(
-        "--forecast-consumption-policy", choices=["weekly_actual_orders_v1", MONTHLY_CONSUMPTION_POLICY],
+        "--forecast-consumption-policy", choices=["weekly_actual_orders_v1", *MONTHLY_FORECAST_POLICIES],
         default=None,
         help="Explicit planning-only consumption override; default preserves graph policy. Monthly candidate uses a calendar-month budget known at opening and is limited to365days.",
     )
@@ -12595,7 +12606,7 @@ def main() -> None:
     if missing_forecast_period_policy is not None and args.mrp_forecast_source != "source":
         raise ValueError("Known-period conservation requires source MRP forecasts")
     forecast_consumption_policy = args.forecast_consumption_policy or graph_meta.get("forecast_consumption_policy")
-    if forecast_consumption_policy == MONTHLY_CONSUMPTION_POLICY and sim_days > 365:
+    if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES and sim_days > 365:
         raise ValueError("Calendar-month consumption candidate is limited to365days before long-horizon qualification")
     annual_projection_policy = graph_meta.get("forecast_annual_projection_policy")
     current_envelope_policy = graph_meta.get("current_requirement_envelope_policy")
@@ -24519,16 +24530,20 @@ def main() -> None:
                     "mode": forecast_consumption_policy,
                     "scope": [list(pair) for pair in sorted(forecast_consumption_pairs)],
                     "period_forecast": ("calendar_month_sum_of_daily_source_rates_known_at_month_open_with_declared_nearest_fallback"
-                        if forecast_consumption_policy == MONTHLY_CONSUMPTION_POLICY else
+                        if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES else
                         "last_known_whole_future_source_week_before_period_start"),
-                    "consumed_by": "scenario_customer_orders_arrived_through_decision_day_not_served_quantities",
-                    "remaining": ("max_month_budget_minus_known_real_demand_zero_uniformly_distributed_over_remaining_future_days"
+                    "consumed_by": ("scenario_customer_orders_arrived_through_review_cutoff_for_rate_actual_counter_through_decision_day_not_served_quantities"
+                        if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else
+                        "scenario_customer_orders_arrived_through_decision_day_not_served_quantities"),
+                    "remaining": ("monthly_residual_at_latest_sunday_or_month_open_rate_fixed_until_next_review"
+                        if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else
+                        "max_month_budget_minus_known_real_demand_zero_uniformly_distributed_over_remaining_future_days"
                         if forecast_consumption_policy == MONTHLY_CONSUMPTION_POLICY else
                         "max_weekly_forecast_minus_arrived_orders_zero_distributed_over_remaining_future_days"),
                     "today": "arrived_order_in_windows_including_today_before_service",
                     "backlog": "physical_unserved_orders_added_once_by_existing_network",
                     "expiry": ("unused_forecast_expires_at_calendar_month_end_without_becoming_backlog"
-                        if forecast_consumption_policy == MONTHLY_CONSUMPTION_POLICY else
+                        if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES else
                         "unused_forecast_expires_at_week_end_without_becoming_backlog"),
                     "unknown_period": ("nearest_known_forecast_period_scenario_fallback_never_future_history"
                         if mrp_source_forecasts.customer_projection else "historical_nominal_fallback_not_imputed_source_zero"),
@@ -24536,10 +24551,15 @@ def main() -> None:
                     "industrial_rule_confirmed": False,
                     **({"period_kind": "calendar_month", "budget_vintage_cutoff": "month_opening_day",
                         "budget_reconstruction": "weekly_source_quantities_prorated_to_calendar_days_not_observed_monthly_totals",
-                        "redistribution_review": "daily_known_real_demand_not_confirmed_ERP_cadence",
-                        "confirmation_scope": "monthly_real_demand_consumption_only_source_budget_and_daily_review_remain_model_assumptions",
-                        "monthly_audit_fields": MONTHLY_CONSUMPTION_FIELDS,
-                    } if forecast_consumption_policy == MONTHLY_CONSUMPTION_POLICY else {}),
+                        "redistribution_review": ("sunday_close_effective_monday_and_calendar_month_opening"
+                            if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else
+                            "daily_known_real_demand_not_confirmed_ERP_cadence"),
+                        "confirmation_scope": ("monthly_real_demand_consumption_and_weekly_review_confirmed_source_budget_and_sunday_choice_remain_assumptions"
+                            if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else
+                            "monthly_real_demand_consumption_only_source_budget_and_daily_review_remain_model_assumptions"),
+                        "monthly_audit_fields": MONTHLY_CONSUMPTION_FIELDS + (WEEKLY_REVIEW_MONTHLY_FIELDS
+                            if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else []),
+                    } if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES else {}),
                 }} if forecast_consumption_policy is not None else {}),
                 "current_bucket_policy": mrp_source_forecasts.current_bucket_policy,
                 "physical_demand_unchanged": customer_demand_calendar is None,
@@ -26155,7 +26175,9 @@ def main() -> None:
     if forecast_consumption_policy is not None:
         with data_path(output_dir, "mrp_forecast_consumption_daily.csv").open("w", encoding="utf-8", newline="") as f:
             consumption_fields = (FORECAST_CONSUMPTION_FIELDS + MONTHLY_CONSUMPTION_FIELDS
-                                  if forecast_consumption_policy == MONTHLY_CONSUMPTION_POLICY else FORECAST_CONSUMPTION_FIELDS)
+                                  if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES else FORECAST_CONSUMPTION_FIELDS)
+            if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY:
+                consumption_fields = consumption_fields + WEEKLY_REVIEW_MONTHLY_FIELDS
             writer = csv.DictWriter(f, fieldnames=consumption_fields)
             writer.writeheader()
             writer.writerows(forecast_consumption_rows)
