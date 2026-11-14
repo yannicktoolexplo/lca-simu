@@ -4,7 +4,7 @@ Travail du 13 novembre 2026, sur `dev_yannick`, à partir du commit `6fcb2ba0c`.
 Les preuves sont conservées dans
 `etudecas/artifacts/testing/mensuel_mines_albi_20261113/`.
 
-Le [comparatif hebdomadaire à trois courbes](../../resultats/comparaison_3_courbes_hebdo_20261114.html)
+Le [comparatif à trois courbes complètes disponibles](../../resultats/comparaison_production_3_courbes_completes_20261114.html)
 réunit les données réelles, Mines Albi et notre simulateur hebdomadaire sur le
 même graphique pour chaque produit. Les versions précédentes restent conservées.
 **Conclusion : le programme est moins souvent révisé, mais la production ne
@@ -78,36 +78,58 @@ et la définition de leur compensation pour reproduire la comparaison.
 
 ### Courbe industrielle calculée depuis les données
 
-#### Trois courbes réunies sur un même graphique — 14 novembre
+#### Trois courbes réunies, avec leur propre couverture — 14 novembre
 
-Le [comparatif hebdomadaire à trois courbes](../../resultats/comparaison_3_courbes_hebdo_20261114.html)
+Le [comparatif à trois courbes](../../resultats/comparaison_production_3_courbes_completes_20261114.html)
 affiche exactement trois lignes par produit : **noire, production réelle estimée
 depuis les fichiers ; orange, Mines Albi reconstitué depuis la photo ; bleue,
 notre simulateur hebdomadaire**. Aucun mode de sources séparées ni courbe
 mensuelle n'est affiché. Le cumul hebdomadaire est sélectionné par défaut ;
-les volumes par semaine restent disponibles dans le même graphique.
+les volumes par semaine restent disponibles dans le même graphique. Chaque
+courbe conserve ses dates et ses quantités disponibles, indépendamment des
+deux autres.
 
 La ligne bleue utilise par défaut le nominal annuel archivé, dont la politique
 `weekly_actual_orders_v1` est confirmée dans le résumé original. Le témoin
 hebdomadaire récent de 135 jours peut être sélectionné à sa place ; une seule
-ligne bleue reste visible. Il demeure inconnu après le 15 mai et les semaines
-incomplètes sont exclues. Ces deux versions ne mesurent pas un effet mensuel.
+ligne bleue reste visible. Il demeure inconnu après le 15 mai. Les jours
+disponibles des semaines partielles sont conservés et signalés : le dernier
+point annuel est le 31 décembre, pas le 28 décembre. Ces deux versions ne
+mesurent pas un effet mensuel.
 
-Pour disposer d'une courbe orange hebdomadaire, 24 repères et plateaux de la
-photo définissent une ligne de cumul approximative. Une interpolation entre
-ces repères donne des quantités hebdomadaires **indicatives**, pas les véritables
-exports de Mines Albi. L'origine zéro du cumul au 1er janvier est une convention
-mathématique déclarée, pas une observation. Rien n'est prolongé après les derniers
-centres visibles : 15 décembre pour 268091 et 30 novembre pour 268967, avec leurs
-dates de lecture incertaines conservées.
+La ligne orange reprend les repères et les plateaux de la **simulation Mines
+Albi**, relus sur la photo : environ 4,8 millions en fin de courbe pour 268091,
+et 1,15 million pour 268967. Le cumul est tracé directement depuis ces repères,
+sans retirer les périodes où une autre source manque. Une interpolation entre
+eux donne des quantités hebdomadaires **indicatives**, pas les véritables
+exports de Mines Albi. Les dates et les volumes restent des lectures manuelles
+approximatives ; aucun point précis n'est présenté comme un export original.
+Les derniers points ne sont pas prolongés au-delà de leur couverture lue.
 
-Une semaine n'est affichée que si la donnée industrielle est renseignée,
-les sept jours natifs sont couverts et les deux bornes du cumul orange sont
-interpolables. Le même masque s'applique aux trois lignes avant de calculer
-leurs cumuls partiels. Les bornes visuelles d'incertitude, lorsqu'elles ne
-peuvent pas être calculées, restent inconnues. Aucun score de calibration,
-classement ou précision hebdomadaire originale Mines n'est revendiqué.
-Les preuves sont sous `artifacts/testing/trois_courbes_hebdo_20261114/`.
+La ligne noire additionne les quantités industrielles documentées. Ses semaines
+absentes restent inconnues dans la vue hebdomadaire ; relier les observations
+du cumul ne fournit aucune quantité pour ces semaines. Ce cumul documenté
+n'est pas un total industriel annuel certifié. Le bleu annuel conserve ses
+totaux physiques de **4 825 715 UN** et **1 509 200 UN**. Aucun score comparatif
+ne divise ces totaux complets par un total industriel partiel.
+La relecture bornée des sources et du cache de la carte complète retrouve les
+mêmes stocks, mouvements et estimations Scan3 ; elle n'identifie aucune série
+supplémentaire de fabrications industrielles permettant de compléter les
+46 et 36 semaines documentées.
+
+L'ancienne [vue sur semaines communes](../../resultats/comparaison_3_courbes_hebdo_20261114.html)
+est conservée. Elle recalculait les trois cumuls sur le même sous-ensemble de
+semaines : cela ramenait notamment l'orange de 268967 à environ 0,75 million.
+Cette représentation ne reproduisait donc pas la courbe complète de la photo.
+La nouvelle vue retire ce filtrage de l'affichage. Un éventuel calcul de biais
+reste soumis à des périodes communes, distinctes des courbes complètes.
+Les preuves de cette correction sont sous
+`artifacts/testing/trois_courbes_completes_20261114/`. Aucun score de calibration,
+classement ni précision hebdomadaire originale Mines n'est revendiqué.
+Le [manifeste de livraison](../../artifacts/testing/trois_courbes_completes_20261114/final_manifest.json)
+relie les contrôles indépendants aux empreintes des données et du HTML livré.
+Les interactions JavaScript sont contrôlées en mémoire ; le navigateur n'est
+pas exécuté et la qualification globale antérieure reste refusée.
 
 #### Vue de données précédente, conservée
 
