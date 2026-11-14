@@ -840,6 +840,13 @@ sécurité et les paramètres source restent actifs. Le feedback additionnant
 directement cible usine, cible dépôt et stock dépôt est **désactivé** : cette
 intention locale ne libère pas elle-même un OF.
 
+Une moyenne du signal sur 28 jours ne constitue pas une règle « besoin net du
+mois divisé en quatre fabrications ». Les besoins datés restent quotidiens et
+les lancements suivent le plan daté. Un programme de production nivelé doit
+placer des lots entiers en respectant les échéances, les stocks utilisables,
+les réceptions fermes et la capacité. Il se distingue aussi de l'horizon figé,
+qui encadre les modifications du programme sans imposer des quantités égales.
+
 La sécurité de D1920 utilise néanmoins 100 % des jours source dans les besoins
 datés du dépôt : **20 jours ouvrés pour 268091** et **25 jours ouvrés pour
 268967**.

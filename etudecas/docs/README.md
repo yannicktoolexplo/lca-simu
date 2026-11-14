@@ -55,6 +55,10 @@ comparent les effets du lissage et de la marge de planification, suivent les lot
 jusqu'au dépôt et vérifient achats et libérations. Ils reproduisent aussi le
 défaut de provenance quotidienne et délimitent la règle fournisseur encore absente.
 
+L'[analyse de la production progressive et du besoin sur quatre semaines](changes/2026-11-14-production-progressive-4semaines.md)
+compare les semaines réelles estimées et simulées, puis distingue le lissage du
+signal, la consommation mensuelle des prévisions et le placement des lots.
+
 ## Modifier le logiciel
 
 - [Critères scientifiques de développement](DEVELOPPEMENT_SCIENTIFIQUE.md) : contrats, MRP/exécution, calibration, causalité, incertitude et performance ; [audit des instructions et du harnais](quality/AUDIT_INSTRUCTIONS_20261021.md).
