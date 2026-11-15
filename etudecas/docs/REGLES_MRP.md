@@ -1686,6 +1686,38 @@ future déclarée et programme industriel connu. Elles ne démontrent ni la
 cadence réelle de la machine ni l'application des horizons figés de 4 et
 8 semaines. La référence par défaut reste inchangée.
 
+## Substituts dans les promesses des campagnes engagées
+
+Une campagne déjà engagée peut affecter son besoin matière restant au stock
+utilisable d'une ancienne référence explicitement autorisée. Le stock physique
+reste intact : cette affectation est une décision de planification, puis un
+besoin daté sur le composant réellement prévu. Le produit fini reste crédité
+une seule fois, pour le travail restant plus le travail déjà exécuté.
+
+La première règle couvre uniquement la substitution un pour un, à unité et
+site identiques, selon `use_old_until_new_stock_available`. Elle exige un stock
+principal nul, aucune réception ferme utilisable du principal avant la fin
+prévue, et une autorisation valide sur tout l'intervalle restant. Elle n'utilise
+que le stock ancien déjà utilisable ; le transit et le contrôle ne sont pas
+du stock libre. Si un besoin propre, une protection ou un usage concurrent du
+substitut n'est pas représenté par cette allocation, le calcul conserve le
+besoin principal et trace le motif d'exclusion.
+
+Un stock virtuel partagé limite les affectations entre campagnes. Le reliquat
+non couvert reste un besoin du composant principal. Aucune proposition de
+réapprovisionnement du stock de substitution ne peut être créée par cette
+affectation. Le calcul conserve les identités des besoins principaux et ajoute
+une identité distincte pour chaque fraction substituée. La date promise tient
+alors compte des composants effectivement affectés à la campagne.
+
+`campaign_material_allocation_daily.json` expose les besoins, affectations,
+refus et promesses, avant et après les mouvements du dépôt. Les nouveaux lots
+non engagés conservent l'explosion de leur nomenclature principale. Les
+situations où la politique change pendant le travail restant nécessitent une
+projection journalière plus complète ; cette correction reste prudente sur ces
+cas. Elle ne transforme pas le stock initial hypothétique de transition en
+une quantité industrielle observée.
+
 ## Sources actives du calcul
 
 - `etudecas/config/mrp_reference_20261013.json` ;
