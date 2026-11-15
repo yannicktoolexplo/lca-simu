@@ -4297,6 +4297,8 @@ def plan_component_network(
     safety_requirements_by_pair: Mapping | None = None,
     allocated_sourcing_by_pair: Mapping | None = None,
     availability_by_release_by_pair: Mapping | None = None,
+    known_supply_calendar_context_by_pair: Mapping | None = None,
+    known_supplier_calendar_contexts_by_pair: Mapping | None = None,
     transfer_commitment_pairs: set | None = None,
     transfer_commitment_rows: tuple = (),
 ) -> tuple[dict, dict, dict]:
@@ -4340,6 +4342,17 @@ def plan_component_network(
         raise ValueError("Projected production floors require modeled BOM outputs")
     if not set(safety_requirements_by_pair or {}) <= set(source_safety_by_pair or {}):
         raise ValueError('Local safety override requires an existing source safety policy')
+    availability_by_release_by_pair = dict(availability_by_release_by_pair or {})
+    calendar_extension_audits = defaultdict(list)
+
+    def extended_calendar(pair, calendar, needs, points=()):
+        through = max([decision_day] + [r.due_day for r in needs] + [p.day for p in points]) + 1
+        extended, trace = extend_known_supply_calendar(calendar, decision_day=decision_day,
+            through_day=through, context=(known_supply_calendar_context_by_pair or {}).get(pair), pair=pair)
+        if trace is not None:
+            calendar_extension_audits[pair].append(trace)
+        return extended
+
     requirements = {pair: list(rows) for pair, rows in requirements_by_pair.items()}
     receipts = {pair: list(rows) for pair, rows in firm_receipts_by_pair.items()}
     transfer_pegs = defaultdict(dict)
@@ -4466,6 +4479,8 @@ def plan_component_network(
         pair_protection = (protection_by_pair or {}).get(pair, ())
         anticipated_context = (anticipated_need_by_pair or {}).get(pair)
         if anticipated_context is not None:
+            anticipated_context = dict(anticipated_context)
+        if anticipated_context is not None:
             if ((upstream.get(pair) and pair not in allowed_anticipated_internal)
                     or pair in active_campaigns_by_pair):
                 raise ValueError("Anticipated dates require purchase leaves or explicitly protected pure transfers")
@@ -4589,6 +4604,22 @@ def plan_component_network(
             # nominal availability, not a promise of physical supplier service.
             replenishment_day = decision_day + lead_days_by_pair.get(pair, 1)
             pair_requirements.append(Requirement("reserve:" + "|".join(pair), replenishment_day, reserve))
+        if pair in availability_by_release_by_pair:
+            availability_by_release_by_pair[pair] = extended_calendar(pair,
+                availability_by_release_by_pair[pair], pair_requirements, pair_protection)
+        if anticipated_context is not None and anticipated_context.get("availability_by_release"):
+            anticipated_context["availability_by_release"] = extended_calendar(pair,
+                anticipated_context["availability_by_release"], pair_requirements)
+        local_supplier_contexts = (known_supplier_calendar_contexts_by_pair or {}).get(pair, {})
+        supplier_through = max([decision_day] + [r.due_day for r in pair_requirements]) + 1
+        local_sourcing, source_traces = extend_known_supplier_offers(
+            (sourcing_by_pair or {}).get(pair), decision_day=decision_day, through_day=supplier_through,
+            contexts=local_supplier_contexts, pair=pair)
+        local_allocated, allocated_traces = extend_known_supplier_offers(
+            (allocated_sourcing_by_pair or {}).get(pair), decision_day=decision_day, through_day=supplier_through,
+            contexts=local_supplier_contexts, pair=pair)
+        if source_traces or allocated_traces:
+            calendar_extension_audits[pair].extend(source_traces + allocated_traces)
         if anticipated_context is not None:
             plan, sourced, anticipated_audits[pair] = plan_anticipated_requirements(
                 decision_day=decision_day, available_qty=available_by_pair.get(pair, 0.0),
@@ -4596,8 +4627,7 @@ def plan_component_network(
                 lead_days=lead_days_by_pair.get(pair, 1), lot_sizing=lot_sizing_by_pair.get(pair, LotSizing()),
                 grouping_days=(grouping_days_by_pair or {}).get(pair),
                 exact_release_calendar=(availability_by_release_by_pair or {}).get(pair),
-                sourcing=(sourcing_by_pair or {}).get(pair),
-                allocated_sourcing=(allocated_sourcing_by_pair or {}).get(pair), **anticipated_context)
+                sourcing=local_sourcing, allocated_sourcing=local_allocated, **anticipated_context)
             if sourced is not None:
                 sourced_plans[pair] = sourced
         elif protected:
@@ -4639,6 +4669,9 @@ def plan_component_network(
                     coverage_protection_audits[pair]["dated_source_protection_target_qty"] = (
                         prospective_audits[pair]["prospective_safety_tomorrow_qty"])
             applied_protection_points[pair] = points
+            if pair in availability_by_release_by_pair:
+                availability_by_release_by_pair[pair] = extended_calendar(pair,
+                    availability_by_release_by_pair[pair], pair_requirements, points)
             protected_plans[pair] = plan_with_stock_protection(
                 decision_day=decision_day, available_qty=available_by_pair.get(pair, 0.0),
                 requirements=pair_requirements, firm_receipts=receipts.get(pair, ()),
@@ -4652,7 +4685,7 @@ def plan_component_network(
                 raise ValueError("Optional supplier sourcing is restricted to aggregate purchase leaves")
             sourced_plans[pair] = plan_sourced_requirements(
                 decision_day=decision_day, available_qty=available_by_pair.get(pair, 0.0),
-                requirements=pair_requirements, firm_receipts=receipts.get(pair, ()), **sourcing_by_pair[pair],
+                requirements=pair_requirements, firm_receipts=receipts.get(pair, ()), **local_sourcing,
             )
             plan = sourced_plans[pair].plan
         else:
@@ -4793,6 +4826,7 @@ def plan_component_network(
         "campaign_remaining_qty": campaign_requirements.get(pair, 0.0),
         "reserve_requirement_qty": reserve_quantities.get(pair, 0.0),
         "firm_receipts": receipts.get(pair, ()),
+        **({"calendar_extensions": calendar_extension_audits[pair]} if pair in calendar_extension_audits else {}),
         **({"finite_capacity_plan": capacity_audits[pair]} if pair in capacity_audits else {}),
         **({"campaign_credit_canonicalization": campaign_credit_canonicalizations[pair]}
            if pair in campaign_credit_canonicalizations else {}),
@@ -5856,6 +5890,104 @@ def dated_supply_release_calendar(*, decision_day, through_day, physical_lead_da
     return tuple(rows)
 
 
+def engaged_production_available_day(*, decision_day, remaining_work_days, closed_days=(),
+                                     receipt_days=0, origin_date="2025-01-01",
+                                     receipt_nonworking_dates=frozenset()):
+    """Finite-mode EOD promise: remaining physical work, then quality once.
+
+    Tau is a planning allowance before launch, not work added at each review
+    to a campaign which has already started. No industrial future is read.
+    """
+    if (type(decision_day) is not int or type(remaining_work_days) is not int
+            or remaining_work_days < 0 or type(receipt_days) is not int or receipt_days < 0):
+        raise ValueError("Engaged production requires integer days and nonnegative remaining work")
+    finish = manufacturing_work_finish(decision_day, max(1, remaining_work_days), closed_days)
+    return supplier_receipt_available_day(finish, receipt_days, origin_date=origin_date,
+        calendar="monday_friday", nonworking_dates=receipt_nonworking_dates) if receipt_days else finish
+
+
+def extend_known_supply_calendar(calendar, *, decision_day, through_day, context, pair=None):
+    """Extend declared calendar rules only; never infer an affine unknown tail.
+
+    Existing dated commitments are not inputs or outputs of this function.
+    The caller requests one day beyond propagated needs to cover plateaus.
+    A missing context preserves the original calendar and its planner guards.
+    """
+    rows = tuple(calendar)
+    if not rows or rows[-1][0] >= through_day or context is None:
+        return rows, None
+    if (type(decision_day) is not int or type(through_day) is not int
+            or through_day < decision_day or through_day > decision_day + 3660):
+        raise ValueError("Known supply calendar extension exceeds the 3660-day bound")
+    options = dict(context)
+    kind = options.pop("calendar_kind", "exact")
+    review_policy = options.pop("purchase_review_policy", None)
+    origin = options.get("origin_date", "2025-01-01")
+    if kind not in {"exact", "supplier_receipt"}:
+        raise ValueError("Unknown supply calendar extension context")
+    lead = options.get("physical_lead_days")
+    if type(lead) is not int or not 0 <= lead <= 3660:
+        raise ValueError("Known supply calendar requires a bounded declared lead")
+    bound = decision_day + 3660
+    end = through_day
+    if kind == "exact":
+        period = math.lcm(options.get("review_days", 1), options.get("pair_review_days", 1))
+        if period < 1 or period > 3660:
+            raise ValueError("Known supply calendar requires a bounded review period")
+        closed = frozenset(options.get("closed_days", ()))
+        # Ensure the existing generator has a permitted stopping point inside
+        # the finite extension budget, including manufacturing start closures.
+        end = next((d for d in range(through_day, bound + 1)
+                    if d % period == 0 and not any(c in closed for c in range(d, d + lead + 1))), None)
+        if end is None:
+            raise ValueError("Known supply calendar has no start within the 3660-day bound")
+        generated = dated_supply_release_calendar(decision_day=decision_day, through_day=end, **options)
+    else:
+        allowed = {"physical_lead_days", "receipt_days", "origin_date", "receipt_nonworking_dates"}
+        if set(options) - allowed:
+            raise ValueError("Unsupported declared supplier receipt calendar fields")
+        if review_policy is not None:
+            end = next((d for d in range(through_day, bound + 1)
+                        if purchase_review_is_due(review_policy, pair, d, origin)), None)
+            if end is None:
+                raise ValueError("Known supplier review has no date within the 3660-day bound")
+        generated = tuple((d, supplier_receipt_available_day(d + lead, options.get("receipt_days", 0),
+            origin_date=origin, nonworking_dates=options.get("receipt_nonworking_dates", frozenset())))
+            for d in range(decision_day, end + 1))
+    if review_policy is not None:
+        generated = purchase_review_calendar(generated, policy=review_policy, pair=pair,
+            origin_date=origin, through_day=through_day)
+    if generated[:len(rows)] != rows:
+        raise ValueError("Known supply calendar extension disagrees with the existing prefix")
+    trace = dict(policy="declared_supply_calendar_extension_v1", calendar_kind=kind,
+        decision_day=decision_day, requested_through_day=through_day,
+        old_last_release_day=rows[-1][0], old_last_available_day=rows[-1][1],
+        new_last_release_day=generated[-1][0], new_last_available_day=generated[-1][1],
+        added_rows=len(generated)-len(rows), existing_prefix_preserved=True)
+    return generated, trace
+
+
+def extend_known_supplier_offers(sourcing, *, decision_day, through_day, contexts, pair=None):
+    """Keep prices, shares and lots; extend each offer by its own known rules."""
+    if sourcing is None:
+        return None, []
+    result = dict(sourcing); audit = []
+    def extend(offer):
+        calendar, trace = extend_known_supply_calendar(offer.availability_by_release,
+            decision_day=decision_day, through_day=through_day,
+            context=contexts.get(offer.supplier_id), pair=pair)
+        if trace is not None:
+            audit.append(dict(trace, supplier_id=offer.supplier_id))
+            return replace(offer, availability_by_release=calendar)
+        return offer
+    if "primary" in result:
+        result["primary"] = extend(result["primary"])
+        result["backups"] = tuple(extend(offer) for offer in result.get("backups", ()))
+    if "offers" in result:
+        result["offers"] = tuple(extend(offer) for offer in result["offers"])
+    return result, audit
+
+
 def dated_production_release(*, decision_day, snapshot_day, requirements, available_qty,
                              firm_receipts, lead_days, lot_sizing, protection=(),
                              campaign_remaining_qty=0.0, executed_wip_qty=0.0,
@@ -5896,6 +6028,103 @@ def dated_production_release(*, decision_day, snapshot_day, requirements, availa
     return due, plan
 
 
+def programme_authorization_gate(book, *, pair, decision_day, normal_release_qty,
+                                 campaign_remaining_qty=0, executed_wip_qty=0):
+    """Gate only a NEW launch; a later successful approval supplies its one lot.
+
+    Missing source is unknown, not an observed zero. Treating this gross source
+    forecast as mandatory authority is an explicit scenario hypothesis, not a
+    known industrial frozen programme. This helper never resets a campaign or
+    manufactures an authorization from an old accepted row.
+    """
+    if (book is None or book.mode != "current_week_authorized_lot_multiday_v1"
+            or pair not in book.series):
+        return normal_release_qty, None
+    if (type(decision_day) is not int or decision_day < 0
+            or any(isinstance(q, bool) or not isinstance(q, (int, float))
+                   or not math.isfinite(q) or q < 0
+                   for q in (normal_release_qty, campaign_remaining_qty, executed_wip_qty))):
+        raise ValueError("Programme authorization requires a valid day and finite nonnegative quantities")
+    if campaign_remaining_qty > 0 or executed_wip_qty > 0:
+        return normal_release_qty, None
+    current = next((v for v in reversed(book.series[pair])
+                    if v["known_day"] <= decision_day < v["period_end_day_exclusive"]), None)
+    budgets = [dict(b) for b in current["component_budgets"]] if current is not None else []
+    if current is None:
+        status = "unknown_current_week"
+    elif len(budgets) < 2:
+        status = "incomplete_budgets"
+    elif any(b["qty"] == 0 for b in budgets):
+        status = "explicit_zero_budget"
+    else:
+        status = "known_budgets_to_check"
+    audit = dict(policy="current_week_authorized_lot_multiday_v1", node_id=pair[0], item_id=pair[1],
+        decision_day=decision_day, normal_due_qty=normal_release_qty, gated_due_qty=0.0,
+        source_known_day=current["known_day"] if current is not None else None,
+        source_period_start_day=current["period_start_day"] if current is not None else None,
+        source_period_end_day_exclusive=current["period_end_day_exclusive"] if current is not None else None,
+        source_status=status, source_budgets=budgets,
+        source_cells=[dict(item_id=b["item_id"], source_file=b["source_file"], source_cells=b["source_cells"])
+                      for b in budgets],
+        hypothesis_not_firm_OF=True, approval_status="not_yet_approved",
+        rule="new_launch_requires_current_source_budget_and_existing_lot_approval")
+    return 0.0, audit
+
+
+def programme_multiday_placements(proposals, *, decision_day, context, allow_due=False):
+    """Earliest physical work for a source-authorized UN lot, without execution.
+
+    Selection separately checks the complete BOM. Only a currently free machine
+    is eligible. Future capacity is the declared scenario, not future observed
+    incidents. Tau is a planning margin; physical availability follows completion
+    and quality control only, exactly as in the physical campaign executor.
+    """
+    if type(allow_due) is not bool:
+        raise ValueError("Due-lot programme permission must be explicit boolean")
+    if context is None or not context.get("intraday"):
+        raise ValueError("Multi-day programmes require finite capacity planning and intraday execution")
+    if context["known_day"] > decision_day or context["first_work_day"] != decision_day:
+        raise ValueError("Programme capacity must be known and executable today")
+    if context.get("active_remaining_qty", 0) > LOT_TRACE_EPS or context.get("opening_work"):
+        return {}
+    rate = float(context["capacity_qty"])
+    if not math.isfinite(rate) or rate < 1 or rate != int(rate):
+        raise ValueError("Multi-day UN programmes require positive integer daily work")
+    current = context.get("current_capacity_qty")
+    current = rate if current is None else float(current)
+    if not math.isfinite(current) or current < 0:
+        raise ValueError("Current programme capacity must be finite and nonnegative")
+    closed = set(context.get("closed_days", ()))
+    if decision_day in closed or min(current, rate) < 1:
+        return {}
+    supply = context["supply_calendar"]
+    starts = dated_supply_release_calendar(decision_day=decision_day, through_day=decision_day, **supply)
+    if not any(d == decision_day for d, _ in starts):
+        return {}
+    result = {}
+    for proposal in proposals:
+        if (proposal.qty <= 0 or proposal.qty != int(proposal.qty)
+                or (proposal.release_day <= decision_day and not allow_due)):
+            continue
+        remaining = int(proposal.qty); allocations = []
+        for work_day in range(decision_day, decision_day + 3661):
+            work = min(remaining, 0 if work_day in closed else
+                math.floor(min(current, rate) if work_day == decision_day else rate))
+            if work:
+                allocations.append((work_day, work)); remaining -= work
+            if remaining == 0:
+                break
+        if remaining:
+            raise ValueError("Programme work exceeds the bounded ten-year capacity calendar")
+        finish = allocations[-1][0]
+        available = supplier_receipt_available_day(finish, supply.get("receipt_days", 0),
+            origin_date=supply["origin_date"], calendar="monday_friday",
+            nonworking_dates=supply.get("receipt_nonworking_dates", frozenset()))
+        result[proposal.proposal_id] = dict(start_day=decision_day, physical_finish_day=finish,
+            available_day=available, allocations=allocations, capacity_known_day=context["known_day"])
+    return result
+
+
 def programme_replacement_check(candidate, original_plan, **planning_inputs):
     """Counterfactual netting only: the real campaign will supply this credit.
 
@@ -5903,6 +6132,14 @@ def programme_replacement_check(candidate, original_plan, **planning_inputs):
     An early complete batch is credited at its actual quality availability date.
     """
     trial = dict(planning_inputs)
+    capacity_audit = []
+    if candidate.get("work_allocations") is not None:
+        context = planning_inputs.get("manufacturing_capacity")
+        if context is None or context.get("active_remaining_qty", 0) > LOT_TRACE_EPS:
+            raise ValueError("A multi-day promotion requires a free finite resource")
+        # Credit the finished quantity once; reserve its unexecuted work separately.
+        trial["manufacturing_capacity"] = dict(context, active_remaining_qty=candidate["qty"])
+        trial["capacity_audit"] = capacity_audit
     if candidate["available_day"] <= trial["decision_day"]:
         trial["available_qty"] += candidate["qty"]
     else:
@@ -5927,7 +6164,8 @@ def programme_replacement_check(candidate, original_plan, **planning_inputs):
             available_day=p.available_day,qty=p.qty) for p in original_plan.proposals],
         remaining_proposals=[dict(proposal_id=p.proposal_id,release_day=p.release_day,
             available_day=p.available_day,qty=p.qty) for p in plan.proposals],
-        actual_programme_available_day=candidate["available_day"])
+        actual_programme_available_day=candidate["available_day"],
+        counterfactual_capacity_plan=capacity_audit)
 
 
 def programme_current_source_windows(windows_by_pair, programme_rows, *, decision_day,
@@ -14321,6 +14559,9 @@ def main() -> None:
         production_programme_book=WeeklyProductionProgramme(graph_meta["production_programme_policy"],
             bom_by_pair=process_input_requirements_by_output_pair,
             pair_uoms={p:normalize_unit(item_unit_map[p[1]]) for p in produced_pairs|set(production_input_pairs)})
+        if (production_programme_book.multiday
+                and (production_capacity_planning_policy is None or production_intraday_policy is None)):
+            raise ValueError("Multi-day programmes require finite planning and intraday continuation")
     internal_transfer_commitment_pairs = internal_transfer_commitment_scope(
         internal_transfer_commitment_policy, lanes_by_dest_item=lanes_by_dest_item,
         produced_pairs=produced_pairs, production_input_pairs=production_input_pairs,
@@ -17975,10 +18216,16 @@ def main() -> None:
                             if out_pair in exact_supply_calendar_contexts else None),
                     )
                     record_finite_capacity(capacity_release_audit, out_pair, decision_day=day, phase="morning_release")
+                    normal_release_due_qty = desired_qty
+                    desired_qty, authorization_audit = programme_authorization_gate(
+                        production_programme_book, pair=out_pair, decision_day=day,
+                        normal_release_qty=desired_qty, campaign_remaining_qty=campaign_remaining_start_qty,
+                        executed_wip_qty=active_wip.executed_qty if active_wip is not None else 0.0)
                     # Local pilot: accept only at the physical execution instant.
                     # Until this point no programme credit or component has entered planning.
                     if (production_programme_book is not None and refreshed_plan is not None
-                            and out_pair in production_programme_book.series and out_pair not in production_programme_book.rows
+                            and out_pair in production_programme_book.series
+                            and production_programme_book.can_select(out_pair, day)
                             and desired_qty<=LOT_TRACE_EPS and campaign_remaining_start_qty<=LOT_TRACE_EPS
                             and active_wip is None and lot_policy["enabled"]):
                         period_start=day-((day-4)%7)
@@ -18007,12 +18254,19 @@ def main() -> None:
                             if release_policy is not None else day)
                         feasible_qty=production_wip_execution_quantity(production_input_feasible_execution_quantity(
                             max(0.0,min(cap,max_from_inputs)),component_limits=integer_input_limits))
+                        programme_capacity = finite_capacity_context(out_pair, decision_day=day,
+                            first_work_day=day, current_capacity_qty=feasible_qty)
+                        multiday_placements = (programme_multiday_placements(refreshed_plan.proposals,
+                            decision_day=day, context=programme_capacity,
+                            allow_due=production_programme_book.requires_authorization)
+                            if production_programme_book.multiday else None)
                         programme=production_programme_book.select(pair=out_pair,decision_day=day,
                             proposals=refreshed_plan.proposals,
                             calendar=[(day,physical_available)] if any(r==day for r,a in supply_calendar) else (),
                             consumed=consumed,committed=committed,
                             available={c:available_bom_input_qty(c[0],c[1],output_day) for c,_ in components},
-                            capacity_qty=feasible_qty,opening_pack_pending_qty=pending_pack)
+                            capacity_qty=feasible_qty,opening_pack_pending_qty=pending_pack,
+                            multiday_placements=multiday_placements)
                         if programme is not None:
                             limit=int(lot_policy.get("max_lots_per_week",0) or 0)
                             started=started_production_lots_by_week_pair.get((production_week_index(output_day),out_pair),0)
@@ -18024,7 +18278,7 @@ def main() -> None:
                                 programme["feasibility"]=dict(pending_initial_Pack_qty=pending_pack,
                                     actual_capacity_qty=cap,component_feasible_PF_qty=max_from_inputs,
                                     integer_feasible_PF_qty=feasible_qty,weekly_lot_limit=limit,
-                                    already_started_lots_this_week=started,normal_release_due_qty=desired_qty,
+                                    already_started_lots_this_week=started,normal_release_due_qty=normal_release_due_qty,
                                     component_available=[dict(node_id=c[0],item_id=c[1],
                                         available_qty=available_bom_input_qty(c[0],c[1],output_day),ratio=ratio)
                                         for c,ratio in components])
@@ -18034,6 +18288,7 @@ def main() -> None:
                                     firm_receipts=current_firms,lead_days=execution_lead,
                                     lot_sizing=network_lots.get(out_pair,LotSizing()),protection=snapshot.get("protection",()),
                                     manufacturing_calendar=manufacturing_calendar_by_pair.get(out_pair),
+                                    manufacturing_capacity=programme_capacity,
                                     availability_by_release=(dated_supply_release_calendar(decision_day=day,
                                         through_day=max(day,max((r.due_day for r in snapshot.get("requirements",())),default=day),
                                             max((p.day for p in snapshot.get("protection",())),default=day)),
@@ -18045,6 +18300,11 @@ def main() -> None:
                                     production_programme_book.accept(programme)
                                     desired_qty=programme["qty"]
                                     programme_launch=True
+                    if authorization_audit is not None:
+                        authorization_audit.update(approval_status="approved" if programme_launch else "not_approved",
+                            approved_qty=desired_qty, programme_id=programme["programme_id"] if programme_launch else None)
+                        programme_decision_rows.append(dict(day=output_day, status="source_authorization_gate",
+                            **authorization_audit))
                     if chain_planning_policy is not None:
                         applied_floor = max((p.minimum_qty for p in snapshot.get("protection", ())
                                              if p.day <= day), default=0.0)
@@ -19050,6 +19310,7 @@ def main() -> None:
             )
             anticipated_need_context = {}
             purchase_review_calendars = {}
+            known_supply_calendar_contexts = dict(exact_supply_calendar_contexts)
             for delivery_pair, receipt_policy in supplier_receipt_policies.items():
                 delivery_lanes = lanes_by_dest_item[delivery_pair]
                 if delivery_pair in sourcing_policies:
@@ -19075,6 +19336,12 @@ def main() -> None:
                         end_release=max(end_release,supplier_purchase_review_policy["first_review_day"])+7
                     calendar = ()
                     if delivery_pair not in sourcing_policies and delivery_pair not in allocated_supplier_pairs:
+                        known_supply_calendar_contexts[delivery_pair] = dict(
+                            calendar_kind="supplier_receipt", physical_lead_days=delivery_days,
+                            receipt_days=receipt_policy["receipt_days"], origin_date=safety_calendar["start_date"],
+                            receipt_nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(delivery_pair, frozenset()),
+                            **({"purchase_review_policy": supplier_purchase_review_policy}
+                               if purchase_policy_applies(supplier_purchase_review_policy, delivery_pair) else {}))
                         # Policies are fixed for this run. Cache the immutable
                         # calendar, not quantities, forecasts or decisions.
                         cached = anticipated_receipt_cache.setdefault((delivery_pair, delivery_days), {})
@@ -19239,7 +19506,13 @@ def main() -> None:
                         and process_capacity_by_output_pair.get(output_pair, 0.0) <= 0) else
                     math.ceil(remaining / max(process_capacity_by_output_pair.get(output_pair, 0.0), 1e-9)))
                 finish_day = day + max(1, work_days, network_leads.get(output_pair, 1))
-                if output_pair in finished_goods_release_policies:
+                if output_pair in finite_capacity_scope:
+                    finish_day = engaged_production_available_day(decision_day=day,
+                        remaining_work_days=work_days, closed_days=manufacturing_closed_days.get(output_pair, ()),
+                        receipt_days=finished_goods_release_policies.get(output_pair, {}).get("receipt_days", 0),
+                        origin_date=safety_calendar["start_date"],
+                        receipt_nonworking_dates=site_receipt_nonworking_dates.get(output_pair[0], frozenset()))
+                elif output_pair in finished_goods_release_policies:
                     physical_finish = day + max(1, work_days, int(math.ceil(process_tau_days_by_pair.get(output_pair, 0.0))))
                     if output_pair in manufacturing_closed_days:
                         physical_finish = manufacturing_work_finish(day,
@@ -19450,6 +19723,17 @@ def main() -> None:
                         reviewed_offers.append(replace(offer,availability_by_release=calendar,
                             lead_days=calendar[0][1]-day,review_calendar=True))
                     context["offers"]=tuple(reviewed_offers)
+            known_supplier_calendars = {}
+            for pair in set(sourcing_inputs) | set(allocated_sourcing_inputs):
+                lanes = (sourcing_policies[pair]["_lanes_by_supplier"].values()
+                    if pair in sourcing_policies else lanes_by_dest_item[pair])
+                known_supplier_calendars[pair] = {lane["src"]: dict(
+                    calendar_kind="supplier_receipt", physical_lead_days=lead_time_reference_days(lane),
+                    receipt_days=supplier_receipt_policies[pair]["receipt_days"],
+                    origin_date=safety_calendar["start_date"],
+                    receipt_nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(pair, frozenset()),
+                    **({"purchase_review_policy": supplier_purchase_review_policy}
+                        if purchase_policy_applies(supplier_purchase_review_policy, pair) else {})) for lane in lanes}
             planning_network_inputs = dict(
                 decision_day=day, requirements_by_pair=forecast_requirements, available_by_pair=stock,
                 firm_receipts_by_pair=firm_snapshot, transport_sources_by_pair=network_transport_sources,
@@ -19496,6 +19780,8 @@ def main() -> None:
                 availability_by_release_by_pair=({pair: dated_supply_release_calendar(
                     decision_day=day, through_day=day + max(horizon, network_leads.get(pair, 1), network_covers.get(pair, 1)) + 1,
                     **context) for pair, context in exact_supply_calendar_contexts.items()} | purchase_review_calendars) or None,
+                known_supply_calendar_context_by_pair=known_supply_calendar_contexts or None,
+                known_supplier_calendar_contexts_by_pair=known_supplier_calendars or None,
                 **({"transfer_commitment_pairs": internal_transfer_commitment_pairs}
                    if internal_transfer_commitments is not None else {}),
             )
@@ -25696,7 +25982,11 @@ def main() -> None:
         summary["policy"]["production_programme_policy"]=dict(graph_meta["production_programme_policy"],
             states="proposed_and_real_campaign_engaged_at_same_physical_execution_then_executed",
             quantity_rule="existing_whole_lot_advanced_only_equal_total_proposed_PF_before_after",
-            scope="one_promotion_per_output_process_experimental_compatible_budgets_not_industrial_order_identity",
+            scope=("all_new_campaigns_in_declared_scope_require_current_source_proxy_authorization"
+                if production_programme_book.requires_authorization else
+                "one_promotion_per_current_week_up_to52_per_process_after_previous_execution"
+                if production_programme_book.recurrent else
+                "one_promotion_per_output_process_experimental_compatible_budgets_not_industrial_order_identity"),
             calendar="source_Sunday_to_Saturday_known_including_current_physical_launch_workday_only",
             initial_Pack_guard="no_promotion_while_any_initial_Pack_OF_remains_for_the_process_regardless_of_its_week",
             acceptance="morning_current_net_plan_full_batch_inputs_capacity_and_counterfactual_netting_then_immediate_campaign",
@@ -25704,7 +25994,7 @@ def main() -> None:
             source_values="remaining_forecast_is_derived_not_raw_Excel_quantity_raw_and_previous_C8_windows_in_audit",
             audit="data/production_programme_audit.json")
         with data_path(output_dir,"production_programme_audit.json").open("w",encoding="utf-8") as handle:
-            json.dump(dict(schema_version=1,programmes=list(production_programme_book.rows.values()),
+            json.dump(dict(schema_version=1,programmes=list(production_programme_book.history),
                 events=production_programme_book.events,decisions=programme_decision_rows,
                 source_budget_overrides=programme_source_budget_rows),handle,ensure_ascii=False,indent=2)
     if manufactured_output_mrp_policy is not None:

@@ -93,6 +93,7 @@ intermédiaires.
 - [Référence MRP qualifiée du 14 octobre 2026](docs/MRP_REFERENCE_20261014.md)
 - [Données sources et limites](docs/DONNEES_SOURCES.md)
 - [Validation ciblée](docs/TEST_VALIDATION.md)
+- [Production et programme usine : comparaison au réel](docs/PRODUCTION_REALISTE_20261115.md) — [rapport interactif local](resultats/production_realiste_20261115.html).
 - [Accueil des cartes conservées](index.html)
 
 Les contrôles techniques vérifient les calculs et les contrats de données. Ils

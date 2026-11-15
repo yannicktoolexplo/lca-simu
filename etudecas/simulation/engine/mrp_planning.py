@@ -27,22 +27,35 @@ class Requirement:
 
 
 class WeeklyProductionProgramme:
-    """Bounded experiment: advance at most one existing lot per output process.
+    """Bounded experiment: advance existing lots using known current budgets.
 
     Source quantities are compatible weekly budgets, not industrial OF IDs.
     No physical stock is held here; execution stays in the existing campaign.
+    Legacy modes permit one promotion per process. The explicit recurrent
+    candidate permits one per known week, after completion, at most52 total.
+    The explicit authorized candidate also accepts existing lots already due.
+    Its source budgets are a scenario authorization, not industrial firm OF.
     """
     def __init__(self, payload, *, bom_by_pair, pair_uoms):
         fields={"schema_version","mode","max_promotions_per_process","current_bucket_policy","assumption","series"}
         if (not isinstance(payload,dict) or set(payload)!=fields or payload["schema_version"]!=1
-                or type(payload["schema_version"]) is not int or payload["mode"]!="current_week_existing_lot_v1"
-                or type(payload["max_promotions_per_process"]) is not int or payload["max_promotions_per_process"]!=1
+                or type(payload["schema_version"]) is not int or payload["mode"] not in {
+                    "current_week_existing_lot_v1", "current_week_existing_lot_multiday_v1",
+                    "current_week_existing_lot_multiday_recurrent_v1", "current_week_authorized_lot_multiday_v1"}
+                or type(payload["max_promotions_per_process"]) is not int
+                or payload["max_promotions_per_process"]!=(52 if payload["mode"] in {"current_week_existing_lot_multiday_recurrent_v1", "current_week_authorized_lot_multiday_v1"} else 1)
                 or payload["current_bucket_policy"]!="latest_known_including_current"
                 or not isinstance(payload["assumption"],str) or not payload["assumption"].strip()
                 or not isinstance(payload["series"],list) or not payload["series"]):
             raise ValueError("Weekly production pilot requires explicit bounded policy and assumption")
-        self.series={}; self.rows={}; self.events=[]
+        self.mode=payload["mode"]
+        self.multiday=self.mode!="current_week_existing_lot_v1"
+        self.requires_authorization=self.mode=="current_week_authorized_lot_multiday_v1"
+        self.recurrent=self.mode in {"current_week_existing_lot_multiday_recurrent_v1", "current_week_authorized_lot_multiday_v1"}
+        self.max_promotions_per_process=payload["max_promotions_per_process"]
+        self.series={}; self.rows={}; self.events=[]; self.history=[]
         self.bom_by_pair={pair:tuple(rows) for pair,rows in bom_by_pair.items()}
+        self.pair_uoms=dict(pair_uoms)
         for series in payload["series"]:
             if not isinstance(series,dict) or set(series)!={"node_id","output_item_id","versions"}:
                 raise ValueError("Programme scope requires a produced article/site and versions")
@@ -74,9 +87,34 @@ class WeeklyProductionProgramme:
                 versions.append(dict(version,component_budgets=budgets))
             self.series[pair]=tuple(sorted(versions,key=lambda v:v["known_day"]))
 
+    def can_select(self, pair, decision_day):
+        """Eligibility only: no stock, source budget or execution is reset."""
+        if type(decision_day) is not int or decision_day<0:
+            raise ValueError("Programme decision must be a nonnegative integer day")
+        version=next((v for v in reversed(self.series.get(pair,()))
+                      if v["known_day"]<=decision_day<v["period_end_day_exclusive"]),None)
+        if version is None:return False
+        previous=self.rows.get(pair)
+        if previous is None:return True
+        if not self.recurrent:return False
+        accepted=[row for row in self.history if (row["node_id"],row["item_id"])==pair]
+        return (len(accepted)<self.max_promotions_per_process
+                and previous["state"]=="executed" and previous["executed_qty"]==previous["qty"]
+                and previous.get("executed_day",decision_day+1)<=decision_day
+                and version["period_start_day"]>previous["period_start_day"]
+                and not any(row["period_start_day"]==version["period_start_day"] for row in accepted))
+
     def select(self, *, pair, decision_day, proposals, calendar, consumed, committed, available, capacity_qty,
-               opening_pack_pending_qty=0):
-        if pair in self.rows or opening_pack_pending_qty>0:return None
+               opening_pack_pending_qty=0, multiday_placements=None):
+        multiday=self.mode in {"current_week_existing_lot_multiday_v1", "current_week_existing_lot_multiday_recurrent_v1", "current_week_authorized_lot_multiday_v1"}
+        if multiday:
+            if not isinstance(multiday_placements, Mapping):
+                raise ValueError("Multiday programme requires explicit dated placements")
+            if (isinstance(capacity_qty,bool) or not isinstance(capacity_qty,(int,float))
+                    or not isfinite(capacity_qty) or capacity_qty<0):
+                raise ValueError("Multiday programme capacity must be finite and nonnegative")
+            if capacity_qty<=0:return None
+        if not self.can_select(pair,decision_day) or opening_pack_pending_qty>0:return None
         # The pilot acts only at physical execution, never as a Sunday promise.
         if (decision_day+2)%7>=5:return None
         version=next((v for v in reversed(self.series.get(pair,()))
@@ -86,30 +124,89 @@ class WeeklyProductionProgramme:
         if slot is None:return None
         for proposal in sorted(proposals,key=lambda p:(p.release_day,p.proposal_id)):
             qty=proposal.qty
-            if qty<=0 or qty!=int(qty) or slot[0]>=proposal.release_day or capacity_qty+1e-9<qty:continue
-            if any(available.get(component,0)+1e-9<qty*ratio for component,ratio in self._bom(pair)):continue
+            if (qty<=0 or qty!=int(qty)
+                    or (slot[0]>=proposal.release_day and self.mode!="current_week_authorized_lot_multiday_v1")
+                    or (not multiday and capacity_qty+1e-9<qty)):continue
+            placement=(self._multiday_placement(multiday_placements.get(proposal.proposal_id),
+                decision_day=decision_day,qty=qty,capacity_qty=capacity_qty) if multiday else None)
+            if multiday and placement is None:continue
+            component_needs={component:(sum(ceil(Decimal(str(work))*Decimal(str(ratio)))
+                for _day,work in placement["allocations"])
+                if multiday and self.pair_uoms.get(component)=="UN" else qty*ratio)
+                for component,ratio in self._bom(pair)}
+            if any(available.get(component,0)+1e-9<needed for component,needed in component_needs.items()):continue
             audit=[]
             for b in version["component_budgets"]:
                 c=(pair[0],b["item_id"]); used=consumed.get(c,0); firm=committed.get(c,0)
-                needed=qty*b["ratio"]
-                if b["uom"]=="UN":needed=ceil(Decimal(str(qty))*Decimal(str(b["ratio"])))
+                needed=component_needs[c] if multiday else qty*b["ratio"]
+                if b["uom"]=="UN" and not multiday:needed=ceil(Decimal(str(qty))*Decimal(str(b["ratio"])))
                 audit.append(dict(b,consumed_qty=used,committed_qty=firm,allocated_qty=needed,residual_qty=b["qty"]-used-firm-needed))
             if any(b["residual_qty"] < -1e-8 for b in audit):continue
-            return dict(programme_id=f"PROGRAMME|{pair[0]}|{pair[1]}|D{decision_day}",node_id=pair[0],item_id=pair[1],
+            result=dict(programme_id=f"PROGRAMME|{pair[0]}|{pair[1]}|D{decision_day}",node_id=pair[0],item_id=pair[1],
                 decision_day=decision_day,source_known_day=version["known_day"],period_start_day=version["period_start_day"],
                 period_end_day_exclusive=version["period_end_day_exclusive"],state="proposed",qty=qty,
-                release_day=slot[0],available_day=slot[1],original_proposal_id=proposal.proposal_id,
+                release_day=slot[0],available_day=placement["available_day"] if multiday else slot[1],
+                original_proposal_id=proposal.proposal_id,
                 original_release_day=proposal.release_day,original_available_day=proposal.available_day,
                 source_budgets=audit,campaign_id="",executed_qty=0.0)
+            if self.mode=="current_week_authorized_lot_multiday_v1":
+                result["programme_action"]=("authorize_due_existing_lot" if proposal.release_day<=decision_day
+                                            else "advance_future_existing_lot")
+            if multiday:
+                result.update(programme_mode=self.mode,physical_finish_day=placement["physical_finish_day"],
+                    work_allocations=placement["allocations"],capacity_known_day=placement["capacity_known_day"],
+                    component_requirements=[dict(node_id=c[0],item_id=c[1],qty=quantity,
+                        uom=self.pair_uoms.get(c,"")) for c,quantity in component_needs.items()],
+                    integer_component_requirement_basis="sum_ceiled_daily_allocated_work_times_BOM",
+                    physical_finish_delay_vs_source_week_days=max(0,
+                        placement["physical_finish_day"]-(version["period_end_day_exclusive"]-1)))
+            return result
         return None
+
+    @staticmethod
+    def _multiday_placement(placement, *, decision_day, qty, capacity_qty):
+        """Validate caller's dated work; never infer a future capacity or add tau.
+
+        The runtime owns capacity reservations, closures and physical quality
+        dates. This pure selector requires a complete, causal placement of the
+        unchanged UN lot before it can hand it to the existing campaign.
+        """
+        if placement is None:return None
+        fields={"start_day","physical_finish_day","available_day","allocations","capacity_known_day"}
+        if not isinstance(placement,Mapping) or set(placement)!=fields:
+            raise ValueError("Multiday programme placement requires dated work and provenance")
+        start,finish,available,known=(placement[k] for k in
+            ("start_day","physical_finish_day","available_day","capacity_known_day"))
+        if (any(type(day) is not int for day in (start,finish,available,known))
+                or start!=decision_day or finish<start or available<finish or not 0<=known<=decision_day):
+            raise ValueError("Multiday programme placement must start now with causal completion dates")
+        allocations=placement["allocations"]
+        if not isinstance(allocations,(list,tuple)) or not allocations:
+            raise ValueError("Multiday programme placement requires complete work allocations")
+        copied=[];total=Decimal(0)
+        for allocation in allocations:
+            if not isinstance(allocation,(list,tuple)) or len(allocation)!=2:
+                raise ValueError("Multiday programme work allocation must contain day and quantity")
+            day,quantity=allocation
+            if (type(day) is not int or day<start or day>finish or (copied and day<=copied[-1][0])
+                    or isinstance(quantity,bool) or not isinstance(quantity,(int,float))
+                    or not isfinite(quantity) or quantity<=0 or quantity!=int(quantity)):
+                raise ValueError("Multiday programme work must be positive integer UN on ordered dates")
+            total+=Decimal(str(quantity));copied.append((day,quantity))
+        if (copied[0][0]!=start or copied[-1][0]!=finish or total!=Decimal(str(qty))
+                or Decimal(str(copied[0][1]))>Decimal(str(capacity_qty))):
+            raise ValueError("Multiday programme work must conserve the lot and today's capacity")
+        return dict(placement,allocations=tuple(copied))
 
     def _bom(self,pair):
         return self.bom_by_pair[pair]
 
     def accept(self,row):
         pair=(row["node_id"],row["item_id"])
-        if pair in self.rows:raise ValueError("A process can be promoted only once in this pilot")
-        self.rows[pair]=dict(row);self.events.append(dict(row,event="proposed",day=row["decision_day"]))
+        if not self.can_select(pair,row["decision_day"]):
+            raise ValueError("Programme promotion exceeds the current-week or process limit")
+        self.rows[pair]=dict(row);self.history.append(self.rows[pair])
+        self.events.append(dict(row,event="proposed",day=row["decision_day"]))
 
     def engage(self,pair,day,campaign_id):
         row=self.rows[pair]
@@ -122,7 +219,9 @@ class WeeklyProductionProgramme:
         if row is None or row["state"]!="engaged" or row["campaign_id"]!=campaign_id:return
         if qty<0 or row["executed_qty"]+qty>row["qty"]+1e-6:raise ValueError("Programme execution exceeds its original lot")
         row["executed_qty"]+=qty
-        if abs(row["executed_qty"]-row["qty"])<=1e-6:row.update(state="executed",executed_qty=row["qty"])
+        if abs(row["executed_qty"]-row["qty"])<=1e-6:
+            row.update(state="executed",executed_qty=row["qty"])
+            if self.recurrent:row["executed_day"]=day
         self.events.append(dict(row,event="execution",day=day,executed_today_qty=qty))
 
 
@@ -1913,7 +2012,10 @@ def plan_dated_requirements(
                     or (index and (release <= calendar[index - 1][0]
                                    or arrival < calendar[index - 1][1]))):
                 raise ValueError("Release calendar must be causal, ordered and monotone")
-        if calendar[-1][0] < max((r.due_day for r in needs), default=decision_day):
+        last_need = max((r.due_day for r in needs), default=decision_day)
+        # Later availability proves that the omitted tail cannot contain a
+        # feasible later release. Equality alone can truncate a plateau.
+        if calendar[-1][0] < last_need and calendar[-1][1] <= last_need:
             raise ValueError("Release calendar must cover the requirement horizon")
     arrival_dates = tuple(row[1] for row in calendar) if calendar is not None else ()
     seen = {"opening_stock"}
@@ -2178,7 +2280,12 @@ def plan_anticipated_requirements(
                         or (index and (release != calendar[index - 1][0] + 1
                                        or available < calendar[index - 1][1]))):
                     raise ValueError("Anticipated receipt calendar must be consecutive and monotone")
-            if calendar[-1][0] < max((r.due_day for r in planning), default=decision_day):
+            last_need=max((r.due_day for r in planning), default=decision_day)
+            # Availability, not release date, covers a distant protected need.
+            # Strictly later availability proves that no omitted release can
+            # still arrive by the need. Equality alone may truncate a plateau;
+            # it is sufficient only when releases already reach the need date.
+            if calendar[-1][0] < last_need and calendar[-1][1] <= last_need:
                 raise ValueError("Anticipated receipt calendar must cover the planning horizon")
             dates = [entry[1] for entry in calendar]
             proposals = tuple(replace(row, release_day=calendar[max(0, bisect_right(dates, row.requested_day) - 1)][0],
@@ -2420,7 +2527,8 @@ def plan_allocated_purchase_requirements(
                     or (index and (release <= calendar[index - 1][0]
                                    or arrival < calendar[index - 1][1]))):
                 raise ValueError("Allocated supplier calendars must be causal, ordered and monotone")
-        if calendar and calendar[-1][0] < max((r.due_day for r in needs), default=decision_day):
+        last_need = max((r.due_day for r in needs), default=decision_day)
+        if calendar and calendar[-1][0] < last_need and calendar[-1][1] <= last_need:
             raise ValueError("Allocated supplier calendars must cover the requirement horizon")
         calendars[offer.supplier_id] = calendar, tuple(row[1] for row in calendar)
 
@@ -2578,7 +2686,8 @@ def plan_sourced_requirements(
                 raise ValueError("Supplier calendar must have consecutive releases and monotone availability")
         if calendar and not offer.review_calendar and calendar[0][0] != decision_day:
             raise ValueError("Supplier calendar must start at the decision day")
-        if calendar and calendar[-1][0] < max((r.due_day for r in needs), default=decision_day):
+        last_need = max((r.due_day for r in needs), default=decision_day)
+        if calendar and calendar[-1][0] < last_need and calendar[-1][1] <= last_need:
             raise ValueError("Supplier calendar must cover all future requirement dates")
         calendars[offer.supplier_id] = calendar
     protected = set(protected_backup_receipt_ids)
