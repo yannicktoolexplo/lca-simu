@@ -55,6 +55,10 @@ Le [cumul de production en mai](CUMUL_PRODUCTION_MAI_20261115.md) sépare le
 défaut de date du graphique, les semaines inconnues et le blocage des nouveaux
 lots par le programme expérimental ; l'essai couvre les deux produits.
 
+La [couverture des besoins par les ordres initiaux](COUVERTURE_INITIALE_20261115.md)
+remplace le blocage global par une vérification des engagements, des matières
+et de la capacité datée, avec des courbes simulées complètes.
+
 La [correction des promesses avec composants de remplacement](SUBSTITUTION_PROMESSES_20261115.md)
 traite le décalage entre la matière utilisable à l'exécution et celle retenue
 par le MRP pour une campagne engagée, avec comparaison avant/après.

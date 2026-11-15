@@ -17,6 +17,9 @@ from decimal import Decimal, ROUND_HALF_UP
 from fractions import Fraction
 from math import ceil, floor, fsum, isfinite, nextafter
 from typing import Iterable, Mapping
+from etudecas.simulation.engine.programme_opening_coverage import (
+    OPENING_COVERAGE_POLICY, OpeningProgrammeCoverage,
+)
 
 
 @dataclass(frozen=True)
@@ -38,7 +41,7 @@ class WeeklyProductionProgramme:
     """
     def __init__(self, payload, *, bom_by_pair, pair_uoms):
         fields={"schema_version","mode","max_promotions_per_process","current_bucket_policy","assumption","series"}
-        if (not isinstance(payload,dict) or set(payload)!=fields or payload["schema_version"]!=1
+        if (not isinstance(payload,dict) or set(payload) not in (fields, fields|{"opening_commitment_policy"}) or payload["schema_version"]!=1
                 or type(payload["schema_version"]) is not int or payload["mode"] not in {
                     "current_week_existing_lot_v1", "current_week_existing_lot_multiday_v1",
                     "current_week_existing_lot_multiday_recurrent_v1", "current_week_authorized_lot_multiday_v1"}
@@ -48,6 +51,11 @@ class WeeklyProductionProgramme:
                 or not isinstance(payload["assumption"],str) or not payload["assumption"].strip()
                 or not isinstance(payload["series"],list) or not payload["series"]):
             raise ValueError("Weekly production pilot requires explicit bounded policy and assumption")
+        self.opening_commitment_policy = payload.get("opening_commitment_policy")
+        if ("opening_commitment_policy" in payload and
+                (self.opening_commitment_policy != OPENING_COVERAGE_POLICY
+                 or payload["mode"] != "current_week_authorized_lot_multiday_v1")):
+            raise ValueError("Opening commitment reconciliation requires the explicit authorized multiday policy")
         self.mode=payload["mode"]
         self.multiday=self.mode!="current_week_existing_lot_v1"
         self.requires_authorization=self.mode=="current_week_authorized_lot_multiday_v1"
@@ -105,7 +113,8 @@ class WeeklyProductionProgramme:
                 and not any(row["period_start_day"]==version["period_start_day"] for row in accepted))
 
     def select(self, *, pair, decision_day, proposals, calendar, consumed, committed, available, capacity_qty,
-               opening_pack_pending_qty=0, multiday_placements=None):
+               opening_pack_pending_qty=0, multiday_placements=None, opening_coverage=None,
+               selection_audit=None):
         multiday=self.mode in {"current_week_existing_lot_multiday_v1", "current_week_existing_lot_multiday_recurrent_v1", "current_week_authorized_lot_multiday_v1"}
         if multiday:
             if not isinstance(multiday_placements, Mapping):
@@ -114,7 +123,19 @@ class WeeklyProductionProgramme:
                     or not isfinite(capacity_qty) or capacity_qty<0):
                 raise ValueError("Multiday programme capacity must be finite and nonnegative")
             if capacity_qty<=0:return None
-        if not self.can_select(pair,decision_day) or opening_pack_pending_qty>0:return None
+        if not self.can_select(pair,decision_day):return None
+        proposals = tuple(proposals)
+        covered_opening = self.opening_commitment_policy == OPENING_COVERAGE_POLICY
+        if covered_opening:
+            if (not isinstance(opening_coverage, OpeningProgrammeCoverage)
+                    or not opening_coverage.matches(pair=pair, decision_day=decision_day,
+                        pending_qty=opening_pack_pending_qty, proposals=proposals)):
+                if selection_audit is not None:
+                    selection_audit.append(dict(reason="missing_or_stale_opening_coverage"))
+                return None
+        elif opening_pack_pending_qty>0:return None
+        if covered_opening and not proposals and selection_audit is not None:
+            selection_audit.append(dict(reason="all_needs_covered_no_net_proposal"))
         # The pilot acts only at physical execution, never as a Sunday promise.
         if (decision_day+2)%7>=5:return None
         version=next((v for v in reversed(self.series.get(pair,()))
@@ -129,19 +150,43 @@ class WeeklyProductionProgramme:
                     or (not multiday and capacity_qty+1e-9<qty)):continue
             placement=(self._multiday_placement(multiday_placements.get(proposal.proposal_id),
                 decision_day=decision_day,qty=qty,capacity_qty=capacity_qty) if multiday else None)
-            if multiday and placement is None:continue
+            if multiday and placement is None:
+                if selection_audit is not None:
+                    selection_audit.append(dict(proposal_id=proposal.proposal_id,
+                        reason="no_current_capacity_slot_after_initial_work"))
+                continue
             component_needs={component:(sum(ceil(Decimal(str(work))*Decimal(str(ratio)))
                 for _day,work in placement["allocations"])
                 if multiday and self.pair_uoms.get(component)=="UN" else qty*ratio)
                 for component,ratio in self._bom(pair)}
-            if any(available.get(component,0)+1e-9<needed for component,needed in component_needs.items()):continue
+            # Keep enough current stock for every known initial due-date
+            # prefix, net only of accepted usable future receipts. A later OF
+            # cannot be deprived merely because the new lot finishes sooner.
+            reserve = opening_coverage.future_material_protection()[0] if covered_opening else {}
+            material_audit = [dict(node_id=c[0],item_id=c[1],uom=self.pair_uoms.get(c),usable_qty=available.get(c,0),
+                other_committed_qty=committed.get(c,0) if covered_opening else 0,
+                initial_reserved_qty=reserve.get(c,0),new_lot_qty=needed,
+                free_after_reservations_qty=max(0.0, available.get(c,0)
+                    -(committed.get(c,0) if covered_opening else 0)-reserve.get(c,0)))
+                for c,needed in component_needs.items()]
+            if any(r["free_after_reservations_qty"]+1e-9<r["new_lot_qty"] for r in material_audit):
+                if selection_audit is not None:
+                    selection_audit.append(dict(proposal_id=proposal.proposal_id,
+                        reason="material_reserved_or_missing",components=material_audit))
+                continue
+            initial_week = (opening_coverage.component_reservations(version["period_end_day_exclusive"]-1)
+                            if covered_opening else {})
             audit=[]
             for b in version["component_budgets"]:
-                c=(pair[0],b["item_id"]); used=consumed.get(c,0); firm=committed.get(c,0)
+                c=(pair[0],b["item_id"]); used=consumed.get(c,0); firm=committed.get(c,0)+initial_week.get(c,0)
                 needed=component_needs[c] if multiday else qty*b["ratio"]
                 if b["uom"]=="UN" and not multiday:needed=ceil(Decimal(str(qty))*Decimal(str(b["ratio"])))
                 audit.append(dict(b,consumed_qty=used,committed_qty=firm,allocated_qty=needed,residual_qty=b["qty"]-used-firm-needed))
-            if any(b["residual_qty"] < -1e-8 for b in audit):continue
+            if any(b["residual_qty"] < -1e-8 for b in audit):
+                if selection_audit is not None:
+                    selection_audit.append(dict(proposal_id=proposal.proposal_id,
+                        reason="source_budget_after_initial_and_consumed",source_budgets=audit))
+                continue
             result=dict(programme_id=f"PROGRAMME|{pair[0]}|{pair[1]}|D{decision_day}",node_id=pair[0],item_id=pair[1],
                 decision_day=decision_day,source_known_day=version["known_day"],period_start_day=version["period_start_day"],
                 period_end_day_exclusive=version["period_end_day_exclusive"],state="proposed",qty=qty,
@@ -160,6 +205,14 @@ class WeeklyProductionProgramme:
                     integer_component_requirement_basis="sum_ceiled_daily_allocated_work_times_BOM",
                     physical_finish_delay_vs_source_week_days=max(0,
                         placement["physical_finish_day"]-(version["period_end_day_exclusive"]-1)))
+            if covered_opening:
+                result.update(opening_coverage=opening_coverage.audit(pair_uoms=self.pair_uoms),
+                    initial_material_reservation_through_day=max(
+                        (r[2] for r in opening_coverage.orders), default=decision_day),
+                    material_availability_after_reservations=material_audit)
+                if selection_audit is not None:
+                    selection_audit.append(dict(proposal_id=proposal.proposal_id,
+                        reason="net_lot_with_initial_coverage_accepted",components=material_audit))
             return result
         return None
 
@@ -1397,6 +1450,20 @@ class ObservedExternalComponentExecution:
             if (pair, day) in self._rows:
                 result[pair] = actual.get(pair, ())
         return result
+
+    def preview_due(self, day, estimated_due):
+        """Pure current-day observations; subclasses declare deferred closings.
+
+        Do not delegate to self.merge_due: runtime adapters may publish an
+        accounting residual there, after today's production has been recorded.
+        """
+        _day(day, "observed preview day")
+        result = dict(estimated_due)
+        actual = self.calendar.due(day)
+        for pair in self.pairs:
+            if (pair, day) in self._rows:
+                result[pair] = actual.get(pair, ())
+        return result, ()
 
     def provenance(self, requirement_id, forecast_calendar):
         try:
