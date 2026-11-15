@@ -45,6 +45,12 @@ réserve la charge avant lancement et compare deux essais de 135 jours au réel.
 Le gain synthétique ne se retrouve pas pour 268967 avec la capacité actuelle ;
 la comparaison précise aussi les limites de qualification et les quantités en transit.
 
+L'[étude du programme usine et de la production progressive](PRODUCTION_REALISTE_20261115.md)
+compare les étuis réellement prélevés aux consommations simulées. Elle distingue
+le gain de calendrier, les limites de capacité et les effets jusqu'au client ;
+le [rapport interactif local](../resultats/production_realiste_20261115.html)
+permet de remonter d'une semaine aux programmes, composants et campagnes.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes

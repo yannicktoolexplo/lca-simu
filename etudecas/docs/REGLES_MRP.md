@@ -1633,6 +1633,59 @@ ou huit semaines ne sont pas déduits. Les dates promises des engagements
 existants ne sont pas recalculées conjointement avec le conditionnement initial.
 Ce placement ne constitue donc pas un ordonnanceur industriel complet.
 
+Une campagne déjà engagée utilise, dans ce mode, le travail restant pour estimer
+sa fin, puis le contrôle qualité une seule fois. La marge `tau_process` ne
+redémarre pas à chaque revue du soir. Si le placement sur capacité repousse les
+besoins de composants au-delà des calendriers préparés, ceux-ci sont prolongés
+uniquement à partir de leurs paramètres déclarés. Le préfixe existant doit être
+identique ; un calendrier fournisseur inconnu n'est pas extrapolé. Cette
+extension de planification est bornée à 3 660 jours et ne crée aucune demande.
+
+## Variantes explicites de programme industriel connu
+
+La métadonnée `production_programme_policy` peut autoriser l'avance d'un lot
+déjà proposé par le calcul des besoins nets. Elle ne transforme pas une
+prévision industrielle en ordre de fabrication ferme identifié. Les budgets
+hebdomadaires d'au moins deux composants de la nomenclature doivent être
+connus au jour de décision, couvrir le lot après consommation et engagements,
+et porter leur fichier, cellule et unité source. Toute la matière du lot doit
+être physiquement disponible. Un petit budget n'est jamais arrondi au lot.
+
+- `current_week_existing_lot_v1` conserve le pilote d'une seule avance par
+  procédé, avec capacité suffisante pour le lot dans la journée.
+- `current_week_existing_lot_multiday_v1` permet cette avance sur plusieurs
+  jours, avec placement sur capacité et continuation des lots engagés activés.
+- `current_week_existing_lot_multiday_recurrent_v1` permet au plus une avance
+  par semaine source courante et 52 par procédé. L'avance précédente doit être
+  entièrement exécutée. L'historique, les consommations, les encours et les
+  engagements ne sont jamais remis à zéro au changement de semaine.
+- `current_week_authorized_lot_multiday_v1` soumet **tout nouveau lancement** du
+  périmètre déclaré à cette autorisation hypothétique, y compris un lot déjà dû
+  dans le plan normal. Un seul lot existant peut être autorisé ; les campagnes
+  engagées continuent. Une source absente est signalée comme inconnue, distincte
+  d'un budget nul. L'audit conserve le besoin normal empêché et la décision.
+
+Le dernier mode suppose qu'un budget de composants constitue une autorisation
+de lancement. Cette hypothèse sert à départager la réaction aux prévisions
+lointaines et le programme usine ; elle n'est pas une propriété industrielle
+établie. Elle exige de revoir les effets de blocage lorsque les sources sont
+incomplètes, avant tout usage nominal.
+
+Le lot conserve sa quantité. Avant acceptation, un recalcul doit montrer que
+la quantité avancée et les propositions restantes égalent les propositions
+précédentes. Le produit fini est crédité une seule fois à sa disponibilité
+physique prévue ; le travail restant réserve séparément la machine. Pour un
+composant en unités entières, la matière requise est la somme des prélèvements
+quotidiens arrondis selon la règle d'exécution, et non un seul arrondi du lot.
+
+L'audit `production_programme_audit.json` distingue la connaissance du programme,
+les cellules sources, les allocations de travail prévues, les consommations
+exécutées, la campagne et le retard de fin par rapport à la semaine source.
+Ces variantes restent des essais de rapprochement historique, avec capacité
+future déclarée et programme industriel connu. Elles ne démontrent ni la
+cadence réelle de la machine ni l'application des horizons figés de 4 et
+8 semaines. La référence par défaut reste inchangée.
+
 ## Sources actives du calcul
 
 - `etudecas/config/mrp_reference_20261013.json` ;
