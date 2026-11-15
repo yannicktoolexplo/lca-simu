@@ -34,6 +34,7 @@ from etudecas.simulation.engine.model_semantics import (
     safety_calendar_days, shipment_execution_state, transport_charge,
 )
 from etudecas.simulation.engine.opening_receipt_execution import OpeningReceiptExecutionLedger
+from etudecas.simulation.engine.campaign_material_allocation import allocate_campaign_materials
 from etudecas.simulation.engine.monthly_forecast import (
     MONTHLY_CONSUMPTION_FIELDS, MONTHLY_CONSUMPTION_POLICY,
     WEEKLY_REVIEW_MONTHLY_FIELDS, WEEKLY_REVIEW_MONTHLY_POLICY,
@@ -4299,6 +4300,8 @@ def plan_component_network(
     availability_by_release_by_pair: Mapping | None = None,
     known_supply_calendar_context_by_pair: Mapping | None = None,
     known_supplier_calendar_contexts_by_pair: Mapping | None = None,
+    reference_substitutes_by_pair: Mapping | None = None,
+    item_uoms: Mapping | None = None,
     transfer_commitment_pairs: set | None = None,
     transfer_commitment_rows: tuple = (),
 ) -> tuple[dict, dict, dict]:
@@ -4394,10 +4397,29 @@ def plan_component_network(
         receipts.setdefault(pair, []).append(FirmReceipt(
             "campaign:" + campaign_id, finish_day, campaign_receipt_qty, "confirmed",
         ))
-        for component_pair, ratio in bom_by_pair.get(pair, ()):
-            qty = remaining * ratio
+    # Allocate only current, authorized transition stock to engaged work.
+    # Keep physical opening stock unchanged: the allocated quantities become
+    # explicit dated requirements, not a second debit or a virtual receipt.
+    protected_substitute_pairs = (set(bom_by_pair) | set(transport_sources_by_pair)
+        | {source for links in transport_sources_by_pair.values() for source, _ in links}
+        | {component for links in bom_by_pair.values() for component, _ in links}
+        | set(protection_by_pair or {}) | set(source_safety_by_pair or {})
+        | set(industrial_windows_by_pair or {}) | set(anticipated_need_by_pair or {})
+        | set(sourcing_by_pair or {}) | set(allocated_sourcing_by_pair or {}))
+    campaign_material_allocations, campaign_material_audits = allocate_campaign_materials(
+        decision_day=decision_day,
+        active_campaigns_by_pair={pair: row for pair, row in active_campaigns_by_pair.items()
+            if row[1] + row[2] > LOT_TRACE_EPS},
+        bom_by_pair=bom_by_pair, available_by_pair=available_by_pair,
+        firm_receipts_by_pair=receipts, requirements_by_pair=requirements,
+        reserve_targets_by_pair=reserve_targets_by_pair,
+        reference_substitutes_by_pair=reference_substitutes_by_pair, item_uoms=item_uoms,
+        protected_component_pairs=protected_substitute_pairs)
+    for material_rows in campaign_material_allocations.values():
+        for allocation in material_rows:
+            component_pair, qty = allocation["consumed_pair"], allocation["qty"]
             requirements.setdefault(component_pair, []).append(Requirement(
-                "campaign:" + campaign_id + ":" + "|".join(component_pair), decision_day + 1, qty,
+                allocation["requirement_id"], decision_day + 1, qty,
             ))
             campaign_requirements[component_pair] += qty
 
@@ -4731,6 +4753,11 @@ def plan_component_network(
                     transfer_pegs[source][derived_id] = dict(source_pair=source, destination_pair=pair,
                         source_snapshot_day=decision_day, proposal_id=proposal.proposal_id,
                         release_day=proposal.release_day, available_day=proposal.available_day, qty=proposal.qty)
+    for material_rows in campaign_material_allocations.values():
+        for allocation in material_rows:
+            if (allocation["consumed_pair"] != allocation["required_pair"]
+                    and plans[allocation["consumed_pair"]].proposals):
+                raise ArithmeticError("Opening substitute allocation must never create replenishment")
     # Quantities were netted downstream to upstream. Carry the material dates
     # back through existing campaigns, upstream first, so a finished lot cannot
     # be promised before its allocated remaining components. This is a lower
@@ -4761,8 +4788,10 @@ def plan_component_network(
         if remaining + wip <= LOT_TRACE_EPS and not promise_dates_changed:
             continue
         finish_day = estimated_finish_day
-        for component_pair, _ratio in bom_by_pair.get(pair, ()):
-            requirement_id = "campaign:" + campaign_id + ":" + "|".join(component_pair)
+        material_rows = campaign_material_allocations.get(pair, ())
+        for material_row in material_rows:
+            component_pair = material_row["consumed_pair"]
+            requirement_id = material_row["requirement_id"]
             finish_day = max(finish_day, max((
                 allocation.available_day for allocation in plans[component_pair].allocations
                 if allocation.requirement_id == requirement_id
@@ -4770,9 +4799,9 @@ def plan_component_network(
         if campaign is not None and pair in (campaign_receipt_context_by_pair or {}):
             context = campaign_receipt_context_by_pair[pair]
             last_material_day = max((allocation.available_day
-                for component_pair, _ratio in bom_by_pair.get(pair, ())
-                for allocation in plans[component_pair].allocations
-                if allocation.requirement_id == "campaign:" + campaign_id + ":" + "|".join(component_pair)),
+                for material_row in material_rows
+                for allocation in plans[material_row["consumed_pair"]].allocations
+                if allocation.requirement_id == material_row["requirement_id"]),
                 default=decision_day)
             closed = (manufacturing_calendar_by_pair or {}).get(pair, {}).get("closed_days", ())
             while last_material_day in closed:
@@ -4826,6 +4855,11 @@ def plan_component_network(
         "campaign_remaining_qty": campaign_requirements.get(pair, 0.0),
         "reserve_requirement_qty": reserve_quantities.get(pair, 0.0),
         "firm_receipts": receipts.get(pair, ()),
+        **({"campaign_material_allocation": dict(campaign_material_audits[pair],
+            allocations=campaign_material_allocations[pair],
+            promised_receipts=tuple(dict(receipt_id=r.receipt_id, day=r.available_day, qty=r.qty)
+                for r in receipts.get(pair, ()) if r.receipt_id.startswith("campaign:")))}
+           if reference_substitutes_by_pair and pair in campaign_material_audits else {}),
         **({"calendar_extensions": calendar_extension_audits[pair]} if pair in calendar_extension_audits else {}),
         **({"finite_capacity_plan": capacity_audits[pair]} if pair in capacity_audits else {}),
         **({"campaign_credit_canonicalization": campaign_credit_canonicalizations[pair]}
@@ -14546,6 +14580,7 @@ def main() -> None:
     prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     production_execution_snapshots: dict = {}
     production_capacity_plan_rows: list[dict] = []
+    campaign_material_allocation_rows: list[dict] = []
     production_execution_snapshot_rows: list[dict] = []
     production_launch_commitment_rows: list[dict] = []
     production_programme_book = None
@@ -19740,6 +19775,8 @@ def main() -> None:
                 bom_by_pair=process_input_requirements_by_output_pair, lead_days_by_pair=network_leads,
                 lot_sizing_by_pair=network_lots, reserve_targets_by_pair=reserve_targets,
                 coverage_days_by_pair=network_covers, active_campaigns_by_pair=campaigns,
+                reference_substitutes_by_pair=reference_substitutes_by_pair,
+                item_uoms=item_unit_map,
                 sourcing_by_pair=sourcing_inputs,
                 allocated_sourcing_by_pair=allocated_sourcing_inputs or None,
                 grouping_days_by_pair=({pair: purchase_grouping_days for pair in aggregate_delivery_pairs}
@@ -19855,6 +19892,10 @@ def main() -> None:
                 } for pair in produced_pairs}
             for planned_pair, plan in dated_plans.items():
                 audit = dated_plan_audits[planned_pair]
+                if record_day and "campaign_material_allocation" in audit:
+                    campaign_material_allocation_rows.append(dict(day=output_day,
+                        phase="evening_plan", node_id=planned_pair[0], item_id=planned_pair[1],
+                        **audit["campaign_material_allocation"]))
                 record_finite_capacity(audit.get("finite_capacity_plan", ()), planned_pair,
                     decision_day=day, phase="evening_plan")
                 if record_day:
@@ -23034,6 +23075,10 @@ def main() -> None:
              closing_audits) = reconcile_production_execution_snapshot(closing_inputs,
                 available_by_pair=stock, firm_receipts_by_pair=closing_firms, produced_pairs=produced_pairs)
             for pair, closing_audit in closing_audits.items():
+                if record_day and "campaign_material_allocation" in closing_audit:
+                    campaign_material_allocation_rows.append(dict(day=output_day,
+                        phase="closing_plan", node_id=pair[0], item_id=pair[1],
+                        **closing_audit["campaign_material_allocation"]))
                 record_finite_capacity(closing_audit.get("finite_capacity_plan", ()), pair,
                     decision_day=day, phase="closing_plan")
             if production_programme_journal is not None and record_day:
@@ -26673,6 +26718,12 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(demand_pair_rows)
+
+    if reference_substitutes_by_pair:
+        with data_path(output_dir, "campaign_material_allocation_daily.json").open("w", encoding="utf-8") as f:
+            json.dump(dict(scope="engaged_work_current_authorized_transition_stock_only",
+                physical_stock_mutated=False, rows=campaign_material_allocation_rows), f,
+                ensure_ascii=False, indent=2)
 
     if production_capacity_planning_policy is not None:
         with data_path(output_dir, "production_capacity_plan_daily.csv").open("w", encoding="utf-8", newline="") as f:

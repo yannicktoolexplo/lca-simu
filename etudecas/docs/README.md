@@ -51,6 +51,10 @@ le gain de calendrier, les limites de capacité et les effets jusqu'au client ;
 le [rapport interactif local](../resultats/production_realiste_20261115.html)
 permet de remonter d'une semaine aux programmes, composants et campagnes.
 
+La [correction des promesses avec composants de remplacement](SUBSTITUTION_PROMESSES_20261115.md)
+traite le décalage entre la matière utilisable à l'exécution et celle retenue
+par le MRP pour une campagne engagée, avec comparaison avant/après.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes
