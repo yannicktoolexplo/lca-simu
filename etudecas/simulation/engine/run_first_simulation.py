@@ -35,6 +35,10 @@ from etudecas.simulation.engine.model_semantics import (
 )
 from etudecas.simulation.engine.opening_receipt_execution import OpeningReceiptExecutionLedger
 from etudecas.simulation.engine.campaign_material_allocation import allocate_campaign_materials
+from etudecas.simulation.engine.programme_opening_coverage import (
+    OPENING_COVERAGE_POLICY, reconcile_opening_programme, reserve_known_component_backlogs,
+    reveal_current_component_requirements, reserve_current_component_requirements,
+)
 from etudecas.simulation.engine.monthly_forecast import (
     MONTHLY_CONSUMPTION_FIELDS, MONTHLY_CONSUMPTION_POLICY,
     WEEKLY_REVIEW_MONTHLY_FIELDS, WEEKLY_REVIEW_MONTHLY_POLICY,
@@ -3314,6 +3318,24 @@ class OpeningPackOrders:
                         f'opening-pack:{row["source_marker"]}:{component["pair"][1]}', physical, float(qty)))
         return dict(needs), dict(firms)
 
+    def programme_remainders(self, decision_day):
+        """Same dated residuals as planning(), retaining each source identity."""
+        _, firms = self.planning(decision_day)
+        by_id = {r.receipt_id:r for rows in firms.values() for r in rows}
+        records = []
+        for marker, row in self.rows.items():
+            receipt = by_id.get(marker)
+            if receipt is None:
+                continue
+            physical = max(decision_day+1, row["physical_delivery_day"])
+            while physical in self.closed_days_by_pair.get(row["pair"], ()):
+                physical += 1
+            components = tuple((c["pair"][0], c["pair"][1], float(
+                self.component_total(row["target_qty"], c)-row["consumed"].get(c["pair"], Decimal(0))))
+                for c in self.components[row["pair"]])
+            records.append((marker, row["pair"], physical, receipt.available_day, receipt.qty, components))
+        return tuple(records)
+
 
 def execute_opening_pack_fifo(book, pair, *, day, capacity, available, consume, materialize):
     """Use one stock/capacity budget for all due source OF; callbacks are physical."""
@@ -6105,7 +6127,8 @@ def programme_authorization_gate(book, *, pair, decision_day, normal_release_qty
     return 0.0, audit
 
 
-def programme_multiday_placements(proposals, *, decision_day, context, allow_due=False):
+def programme_multiday_placements(proposals, *, decision_day, context, allow_due=False,
+                                 opening_commitment_policy=None, reservation_audit=None):
     """Earliest physical work for a source-authorized UN lot, without execution.
 
     Selection separately checks the complete BOM. Only a currently free machine
@@ -6119,7 +6142,11 @@ def programme_multiday_placements(proposals, *, decision_day, context, allow_due
         raise ValueError("Multi-day programmes require finite capacity planning and intraday execution")
     if context["known_day"] > decision_day or context["first_work_day"] != decision_day:
         raise ValueError("Programme capacity must be known and executable today")
-    if context.get("active_remaining_qty", 0) > LOT_TRACE_EPS or context.get("opening_work"):
+    if opening_commitment_policy not in (None, OPENING_COVERAGE_POLICY):
+        raise ValueError("Unknown initial work reconciliation policy")
+    if context.get("active_remaining_qty", 0) > LOT_TRACE_EPS:
+        return {}
+    if context.get("opening_work") and opening_commitment_policy is None:
         return {}
     rate = float(context["capacity_qty"])
     if not math.isfinite(rate) or rate < 1 or rate != int(rate):
@@ -6135,6 +6162,24 @@ def programme_multiday_placements(proposals, *, decision_day, context, allow_due
     starts = dated_supply_release_calendar(decision_day=decision_day, through_day=decision_day, **supply)
     if not any(d == decision_day for d, _ in starts):
         return {}
+    reserved = defaultdict(int)
+    identities = set()
+    if opening_commitment_policy == OPENING_COVERAGE_POLICY:
+        for identity, earliest, quantity in sorted(context.get("opening_work", ()), key=lambda r:(r[1],r[0])):
+            if (not identity or identity in identities or type(earliest) is not int
+                    or not math.isfinite(quantity) or quantity<=0 or quantity!=int(quantity)):
+                raise ValueError("Initial work reservations require unique dated physical UN remainders")
+            identities.add(identity); left=int(quantity); allocations=[]
+            for work_day in range(max(decision_day,earliest),decision_day+3661):
+                daily = 0 if work_day in closed else math.floor(min(current,rate) if work_day==decision_day else rate)
+                work=min(left,max(0,daily-reserved[work_day]))
+                if work:
+                    reserved[work_day]+=work;left-=work;allocations.append((work_day,work))
+                if not left:break
+            if left:raise ValueError("Initial programme work exceeds bounded capacity calendar")
+            if reservation_audit is not None:
+                reservation_audit.append(dict(receipt_id=identity,earliest_day=earliest,remaining_qty=quantity,
+                                               work_allocations=allocations))
     result = {}
     for proposal in proposals:
         if (proposal.qty <= 0 or proposal.qty != int(proposal.qty)
@@ -6142,14 +6187,16 @@ def programme_multiday_placements(proposals, *, decision_day, context, allow_due
             continue
         remaining = int(proposal.qty); allocations = []
         for work_day in range(decision_day, decision_day + 3661):
-            work = min(remaining, 0 if work_day in closed else
-                math.floor(min(current, rate) if work_day == decision_day else rate))
+            work = min(remaining, 0 if work_day in closed else max(0,
+                math.floor(min(current, rate) if work_day == decision_day else rate)-reserved[work_day]))
             if work:
                 allocations.append((work_day, work)); remaining -= work
             if remaining == 0:
                 break
         if remaining:
             raise ValueError("Programme work exceeds the bounded ten-year capacity calendar")
+        if allocations[0][0] != decision_day:
+            continue  # A programme can only authorize work which starts now.
         finish = allocations[-1][0]
         available = supplier_receipt_available_day(finish, supply.get("receipt_days", 0),
             origin_date=supply["origin_date"], calendar="monday_friday",
@@ -17983,6 +18030,14 @@ def main() -> None:
                     )
                 )
 
+        # Opt-in information convention: today's exogenous uses are known before
+        # allocating a new lot. Preview is pure; closing keeps its usual phase.
+        known_external_component_due_today = None
+        if (production_programme_book is not None
+                and production_programme_book.opening_commitment_policy == OPENING_COVERAGE_POLICY):
+            known_external_component_due_today = reveal_current_component_requirements(
+                external_component_calendar, observed_component_execution, decision_day=output_day)
+
         # Snapshot: raw material stocks at production input before production starts.
         day_input_rows_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
         if record_day:
@@ -18272,14 +18327,57 @@ def main() -> None:
                             for c,ratio in process_input_requirements_by_output_pair.get(active_pair,()):
                                 committed[c]+=max(0.0,remaining)*ratio
                         pending_pack=0.0
+                        opening_policy=production_programme_book.opening_commitment_policy
+                        opening_coverage=None
+                        opening_reservations=[]
+                        opening_selection=[]
+                        current_deferred=()
                         if opening_pack_orders is not None:
-                            # Without industrial OF identities, any pending initial Pack
-                            # order for this process makes a new source programme ambiguous.
+                            # Legacy guard remains the default. Opt-in reconciles
+                            # actual source identities and residual work below.
                             pending_pack=sum(max(0,row["target_qty"]-row["completed_qty"])
                                 for row in opening_pack_orders.rows.values() if row["pair"]==out_pair)
-                            opening_needs,_=opening_pack_orders.planning(day)
-                            for c,needs in opening_needs.items():
-                                committed[c]+=math.fsum(r.qty for r in needs if period_start<=r.due_day<period_start+7)
+                            if opening_policy is None:
+                                opening_needs,_=opening_pack_orders.planning(day)
+                                for c,needs in opening_needs.items():
+                                    committed[c]+=math.fsum(r.qty for r in needs if period_start<=r.due_day<period_start+7)
+                        if opening_policy == OPENING_COVERAGE_POLICY:
+                            other_campaign_reservations=[dict(node_id=c[0],item_id=c[1],qty=q,
+                                uom=production_programme_book.pair_uoms.get(c))
+                                for c,q in sorted(committed.items()) if q>0]
+                            known_backlog,backlog_reservations=reserve_known_component_backlogs(
+                                external_component_backlogs,decision_day=output_day,
+                                components=(c for c,_ratio in components))
+                            for c,quantity in known_backlog.items():
+                                committed[c]+=quantity
+                            for row in backlog_reservations:
+                                row["uom"]=production_programme_book.pair_uoms.get((row["node_id"],row["item_id"]))
+                            current_need,current_reservations=reserve_current_component_requirements(
+                                known_external_component_due_today.known_due,backlogs=external_component_backlogs,
+                                decision_day=output_day,components=(c for c,_ratio in components))
+                            current_deferred=known_external_component_due_today.unresolved_for(c for c,_ratio in components)
+                            for c,quantity in current_need.items():
+                                committed[c]+=quantity
+                            for row in current_reservations:
+                                row["uom"]=production_programme_book.pair_uoms.get((row["node_id"],row["item_id"]))
+                                for requirement in row["requirements"]:
+                                    requirement["provenance"]=(observed_component_execution.provenance(
+                                        requirement["requirement_id"],external_component_calendar)
+                                        if observed_component_execution is not None else
+                                        external_component_calendar.provenance(requirement["requirement_id"]))
+                            opening_rows=(opening_pack_orders.programme_remainders(day)
+                                          if opening_pack_orders is not None else ())
+                            initial_components={(n,i) for _id,_p,_d,_a,_q,cs in opening_rows for n,i,_v in cs}
+                            # Snapshot of already accepted commitments only. In
+                            # particular, no revocable MRP proposal is copied.
+                            # The proof's positive origin list excludes estimated
+                            # receipts and overdue receipts with unknown execution.
+                            component_firms=tuple((identity,c,available,quantity,origin,day)
+                                for c in initial_components
+                                for identity,(available,quantity,origin) in planning_commitments_by_pair.get(c,{}).items())
+                            opening_coverage=reconcile_opening_programme(pair=out_pair,decision_day=day,
+                                orders=opening_rows,firm_receipts=current_firms,proposals=refreshed_plan.proposals,
+                                component_firm_receipts=component_firms)
                         supply_calendar=(dated_supply_release_calendar(decision_day=day,through_day=day,
                             **exact_supply_calendar_contexts[out_pair]) if out_pair in exact_supply_calendar_contexts else ())
                         release_policy=finished_goods_release_policies.get(out_pair)
@@ -18293,15 +18391,36 @@ def main() -> None:
                             first_work_day=day, current_capacity_qty=feasible_qty)
                         multiday_placements = (programme_multiday_placements(refreshed_plan.proposals,
                             decision_day=day, context=programme_capacity,
-                            allow_due=production_programme_book.requires_authorization)
+                            allow_due=production_programme_book.requires_authorization,
+                            opening_commitment_policy=opening_policy,reservation_audit=opening_reservations)
                             if production_programme_book.multiday else None)
-                        programme=production_programme_book.select(pair=out_pair,decision_day=day,
-                            proposals=refreshed_plan.proposals,
-                            calendar=[(day,physical_available)] if any(r==day for r,a in supply_calendar) else (),
-                            consumed=consumed,committed=committed,
-                            available={c:available_bom_input_qty(c[0],c[1],output_day) for c,_ in components},
-                            capacity_qty=feasible_qty,opening_pack_pending_qty=pending_pack,
-                            multiday_placements=multiday_placements)
+                        if current_deferred:
+                            programme=None
+                            opening_selection.append(dict(status="rejected",
+                                reason="current_other_use_not_yet_determined",
+                                deferred_closing_requirements=list(current_deferred)))
+                        else:
+                            programme=production_programme_book.select(pair=out_pair,decision_day=day,
+                                proposals=refreshed_plan.proposals,
+                                calendar=[(day,physical_available)] if any(r==day for r,a in supply_calendar) else (),
+                                consumed=consumed,committed=committed,
+                                available={c:available_bom_input_qty(c[0],c[1],output_day) for c,_ in components},
+                                capacity_qty=feasible_qty,opening_pack_pending_qty=pending_pack,
+                                multiday_placements=multiday_placements,opening_coverage=opening_coverage,
+                                selection_audit=opening_selection)
+                        if opening_coverage is not None:
+                            programme_decision_rows.append(dict(day=output_day,node_id=out_pair[0],item_id=out_pair[1],
+                                status="opening_commitment_coverage",**opening_coverage.audit(
+                                    pair_uoms=production_programme_book.pair_uoms),
+                                initial_work_reservations=opening_reservations,selection=opening_selection,
+                                known_external_component_backlogs=backlog_reservations,
+                                known_external_component_current_demands=current_reservations,
+                                deferred_external_component_current_demands=list(current_deferred),
+                                other_campaign_material_reservations=other_campaign_reservations))
+                            if programme is not None:
+                                programme.update(known_external_component_backlogs=backlog_reservations,
+                                    known_external_component_current_demands=current_reservations,
+                                    other_campaign_material_reservations=other_campaign_reservations)
                         if programme is not None:
                             limit=int(lot_policy.get("max_lots_per_week",0) or 0)
                             started=started_production_lots_by_week_pair.get((production_week_index(output_day),out_pair),0)
@@ -19168,9 +19287,15 @@ def main() -> None:
         # is invented. Keep their backlog separate from customer service KPIs.
         external_component_today: dict = {}
         if external_component_calendar is not None:
-            external_due = external_component_calendar.due(output_day)
-            if observed_component_execution is not None:
-                external_due = observed_component_execution.merge_due(output_day, external_due)
+            if known_external_component_due_today is None:
+                external_due = external_component_calendar.due(output_day)
+                if observed_component_execution is not None:
+                    external_due = observed_component_execution.merge_due(output_day, external_due)
+            else:
+                external_due = known_external_component_due_today.estimated_due
+                if observed_component_execution is not None:
+                    # Exactly one accounting closure, after today's production.
+                    external_due = observed_component_execution.merge_due(output_day, external_due)
             for component_pair in sorted(external_execution_pairs):
                 component_uom = item_unit_map[component_pair[1]]
                 available_before = stock.get(component_pair, 0.0)

@@ -96,6 +96,7 @@ intermédiaires.
 - [Production et programme usine : comparaison au réel](docs/PRODUCTION_REALISTE_20261115.md) — [rapport interactif local](resultats/production_realiste_20261115.html).
 - [Promesses de fabrication et composants de remplacement](docs/SUBSTITUTION_PROMESSES_20261115.md).
 - [Cumul de mai et essai du programme sur les deux produits](docs/CUMUL_PRODUCTION_MAI_20261115.md) — [comparaison interactive locale](resultats/cumul_production_mai_20261115.html).
+- [Ordres initiaux et besoins non couverts](docs/COUVERTURE_INITIALE_20261115.md) — [courbes complètes et détail des lots](resultats/couverture_initiale_protegee_20261115.html).
 - [Accueil des cartes conservées](index.html)
 
 Les contrôles techniques vérifient les calculs et les contrats de données. Ils

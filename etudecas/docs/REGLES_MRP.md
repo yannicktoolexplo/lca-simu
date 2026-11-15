@@ -1686,6 +1686,100 @@ future déclarée et programme industriel connu. Elles ne démontrent ni la
 cadence réelle de la machine ni l'application des horizons figés de 4 et
 8 semaines. La référence par défaut reste inchangée.
 
+### Ordres initiaux et nouveaux programmes
+
+Dans le mode `current_week_authorized_lot_multiday_v1`, l'option explicite
+`opening_commitment_policy: net_remaining_opening_orders_v1` remplace le refus
+global lié à un ordre initial encore en attente par une vérification locale.
+Sans cette option, le comportement historique reste conservé.
+
+Le calcul daté des besoins a déjà déduit les stocks et les réceptions fermes,
+y compris les ordres initiaux et les quantités fermes en retard. La sélection
+choisit seulement un lot parmi ces propositions nettes : elle ne redéduit pas
+les ordres initiaux et n'ajoute pas un nouveau crédit de produit fini. Chaque
+reste initial est rapproché de sa réception ferme par identifiant source,
+quantité restante et disponibilité. Les fragments déjà exécutés restent
+distincts des restes à fabriquer. Une preuve absente ou incohérente interdit
+la nouvelle autorisation.
+
+Pour un besoin de 250 unités, un stock de 20 et une réception initiale ferme
+de 100, il reste 130 unités non couvertes avant lotification. Si les 100 unités
+fermes sont tardives, le retard demeure visible ; il ne justifie pas de
+fabriquer ces mêmes 100 unités une seconde fois.
+
+Les composants utilisables doivent couvrir le nouveau lot après protection
+des autres campagnes engagées, des besoins des autres usages déjà en attente
+et des échéances initiales futures. Pour chaque
+composant et chaque site, la réserve à garder aujourd'hui est le maximum, sur
+les dates de besoin initial, de :
+
+`max(0, besoins initiaux cumulés à cette date − réceptions fermes utilisables cumulées à cette date)`.
+
+Les besoins initiaux sont les composants encore à consommer ; les réceptions
+fermes sont les quantités déjà engagées dans le simulateur, connues à la
+décision et utilisables au plus tard à la date examinée. Les achats seulement
+proposés et les réceptions à provenance ou disponibilité incertaine ne libèrent
+aucun stock. Une réception déjà incluse dans le stock utilisable n'est pas
+créditée une seconde fois. La date de l'instantané de décision ne remplace pas
+une date de connaissance industrielle absente des données.
+
+Exemple : stock de 100, besoin initial de 70 à J8 puis 60 à J15, réception
+ferme de 60 utilisable à J10. Il faut garder 70 dès aujourd'hui ; seules 30
+unités sont libres pour un nouveau lot, avant les autres engagements. La
+réception de J10 ne peut pas couvrir rétroactivement le besoin de J8.
+
+Le budget de composants de la semaine est vérifié séparément, après déduction
+des consommations et des engagements de cette semaine. Ces déductions sont
+des réservations de planification, pas des consommations physiques.
+
+Les besoins des autres usages déjà en attente viennent uniquement de la file
+résiduelle de demandes échues avant le jour de décision. Le calcul n'ouvre
+pas le calendrier des demandes réelles futures. Chaque identité n'est comptée
+qu'une fois ; une demande servie quitte la file et ne réserve plus de matière.
+Cette réserve réduit à la fois le stock libre et le budget encore allouable,
+deux contraintes distinctes. Exemple : 150 000 unités utilisables moins
+121 200 unités déjà demandées laissent 28 800 unités, avant les autres
+réserves. Une nouvelle fabrication de 129 600 unités doit être refusée.
+
+Dans cette option, la demande exogène datée du jour est révélée avant
+l'allocation des matières à la production. Elle est réservée séparément des
+demandes antérieures. Le service après production conserve les mêmes quantités
+exogènes, sans seconde consommation. La décision ne consulte aucune
+demande observée d'un jour futur. C'est une convention du modèle journalier,
+pas une affirmation sur l'heure de réception d'une demande industrielle.
+Exemple : 129 036 unités utilisables, moins 70 600 réservées aux ordres initiaux
+et 11 818 demandées aujourd'hui, laissent 46 618 unités pour un nouveau lot.
+
+Un aperçu de demande ne doit jamais clôturer un calcul de résidu dépendant des
+fabrications de la journée. Dans le raccord historique, certains autres
+usages sont reconstitués à la clôture de semaine : total de retraits observé,
+moins consommations propres simulées, avec la convention cumulative existante
+lorsqu'elle s'applique. Leur quantité n'est pas une demande exogène connue
+avant la production. L'aperçu les distingue comme calculs différés. Un nouveau
+programme qui nécessite directement un tel composant le jour de sa clôture
+est refusé par prudence ; les fabrications déjà engagées restent traitées
+normalement. La clôture du résidu s'exécute une seule fois après les
+consommations physiques. Ce raccord historique est conservé, pas validé comme
+mesure directe des besoins industriels.
+
+Le calendrier réserve d'abord la charge initiale aux dates connues, puis place
+le nouveau lot dans la capacité restante. Les dates et quantités sources des
+ordres initiaux restent intactes. Le contrôle de remplacement conserve le
+volume total proposé et crédite une seule fois le nouveau lot.
+
+L'audit `opening_commitment_coverage` expose les identités rapprochées, les
+propositions nettes, la charge initiale réservée, les projections de besoins et
+réceptions de composants, les demandes d'autres usages déjà en attente, celles
+révélées aujourd'hui et les refus de matière ou de budget. La protection
+matière reste conservatrice : tout le reliquat d'un ordre initial est placé à
+sa prochaine date de travail prévue, même si son exécution peut ensuite
+s'étaler. Une réception future ferme reste une promesse du modèle, pas une
+garantie contre un incident industriel ultérieur. Cette règle ne constitue ni une
+reconstruction des liens de couverture industriels ni un ordonnanceur de
+machines partagées entre produits. Elle ne projette pas les usages concurrents
+futurs encore inconnus ; le contrôle à l'autorisation n'est pas une priorité
+physique persistante sur tous les consommateurs de matière.
+
 ## Substituts dans les promesses des campagnes engagées
 
 Une campagne déjà engagée peut affecter son besoin matière restant au stock

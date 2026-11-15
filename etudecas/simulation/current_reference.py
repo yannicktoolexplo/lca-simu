@@ -521,26 +521,24 @@ def prepare_graph(graph, config, days, forecast_mode="source_priority"):
     return graph
 
 
-def run_engine(graph, protocol, config, frozen_path, command, output, days,
-               scan3_mode="legacy_residual"):
-    validate_scan3_mode(scan3_mode, days)
-    adapter = importlib.import_module(config["adapter_module"])
-    f3 = adapter.f3_module()
-    tracker = adapter.tracker_for(f3, graph["meta"]["formats_reconciled_weekly_budgets"],
-                                  protocol["cumulative_residual_pairs"], mode=scan3_mode)
-    e4 = f3.e4_module()
-    e4.TARGETS = {tuple(p) for p in protocol["forecast_reconciliation_pairs"]}
-    e4.EFFECTIVE_POLICY = "F2_source_weekly_max_own_I_and_preserved_reserves"
-    from etudecas.simulation.engine import mrp_planning as planning
-    engine = importlib.import_module("etudecas.simulation.engine.run_first_simulation")
-    original_engine_reconcile = engine.reconcile_industrial_requirements
-    original_engine_observed = engine.ObservedExternalComponentExecution
-    original_reconcile, original_observed = planning.reconcile_industrial_requirements, planning.ObservedExternalComponentExecution
-    planner = e4.ScopedReconciliation(original_reconcile)
-    planning.reconcile_industrial_requirements = planner.reconcile
-    frozen = FrozenOtherUses(graph["meta"]["current_reference_other_use_profile"]) if days > FIRST else None
-
+def runtime_observed_type(original_observed, tracker, frozen, days):
+    """Runtime adapter with separate pure preview and after-production closing."""
     class RuntimeObserved(original_observed):
+        def preview_due(self, day, estimated_due):
+            if frozen is not None and day >= FIRST:
+                return super().preview_due(day, frozen.requirements(day))
+            known, deferred = super().preview_due(day, estimated_due)
+            closings = ()
+            if tracker.mode == "legacy_residual":
+                sources = tuple(tracker.closes.get(day, ())) + tuple(
+                    getattr(tracker, "cumulative_closes", {}).get(day, ()))
+                closings = tuple(dict(node_id=r["node_id"],item_id=r["item_id"],
+                    uom=r["uom"],budget_id=r["budget_id"],closing_day=day,
+                    reason="quantity_depends_on_current_day_production",
+                    source_file=r["source_file"],source_cells=r["scan3_source_cell"])
+                    for r in sources)
+            return known, tuple(deferred) + closings
+
         def merge_due(self, day, estimated_due):
             if day % 30 == 0:
                 print(f"[current-reference] jour {day}/{days}", flush=True)
@@ -565,6 +563,28 @@ def run_engine(graph, protocol, config, frozen_path, command, output, days,
                     physical_source_cells="W demand_qty weekly profile", physical_observation_qty="",
                     physical_demand_known_day=frozen.known_day(day))
             return super().day_audit(pair, day)
+    return RuntimeObserved
+
+
+def run_engine(graph, protocol, config, frozen_path, command, output, days,
+               scan3_mode="legacy_residual"):
+    validate_scan3_mode(scan3_mode, days)
+    adapter = importlib.import_module(config["adapter_module"])
+    f3 = adapter.f3_module()
+    tracker = adapter.tracker_for(f3, graph["meta"]["formats_reconciled_weekly_budgets"],
+                                  protocol["cumulative_residual_pairs"], mode=scan3_mode)
+    e4 = f3.e4_module()
+    e4.TARGETS = {tuple(p) for p in protocol["forecast_reconciliation_pairs"]}
+    e4.EFFECTIVE_POLICY = "F2_source_weekly_max_own_I_and_preserved_reserves"
+    from etudecas.simulation.engine import mrp_planning as planning
+    engine = importlib.import_module("etudecas.simulation.engine.run_first_simulation")
+    original_engine_reconcile = engine.reconcile_industrial_requirements
+    original_engine_observed = engine.ObservedExternalComponentExecution
+    original_reconcile, original_observed = planning.reconcile_industrial_requirements, planning.ObservedExternalComponentExecution
+    planner = e4.ScopedReconciliation(original_reconcile)
+    planning.reconcile_industrial_requirements = planner.reconcile
+    frozen = FrozenOtherUses(graph["meta"]["current_reference_other_use_profile"]) if days > FIRST else None
+    RuntimeObserved = runtime_observed_type(original_observed, tracker, frozen, days)
 
     planning.ObservedExternalComponentExecution = RuntimeObserved
     # Engine from-import aliases must follow this run's adapters, including
