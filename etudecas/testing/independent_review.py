@@ -566,8 +566,32 @@ def audit_opening_purchase_availability(orders, events, horizon, evidence, *, me
     return count
 
 
-def audit_internal_transfer_availability(orders, events, genealogy, horizon, pairs, evidence):
+def declared_transfer_receipt_sources(meta, evidence):
+    """Partition all declared destination holds, including finished goods."""
+    result = {}
+    for name in ("internal_component_policy", "finished_goods_release_policy"):
+        for row in meta.get(name, {}).get("rows", []):
+            if "receipt_days" not in row:
+                continue
+            if name == "finished_goods_release_policy":
+                if row.get("location_basis") != "destination_after_transport":
+                    continue
+                pair = row.get("depot_node_id"), row.get("item_id")
+            else:
+                pair = row.get("node_id"), row.get("item_id")
+            valid = all(isinstance(part, str) and part for part in pair) and pair not in result
+            evidence.check("internal_transfer_policy_pair_unique", valid, pair)
+            if valid:
+                result[pair] = "graph.meta." + name
+    return result
+
+
+def audit_internal_transfer_availability(orders, events, genealogy, horizon, pairs, evidence,
+                                         *, policy_sources=None):
     """One transported child lot at G, held until I; no production helper."""
+    policy_sources = ({pair: "graph.meta.internal_component_policy" for pair in pairs}
+                      if policy_sources is None else dict(policy_sources))
+    evidence.check("internal_transfer_declared_policy_scope", set(policy_sources) == set(pairs))
     by_order, by_state, shipments, links = (defaultdict(list) for _ in range(4))
     for event in events:
         if event.get("event_type") == "lane_receipt":
@@ -596,7 +620,7 @@ def audit_internal_transfer_availability(orders, events, genealogy, horizon, pai
         qty = number(order, "planned_receipt_qty")
         evidence.check("internal_transfer_valid_dates_and_quantity", 0 <= g <= available and qty > 0, identity)
         evidence.check("internal_transfer_arrival_means_availability", int(order["arrival_day"]) == available, identity)
-        evidence.check("internal_transfer_policy_provenance", order["source_file"] == "graph.meta.internal_component_policy", identity)
+        evidence.check("internal_transfer_policy_provenance", order["source_file"] == policy_sources.get(pair), identity)
         created = by_order[identity]
         held = [e for e in by_state[identity] if e["event_type"] == "stock_availability_hold"]
         released = [e for e in by_state[identity] if e["event_type"] == "stock_availability_release"]
@@ -638,7 +662,8 @@ def audit_internal_transfer_availability(orders, events, genealogy, horizon, pai
     return len(seen)
 
 
-def declared_scan3_requirements(contract, budgets, events, horizon, scenario, evidence):
+def declared_scan3_requirements(contract, budgets, events, horizon, scenario, evidence,
+                               *, closed_rows=None):
     """Rebuild declared historical residuals without reading their runtime export.
 
     Own withdrawals come from executed BOM lot events. Earlier residuals are
@@ -671,7 +696,7 @@ def declared_scan3_requirements(contract, budgets, events, horizon, scenario, ev
             signed = Decimal(str(source["raw_signed_scan3_qty"]))
             valid = (all(isinstance(s, str) and s for s in pair)
                      and all(type(d) is int for d in (first, end, closing))
-                     and 0 <= first < end <= horizon and end - first <= 7 and closing == end - 1
+                     and 0 <= first < end and end - first <= 7 and closing == end - 1
                      and (closing - 4) % 7 == 0 and source["covered_days"] == end - first
                      and source["uom"] in {"G", "KG", "UN"}
                      and type(source.get("source_row")) is int and source["source_row"] > 0
@@ -706,6 +731,8 @@ def declared_scan3_requirements(contract, budgets, events, horizon, scenario, ev
         intervals[pair].append((first, end))
         pairs.add(pair)
         normalized.append(source)
+        cohort = "closed" if closing < horizon else "incomplete" if first < horizon else "future"
+        evidence.check("scan3_budget_cohort_" + cohort, True, identity)
     evidence.check("scan3_cumulative_pairs_have_budgets", set(cumulative) <= pairs)
     own = defaultdict(Decimal)
     units = { (s["node_id"], s["item_id"]): s["uom"] for s in normalized }
@@ -718,10 +745,17 @@ def declared_scan3_requirements(contract, budgets, events, horizon, scenario, ev
             valid = amount.is_finite() and amount >= 0
             evidence.check("scan3_own_quantity", valid, key)
             evidence.check("scan3_own_unit", event.get("uom") == units[key[1:]], key)
-            if valid:
+            in_horizon = 0 <= key[0] < horizon
+            evidence.check("scan3_own_execution_in_horizon", in_horizon, key)
+            if valid and in_horizon:
                 own[key] += amount
     totals, result = defaultdict(lambda: [Decimal(0), Decimal(0), Decimal(0)]), {}
     for source in sorted(normalized, key=lambda s: (s["closing_day"], s["budget_id"])):
+        # All archival rows were validated above. Only an actually closed week
+        # can create a requirement; do not prorate an unfinished final week or
+        # consume an observation from a future source week.
+        if source["closing_day"] >= horizon:
+            continue
         pair = source["node_id"], source["item_id"]
         day = source["closing_day"]
         quantity = Decimal(str(source["covered_scan3_qty"]))
@@ -747,11 +781,16 @@ def declared_scan3_requirements(contract, budgets, events, horizon, scenario, ev
                 source_week_marker=source["source_week_marker"], first_day=source["first_day"],
                 end_day_exclusive=source["end_day_exclusive"], J_covered_qty=float(quantity),
                 own_BOM_qty=float(used), residual_qty=float(requested), own_excess_qty=float(excess),
-                I_preserved_separately=True, actual_alternate_SKU_scope="not_identified",
+                I_preserved_separately=True, scan3_scope="confirmed_reference_scope",
+                actual_alternate_SKU_scope="not_identified",
                 timing="Sunday closing accounting convention, not a measured production date",
                 planning_use="not available before closing day")
         if source["uom"] == "UN":
             evidence.check("scan3_residual_integer_UN", used == int(used) and requested == int(requested), source["budget_id"])
+        if closed_rows is not None:
+            closed_rows.append(dict(source, own_physical_qty=float(used),
+                residual_requested_qty=float(requested), own_exceeds_scan3_qty=float(excess),
+                requirement_id=f"external:{scenario}:zz-reconciled-F3:{source['budget_id']}:D{day}"))
         if requested <= 0:
             continue
         identity = f"external:{scenario}:zz-reconciled-F3:{source['budget_id']}:D{day}"
@@ -760,6 +799,85 @@ def declared_scan3_requirements(contract, budgets, events, horizon, scenario, ev
                         source_cells=source["scan3_source_cell"], uom=source["uom"]),
             physical_source="reconstructed_scan3_residual_not_identified_other_format", reconciliation_basis=basis)
     return result
+
+
+def audit_scan3_closed_export(expected_rows, events, weekly_rows, allocation_rows,
+                              horizon, evidence):
+    """Match only completed source weeks, without losing future-event guards.
+
+    Expected records are rebuilt from source budgets and physical own use by
+    the independent recurrence above. The exported F3 records never define
+    their own coverage, quantities, or admissible requirement identities.
+    """
+    expected = {row["budget_id"]: row for row in expected_rows}
+    actual = {}
+    for row in weekly_rows:
+        identity = row.get("budget_id", "")
+        evidence.check("scan3_closed_weekly_identity_unique", bool(identity) and identity not in actual, identity)
+        actual[identity] = row
+    evidence.check("scan3_closed_weekly_coverage", set(actual) == set(expected), {
+        "missing": sorted(set(expected)-set(actual))[:5],
+        "unclosed_or_unknown": sorted(set(actual)-set(expected))[:5]})
+    by_requirement = {row["requirement_id"]: row for row in expected_rows}
+    executions, allocations = Counter(), Counter()
+    days = defaultdict(list)
+    for event in events:
+        identity = event.get("source_id", "")
+        if event.get("event_type") != "external_component_consume" or "zz-reconciled-F3:" not in identity:
+            continue
+        valid = identity in by_requirement
+        evidence.check("scan3_execution_has_closed_budget", valid, identity)
+        if not valid:
+            continue
+        source = by_requirement[identity]
+        day = int(event["day"])
+        evidence.check("scan3_execution_closed_and_in_horizon", source["closing_day"] <= day < horizon, identity)
+        key = day, identity, event["node_id"], event["item_id"], event.get("uom")
+        executions[key] += Decimal(str(event["qty"]))
+        days[identity].append(day)
+    for row in allocation_rows:
+        identity = row.get("requirement_id", "")
+        evidence.check("scan3_allocation_has_closed_budget", identity in by_requirement, identity)
+        if identity not in by_requirement:
+            continue
+        day = int(row["day"])
+        source = by_requirement[identity]
+        evidence.check("scan3_allocation_closed_and_in_horizon", source["closing_day"] <= day < horizon, identity)
+        key = day, identity, row["node_id"], row["item_id"], row.get("uom")
+        quantity = Decimal(str(row["qty"]))
+        valid = quantity.is_finite() and quantity >= 0
+        evidence.check("scan3_allocation_quantity", valid, identity)
+        if valid:
+            allocations[key] += quantity
+    evidence.check("scan3_allocation_physical_keys", set(allocations) == set(executions))
+    for key in set(allocations) | set(executions):
+        evidence.close("scan3_allocation_physical_quantity", float(allocations[key]), float(executions[key]), key)
+    for identity, source in expected.items():
+        row = actual.get(identity)
+        if row is None:
+            continue
+        fields = ("node_id", "item_id", "uom", "source_file", "scan3_source_cell",
+                  "source_row", "source_week_marker", "covered_days", "partial_week",
+                  "include_in_main_source_balance", "coverage_status",
+                  "first_day", "end_day_exclusive", "closing_day", "requirement_id")
+        evidence.check("scan3_closed_weekly_source_identity", all(str(row.get(k, "")) == str(source[k]) for k in fields), identity)
+        for field in ("covered_scan3_qty", "full_week_scan3_qty", "raw_signed_scan3_qty",
+                      "own_physical_qty", "residual_requested_qty", "own_exceeds_scan3_qty"):
+            evidence.close("scan3_closed_weekly_" + field, number(row, field), source[field], identity)
+        rid = source["requirement_id"]
+        issued = sum((q for key, q in executions.items() if key[1] == rid), Decimal(0))
+        on_closing = sum((q for key, q in executions.items() if key[1] == rid and key[0] == source["closing_day"]), Decimal(0))
+        requested = source["residual_requested_qty"]
+        evidence.check("scan3_closed_execution_within_request", 0 <= issued <= Decimal(str(requested)) + Decimal('0.00002'), identity)
+        for field, wanted in (("residual_executed_qty", float(issued)),
+                ("residual_executed_on_closing_day_qty", float(on_closing)),
+                ("residual_backlog_initial_qty", 0.0),
+                ("residual_backlog_final_qty", max(0.0, requested-float(issued))),
+                ("residual_backlog_at_closing_qty", max(0.0, requested-float(on_closing)))):
+            evidence.close("scan3_closed_weekly_" + field, number(row, field), wanted, identity)
+        for field, wanted in (("first_execution_day", min(days[rid]) if days[rid] else ""),
+                              ("last_execution_day", max(days[rid]) if days[rid] else "")):
+            evidence.check("scan3_closed_weekly_" + field, str(row.get(field) or "") == str(wanted), identity)
 
 
 def scan3_reconciliation_mode(manifest, weekly_rows, evidence, *, require_manifest=False):
@@ -772,6 +890,9 @@ def scan3_reconciliation_mode(manifest, weekly_rows, evidence, *, require_manife
     """
     manifest = manifest if isinstance(manifest, dict) else {}
     runtime = manifest.get("runtime") if isinstance(manifest.get("runtime"), dict) else {}
+    if "scan3_residual_provenance_schema_version" in runtime:
+        version = runtime["scan3_residual_provenance_schema_version"]
+        evidence.check("scan3_residual_provenance_contract_version", type(version) is int and version == 2, version)
     top = manifest.get("scan3_reconciliation_mode")
     nested = runtime.get("scan3_reconciliation_mode")
     row_modes = {str(row.get("scan3_reconciliation_mode", "")).strip()
@@ -813,7 +934,7 @@ def audit_scan3_only_export(contract, budgets, events, weekly_rows, allocation_r
         identity = budget.get("budget_id") if isinstance(budget, dict) else None
         evidence.check("scan3_audit_budget_identity_unique", bool(identity) and identity not in budget_by_id,
                        identity)
-        if identity:
+        if identity and type(budget.get("closing_day")) is int and budget["closing_day"] < horizon:
             budget_by_id[identity] = budget
     weekly_by_id = {}
     for row in weekly_rows:
@@ -1229,8 +1350,14 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
     if reconciliation is not None:
         mode = reconciliation.get("mode", "legacy_residual")
         if mode == "legacy_residual":
+            closed_rows = []
             extra = declared_scan3_requirements(reconciliation["contract"], reconciliation["budgets"],
-                                                events, horizon, scenario, evidence)
+                                                events, horizon, scenario, evidence, closed_rows=closed_rows)
+            # Legacy in-memory callers can omit exports; actual run auditing
+            # supplies both files and requires exhaustive closed-week coverage.
+            if "weekly_rows" in reconciliation or "allocation_rows" in reconciliation:
+                audit_scan3_closed_export(closed_rows, events, reconciliation.get("weekly_rows", []),
+                    reconciliation.get("allocation_rows", []), horizon, evidence)
         elif mode == "audit_only":
             audit_scan3_only_export(reconciliation["contract"], reconciliation["budgets"], events,
                                     reconciliation.get("weekly_rows", []),
@@ -1609,11 +1736,11 @@ def audit_run(run):
         e.check("availability_complete_horizon", days == list(range(horizon)), list(pair))
 
     genealogy = list(rows(run, "production_lot_genealogy"))
-    internal_policy_rows = summary.get("policy", {}).get("internal_component_policy", {}).get("rows", [])
-    internal_receipt_pairs = {(r["node_id"], r["item_id"]) for r in internal_policy_rows if "receipt_days" in r}
-    if internal_receipt_pairs:
+    transfer_sources = declared_transfer_receipt_sources(
+        declared_meta if declared_meta is not None else summary.get("policy", {}), e)
+    if transfer_sources or any(r.get("source_type") == "internal_transfer_availability" for r in events):
         audit_internal_transfer_availability(rows(run, "mrp_orders_daily"), events, genealogy,
-                                             horizon, internal_receipt_pairs, e)
+                                             horizon, set(transfer_sources), e, policy_sources=transfer_sources)
     production_links = Counter()
     transport_parents = Counter()
     for r in genealogy:

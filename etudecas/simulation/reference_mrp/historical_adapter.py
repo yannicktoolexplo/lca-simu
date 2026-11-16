@@ -7,6 +7,9 @@ from . import reconciliation
 
 
 SCAN3_MODES = ("legacy_residual", "audit_only")
+# Version 2 distinguishes the confirmed scope of the source withdrawal from
+# the unidentified industrial attribution of the residual constructed by us.
+SCAN3_RESIDUAL_PROVENANCE_SCHEMA_VERSION = 2
 
 
 class WeeklyTracker:
@@ -73,6 +76,7 @@ class WeeklyTracker:
                         own_excess_qty=float(max(Decimal(0), own-target)),
                         I_preserved_separately=True,
                         scan3_scope="confirmed_reference_scope",
+                        actual_alternate_SKU_scope="not_identified",
                         timing="Sunday closing accounting convention, not a measured production date",
                         planning_use="not available before closing day"), ensure_ascii=False))
             if remainder > 0:

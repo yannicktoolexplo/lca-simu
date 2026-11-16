@@ -554,7 +554,7 @@ def runtime_observed_type(original_observed, tracker, frozen, days):
                 return frozen.provenance((node, item_prefix+":"+item), int(d[1:]))
             if identity in tracker.provenance:
                 return {**tracker.provenance[identity],
-                    "physical_demand_source": "legacy_reconstructed_scan3_residual"}
+                    "physical_demand_source": "reconstructed_scan3_residual_not_identified_other_format"}
             return super().provenance(identity, forecast_calendar)
 
         def day_audit(self, pair, day):
@@ -647,6 +647,7 @@ def run_engine(graph, protocol, config, frozen_path, command, output, days,
             writer.writeheader()
             writer.writerows(records)
     return dict(historical_F3_budgets=len(rows), scan3_reconciliation_mode=scan3_mode,
+                scan3_residual_provenance_schema_version=adapter.SCAN3_RESIDUAL_PROVENANCE_SCHEMA_VERSION,
                 E4_forecast_pairs=protocol["forecast_reconciliation_pairs"],
                 F3_cumulative_pairs=protocol["cumulative_residual_pairs"],
                 future_other_pairs=[list(p) for p in sorted(frozen.units)] if frozen else [])

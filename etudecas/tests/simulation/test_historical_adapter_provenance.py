@@ -63,12 +63,12 @@ def test_scan3_runtime_basis_exactly_matches_independent_oracle(cumulative):
     tracker.close(11, {})
     actual = json.loads(next(iter(tracker.provenance.values()))["estimation_basis"])
 
-    # The independent legacy oracle still carries the former, unproven scope
-    # label.  Keep its numerical oracle while enforcing the confirmed meaning
-    # of J/Scan3 in the runtime provenance.
+    # The measured source withdrawal has a confirmed reference scope. That
+    # does not identify the product/format using the simulated residual.
+    # Both facts must be retained, without rewriting the independent oracle.
     if not cumulative:
-        expected.pop("actual_alternate_SKU_scope")
-        expected["scan3_scope"] = "confirmed_reference_scope"
+        assert actual["scan3_scope"] == "confirmed_reference_scope"
+        assert actual["actual_alternate_SKU_scope"] == "not_identified"
     assert actual == expected
 
 

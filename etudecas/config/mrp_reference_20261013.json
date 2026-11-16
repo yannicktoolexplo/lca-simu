@@ -33,7 +33,7 @@
     },
     "adapter": {
       "path": "etudecas/simulation/reference_mrp/historical_adapter.py",
-      "sha256": "2378d69817c90577cd192158dc243b53d3acf8b07438db55ac209e0aead58f82"
+      "sha256": "8eda8637529c11d3a3a9123a596a4b30d829e2fd457b20e362366513c98dd4a3"
     },
     "reconciliation": {
       "path": "etudecas/simulation/reference_mrp/reconciliation.py",

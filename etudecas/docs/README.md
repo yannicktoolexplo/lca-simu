@@ -64,6 +64,12 @@ Les [essais sur les budgets et le carnet initial](BUDGETS_ET_CARNET_INITIAL_2026
 documentée. Le complément initial de 338928 rapproche le calendrier de 268091,
 mais augmente son surplus de production et de stock ; la référence est conservée.
 
+Les [essais séparant anticipation et budgets de composants](REGLES_PRODUCTION_20261116.md)
+corrigent la perte de liaisons fournisseurs et les défauts de qualification,
+puis comparent quatre scénarios sur la production, 22 photos de stock et les
+livraisons. Aucune variante ne surpasse globalement le témoin ; le rapport
+cliquable distingue transport physique, contrôle et engagements initiaux.
+
 La [correction des promesses avec composants de remplacement](SUBSTITUTION_PROMESSES_20261115.md)
 traite le décalage entre la matière utilisable à l'exécution et celle retenue
 par le MRP pour une campagne engagée, avec comparaison avant/après.
