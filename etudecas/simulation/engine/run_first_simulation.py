@@ -6124,6 +6124,14 @@ def programme_authorization_gate(book, *, pair, decision_day, normal_release_qty
                       for b in budgets],
         hypothesis_not_firm_OF=True, approval_status="not_yet_approved",
         rule="new_launch_requires_current_source_budget_and_existing_lot_approval")
+    if getattr(book, "explicit_decision_options", False):
+        # Zero here routes the lot through the physical/coverage checks below.
+        # It is not a refusal based on a source forecast in evidence-only mode.
+        audit.update(release_selection=book.release_selection,
+            source_budget_role=book.source_budget_role,
+            source_budgets_binding=book.budgets_binding)
+        if not book.budgets_binding:
+            audit["rule"] = "new_launch_requires_existing_net_lot_material_capacity_and_initial_coverage_not_source_budget_authority"
     return 0.0, audit
 
 
@@ -6261,6 +6269,12 @@ def programme_current_source_windows(windows_by_pair, programme_rows, *, decisio
     for row in programme_rows:
         start,end=row["period_start_day"],row["period_end_day_exclusive"]
         if row["state"] not in {"engaged","executed"} or not start<=decision_day<end-1:continue
+        if row["source_known_day"] is None:
+            if row.get("source_budget_role") != "evidence_only_v1" or row["source_budgets"]:
+                raise ValueError("Unknown programme source cannot provide a purchase forecast")
+            # A calendar review with no current source does not overwrite a
+            # known purchase forecast, nor manufacture a zero forecast.
+            continue
         if row["source_known_day"]>decision_day:raise ValueError("Future programme source cannot revise a current budget")
         for budget in row["source_budgets"]:
             pair=(row["node_id"],budget["item_id"])
@@ -19885,7 +19899,7 @@ def main() -> None:
                     context["offers"]=tuple(reviewed_offers)
             known_supplier_calendars = {}
             for pair in set(sourcing_inputs) | set(allocated_sourcing_inputs):
-                lanes = (sourcing_policies[pair]["_lanes_by_supplier"].values()
+                pair_lanes = (sourcing_policies[pair]["_lanes_by_supplier"].values()
                     if pair in sourcing_policies else lanes_by_dest_item[pair])
                 known_supplier_calendars[pair] = {lane["src"]: dict(
                     calendar_kind="supplier_receipt", physical_lead_days=lead_time_reference_days(lane),
@@ -19893,7 +19907,7 @@ def main() -> None:
                     origin_date=safety_calendar["start_date"],
                     receipt_nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(pair, frozenset()),
                     **({"purchase_review_policy": supplier_purchase_review_policy}
-                        if purchase_policy_applies(supplier_purchase_review_policy, pair) else {})) for lane in lanes}
+                        if purchase_policy_applies(supplier_purchase_review_policy, pair) else {})) for lane in pair_lanes}
             planning_network_inputs = dict(
                 decision_day=day, requirements_by_pair=forecast_requirements, available_by_pair=stock,
                 firm_receipts_by_pair=firm_snapshot, transport_sources_by_pair=network_transport_sources,
@@ -26152,13 +26166,17 @@ def main() -> None:
         summary["policy"]["production_programme_policy"]=dict(graph_meta["production_programme_policy"],
             states="proposed_and_real_campaign_engaged_at_same_physical_execution_then_executed",
             quantity_rule="existing_whole_lot_advanced_only_equal_total_proposed_PF_before_after",
-            scope=("all_new_campaigns_in_declared_scope_require_current_source_proxy_authorization"
+            scope=("all_new_campaigns_require_dated_net_lot_and_physical_feasibility_source_budgets_are_evidence_only"
+                if not production_programme_book.budgets_binding else
+                "all_new_campaigns_in_declared_scope_require_current_source_proxy_authorization"
                 if production_programme_book.requires_authorization else
                 "one_promotion_per_current_week_up_to52_per_process_after_previous_execution"
                 if production_programme_book.recurrent else
                 "one_promotion_per_output_process_experimental_compatible_budgets_not_industrial_order_identity"),
             calendar="source_Sunday_to_Saturday_known_including_current_physical_launch_workday_only",
-            initial_Pack_guard="no_promotion_while_any_initial_Pack_OF_remains_for_the_process_regardless_of_its_week",
+            initial_Pack_guard=("net_remaining_initial_orders_and_dated_material_capacity_protection"
+                if production_programme_book.opening_commitment_policy == OPENING_COVERAGE_POLICY else
+                "no_promotion_while_any_initial_Pack_OF_remains_for_the_process_regardless_of_its_week"),
             acceptance="morning_current_net_plan_full_batch_inputs_capacity_and_counterfactual_netting_then_immediate_campaign",
             local_purchase_override="promoted_current_week_only_source_full_budget_minus_executed_model_uses_then_existing_committed_netting",
             source_values="remaining_forecast_is_derived_not_raw_Excel_quantity_raw_and_previous_C8_windows_in_audit",

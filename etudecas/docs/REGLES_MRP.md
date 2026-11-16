@@ -1780,6 +1780,51 @@ machines partagées entre produits. Elle ne projette pas les usages concurrents
 futurs encore inconnus ; le contrôle à l'autorisation n'est pas une priorité
 physique persistante sur tous les consommateurs de matière.
 
+### Séparer date de lancement et rôle des prévisions de composants
+
+Deux options expérimentales de `production_programme_policy` permettent de
+tester séparément ces décisions. Elles exigent
+`current_week_authorized_lot_multiday_v1` et
+`opening_commitment_policy: net_remaining_opening_orders_v1`. Une combinaison
+incompatible est refusée. Sans option, le comportement précédent est conservé.
+Comme les autres pilotes de programme, elles exigent le calcul daté de l'année
+source avec une origine au 1er janvier 2025 ; ce calendrier n'est pas une règle
+générique pour une autre date de démarrage.
+
+| Option explicite | Décision modifiée | Décisions conservées |
+|---|---|---|
+| `release_selection: due_existing_lot_v1` | Seuls les lots dont la date de lancement du plan net actualisé est arrivée peuvent être sélectionnés. | Quantité du lot, calcul du besoin, dates calculées, matière et capacité. |
+| `source_budget_role: evidence_only_v1` | Les prévisions brutes de composants sont des informations tracées ; elles ne donnent plus un droit obligatoire de fabriquer. Un budget nul ou absent ne bloque donc plus à lui seul. | Protection des ordres initiaux, réservations, demandes connues des autres usages, disponibilité physique, capacité et contrôle de remplacement du lot. |
+
+Les valeurs internes par défaut sont respectivement
+`advance_or_due_existing_lot_v1` et `binding_authorization_v1`.
+Les deux options peuvent se combiner. Retirer l'autorité des budgets **ne**
+permet pas de fabriquer sans matière ni d'ajouter un lot absent du besoin net.
+Le passage par le sélecteur et ses contrôles reste obligatoire. La limite d'un
+lot par semaine, la fin préalable de la campagne précédente et la borne de
+52 sélections par procédé restent identiques : ce sont des conventions de
+l'expérience, pas des règles industrielles confirmées.
+
+En mode informatif, la revue conserve le calendrier dimanche–samedi même si
+aucune version source courante n'existe. La date de connaissance est alors
+inconnue (`source_known_day: null`) et aucun budget nul n'est inventé. Une
+version future ou expirée ne remplit pas le manque. Les champs
+`source_status`, `review_period_basis`, `source_budgets_binding` et
+`missing_source_budget_components` rendent cette distinction visible.
+Le solde calculé après engagements peut être négatif ; il décrit un dépassement
+de la prévision, pas une quantité source négative ni une consommation physique.
+
+Lorsqu'une prévision source courante existe, son usage déjà prévu pour les
+achats de composants reste identique dans les quatre combinaisons. Sans source,
+la revue informative ne remplace pas un calendrier d'achat connu par des zéros.
+Cette séparation évite de modifier simultanément le lancement des fabrications
+et le calcul des achats dans un même essai.
+
+Une date de lancement arrivée ne garantit ni un calendrier industriel exact
+ni la satisfaction de la demande. Ces variantes nécessitent une comparaison
+commune de production, stocks, attente client et engagements initiaux ; elles
+ne sont pas activées dans le nominal par leur seule présence dans le code.
+
 ## Substituts dans les promesses des campagnes engagées
 
 Une campagne déjà engagée peut affecter son besoin matière restant au stock

@@ -38,10 +38,14 @@ class WeeklyProductionProgramme:
     candidate permits one per known week, after completion, at most52 total.
     The explicit authorized candidate also accepts existing lots already due.
     Its source budgets are a scenario authorization, not industrial firm OF.
+    Two orthogonal, explicit options can restrict selection to due proposals
+    and retain gross component forecasts as evidence without making them an
+    authorization. They do not bypass net coverage, material or capacity guards.
     """
     def __init__(self, payload, *, bom_by_pair, pair_uoms):
         fields={"schema_version","mode","max_promotions_per_process","current_bucket_policy","assumption","series"}
-        if (not isinstance(payload,dict) or set(payload) not in (fields, fields|{"opening_commitment_policy"}) or payload["schema_version"]!=1
+        optional={"opening_commitment_policy","release_selection","source_budget_role"}
+        if (not isinstance(payload,dict) or not fields<=set(payload)<=fields|optional or payload["schema_version"]!=1
                 or type(payload["schema_version"]) is not int or payload["mode"] not in {
                     "current_week_existing_lot_v1", "current_week_existing_lot_multiday_v1",
                     "current_week_existing_lot_multiday_recurrent_v1", "current_week_authorized_lot_multiday_v1"}
@@ -56,6 +60,16 @@ class WeeklyProductionProgramme:
                 (self.opening_commitment_policy != OPENING_COVERAGE_POLICY
                  or payload["mode"] != "current_week_authorized_lot_multiday_v1")):
             raise ValueError("Opening commitment reconciliation requires the explicit authorized multiday policy")
+        for option, value in (("release_selection", "due_existing_lot_v1"),
+                              ("source_budget_role", "evidence_only_v1")):
+            if option in payload and (payload[option] != value
+                    or payload["mode"] != "current_week_authorized_lot_multiday_v1"
+                    or self.opening_commitment_policy != OPENING_COVERAGE_POLICY):
+                raise ValueError("Programme decision options require authorized multiday mode and initial coverage")
+        self.release_selection=payload.get("release_selection", "advance_or_due_existing_lot_v1")
+        self.source_budget_role=payload.get("source_budget_role", "binding_authorization_v1")
+        self.budgets_binding=self.source_budget_role != "evidence_only_v1"
+        self.explicit_decision_options=any(option in payload for option in ("release_selection", "source_budget_role"))
         self.mode=payload["mode"]
         self.multiday=self.mode!="current_week_existing_lot_v1"
         self.requires_authorization=self.mode=="current_week_authorized_lot_multiday_v1"
@@ -70,7 +84,7 @@ class WeeklyProductionProgramme:
             pair=(series["node_id"],series["output_item_id"])
             if pair in self.series or not bom_by_pair.get(pair) or pair_uoms.get(pair)!="UN":
                 raise ValueError("Programme scope must be a unique existing physical UN manufacturing output")
-            if not isinstance(series["versions"],list) or not series["versions"]:
+            if not isinstance(series["versions"],list) or (not series["versions"] and self.budgets_binding):
                 raise ValueError("Programme scope requires known versions")
             ratios=dict(bom_by_pair[pair]); versions=[]; seen=set()
             for version in series["versions"]:
@@ -95,12 +109,34 @@ class WeeklyProductionProgramme:
                 versions.append(dict(version,component_budgets=budgets))
             self.series[pair]=tuple(sorted(versions,key=lambda v:v["known_day"]))
 
-    def can_select(self, pair, decision_day):
-        """Eligibility only: no stock, source budget or execution is reset."""
+    def review_context(self, pair, decision_day):
+        """Keep calendar review periods distinct from known source versions.
+
+        A missing current vintage remains unknown. Only the evidence option
+        permits a calendar period without that vintage; it never borrows a
+        future or expired source week. The origin is Wednesday 1 January2025,
+        so the first Sunday starts at day4 and its predecessor at day-3.
+        """
         if type(decision_day) is not int or decision_day<0:
             raise ValueError("Programme decision must be a nonnegative integer day")
+        if pair not in self.series:return None
         version=next((v for v in reversed(self.series.get(pair,()))
                       if v["known_day"]<=decision_day<v["period_end_day_exclusive"]),None)
+        if version is not None:
+            budgets=version["component_budgets"]
+            status=("incomplete_budgets" if len(budgets)<2 else
+                    "explicit_zero_budget" if any(b["qty"]==0 for b in budgets) else
+                    "known_budgets_to_check")
+            return dict(version,source_status=status,review_period_basis="known_current_source_week")
+        if self.budgets_binding:return None
+        start=4+7*((decision_day-4)//7)
+        return dict(known_day=None,period_start_day=start,period_end_day_exclusive=start+7,
+                    component_budgets=[],source_status="unknown_current_week",
+                    review_period_basis="calendar_week_without_source")
+
+    def can_select(self, pair, decision_day):
+        """Eligibility only: no stock, source budget or execution is reset."""
+        version=self.review_context(pair,decision_day)
         if version is None:return False
         previous=self.rows.get(pair)
         if previous is None:return True
@@ -138,13 +174,18 @@ class WeeklyProductionProgramme:
             selection_audit.append(dict(reason="all_needs_covered_no_net_proposal"))
         # The pilot acts only at physical execution, never as a Sunday promise.
         if (decision_day+2)%7>=5:return None
-        version=next((v for v in reversed(self.series.get(pair,()))
-                      if v["known_day"]<=decision_day<v["period_end_day_exclusive"]),None)
-        if version is None or len(version["component_budgets"])<2:return None
+        version=self.review_context(pair,decision_day)
+        if version is None or (self.budgets_binding and len(version["component_budgets"])<2):return None
         slot=next(((r,a) for r,a in calendar if r==decision_day and r<version["period_end_day_exclusive"]),None)
         if slot is None:return None
         for proposal in sorted(proposals,key=lambda p:(p.release_day,p.proposal_id)):
             qty=proposal.qty
+            if self.release_selection=="due_existing_lot_v1" and proposal.release_day>decision_day:
+                if selection_audit is not None:
+                    selection_audit.append(dict(proposal_id=proposal.proposal_id,
+                        reason="future_net_proposal_not_due",proposal_release_day=proposal.release_day,
+                        decision_day=decision_day))
+                continue
             if (qty<=0 or qty!=int(qty)
                     or (slot[0]>=proposal.release_day and self.mode!="current_week_authorized_lot_multiday_v1")
                     or (not multiday and capacity_qty+1e-9<qty)):continue
@@ -182,7 +223,7 @@ class WeeklyProductionProgramme:
                 needed=component_needs[c] if multiday else qty*b["ratio"]
                 if b["uom"]=="UN" and not multiday:needed=ceil(Decimal(str(qty))*Decimal(str(b["ratio"])))
                 audit.append(dict(b,consumed_qty=used,committed_qty=firm,allocated_qty=needed,residual_qty=b["qty"]-used-firm-needed))
-            if any(b["residual_qty"] < -1e-8 for b in audit):
+            if self.budgets_binding and any(b["residual_qty"] < -1e-8 for b in audit):
                 if selection_audit is not None:
                     selection_audit.append(dict(proposal_id=proposal.proposal_id,
                         reason="source_budget_after_initial_and_consumed",source_budgets=audit))
@@ -194,6 +235,14 @@ class WeeklyProductionProgramme:
                 original_proposal_id=proposal.proposal_id,
                 original_release_day=proposal.release_day,original_available_day=proposal.available_day,
                 source_budgets=audit,campaign_id="",executed_qty=0.0)
+            if self.explicit_decision_options:
+                provided={b["item_id"] for b in audit}
+                result.update(release_selection=self.release_selection,source_budget_role=self.source_budget_role,
+                    source_budgets_binding=self.budgets_binding,source_status=version["source_status"],
+                    review_period_basis=version["review_period_basis"],
+                    missing_source_budget_components=[dict(node_id=c[0],item_id=c[1],
+                        uom=self.pair_uoms.get(c),status="unprovided_not_zero")
+                        for c,_ratio in self._bom(pair) if c[1] not in provided])
             if self.mode=="current_week_authorized_lot_multiday_v1":
                 result["programme_action"]=("authorize_due_existing_lot" if proposal.release_day<=decision_day
                                             else "advance_future_existing_lot")
@@ -258,6 +307,13 @@ class WeeklyProductionProgramme:
         pair=(row["node_id"],row["item_id"])
         if not self.can_select(pair,row["decision_day"]):
             raise ValueError("Programme promotion exceeds the current-week or process limit")
+        if self.explicit_decision_options:
+            context=self.review_context(pair,row["decision_day"])
+            if (any(row.get(key)!=context[key] for key in ("period_start_day","period_end_day_exclusive"))
+                    or row.get("source_known_day")!=context["known_day"]
+                    or row.get("release_selection")!=self.release_selection
+                    or row.get("source_budget_role")!=self.source_budget_role):
+                raise ValueError("Programme acceptance requires its current review period and decision policies")
         self.rows[pair]=dict(row);self.history.append(self.rows[pair])
         self.events.append(dict(row,event="proposed",day=row["decision_day"]))
 

@@ -109,6 +109,33 @@ empreintes sont dans [AUTOMATION.md](AUTOMATION.md). Les données de tests et
 intégrations historiques sont décrites dans [TEST_FIXTURES.md](TEST_FIXTURES.md) ;
 leur présence ne dispense pas de la relecture avant exécution.
 
+### Périmètre des transferts et clôtures historiques
+
+La qualification des disponibilités de transfert couvre les composants internes
+et les produits finis lorsque leurs politiques déclarent un contrôle à
+destination. Dans les deux cas, elle rapproche ordre, réception, lot retenu,
+libération et généalogie. Une extension de périmètre ne dispense pas de ces
+preuves ; une libération sans origine identifiable reste une erreur.
+
+Les budgets historiques de retraits sont contrôlés sur toute leur archive :
+identité, unité, dates et quantités. Seules les semaines réellement clôturées
+dans le calcul doivent avoir un export de clôture. Les semaines futures ou
+partielles restent comptées séparément ; elles ne deviennent ni des zéros
+observés ni des clôtures manquantes. Toute consommation future indue reste
+refusée. L'export de chaque semaine clôturée, même sans résidu, est rapproché
+des valeurs sources, des consommations propres exécutées et des événements
+et allocations correspondants.
+
+Le schéma de provenance `scan3_residual_provenance_schema_version: 2` distingue
+deux faits : le périmètre de la mesure source est confirmé
+(`scan3_scope: confirmed_reference_scope`), mais l'attribution industrielle de
+son résidu calculé à d'autres produits reste inconnue
+(`actual_alternate_SKU_scope: not_identified`). Le besoin ainsi reconstitué porte
+`physical_demand_source: reconstructed_scan3_residual_not_identified_other_format`.
+Les anciens résultats incomplets sont conservés comme tels ; ils ne sont pas
+réétiquetés a posteriori pour les faire réussir. Une correction de provenance
+doit démontrer séparément l'absence de changement des quantités et des dates.
+
 ## Garder une preuve compréhensible
 
 Pour enregistrer le test ciblé et son rapport dans un nouveau dossier de preuves :
