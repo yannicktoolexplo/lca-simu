@@ -20,6 +20,10 @@ MONTHLY_CONSUMPTION_FIELDS = [
 ]
 
 WEEKLY_REVIEW_MONTHLY_POLICY = "calendar_month_weekly_review_v1"
+WEEKLY_DEMAND_KNOWLEDGE_POLICY = "weekly_close_next_day_v1"
+DAILY_DEMAND_KNOWLEDGE_POLICY = "reconstructed_daily_v1"
+PUBLICATION_MONTHLY_FIELDS = ["customer_demand_knowledge_policy", "published_today_qty",
+                            "effective_month_published_qty", "knowledge_cutoff_day"]
 WEEKLY_REVIEW_MONTHLY_FIELDS = [
     "review_day", "review_observed_through_day", "review_first_forecast_day",
     "review_demand_qty", "review_remaining_month_qty", "review_future_days",
@@ -158,3 +162,47 @@ def weekly_review_month_budget(
         monthly_remaining_after_actual_qty=monthly_remaining,
         review_weekday=review_weekday,
     )
+
+
+def published_month_budget(budget, publications, *, origin_date, decision_day):
+    """Monday/month-opening forecast from published effective-month demand.
+
+    Publications retain their effective dates. A February publication of a
+    January week cannot consume February's forecast. The review rate includes
+    the review day and stays fixed until the next Monday or month opening.
+    """
+    start, end = calendar_month_bounds(origin_date, decision_day)
+    if start < 0 or isinstance(budget, bool) or not isinstance(budget, Real) or not math.isfinite(budget) or budget < 0:
+        raise ValueError("Published monthly budget requires a finite nonnegative budget from month opening")
+    today = date.fromisoformat(origin_date) + timedelta(days=decision_day)
+    review = max(start, decision_day - today.weekday())
+    known_month, reviewed_month, today_qty, reviewed_effective_days = [], [], [], []
+    for publication in publications:
+        known = publication['known_day']
+        if known > decision_day:
+            continue
+        for row in publication['effective_daily_quantities']:
+            if known <= review:
+                reviewed_effective_days.append(row['day'])
+            if known == decision_day:
+                today_qty.append(row['qty'])
+            if start <= row['day'] <= end:
+                known_month.append(row['qty'])
+                if known <= review:
+                    reviewed_month.append(row['qty'])
+    consumed, reviewed = math.fsum(known_month), math.fsum(reviewed_month)
+    remaining = max(0.0, budget-reviewed)
+    review_days = end-review+1
+    rate = remaining/review_days
+    future_days = end-decision_day
+    return dict(arrived_demand_qty=consumed, remaining_forecast_qty=rate*future_days,
+        future_days=future_days, future_daily_qty=rate,
+        expired_forecast_qty=max(0.0, budget-consumed) if not future_days else 0.0,
+        review_day=review, review_observed_through_day=max(reviewed_effective_days, default=-1),
+        review_first_forecast_day=review, review_demand_qty=reviewed,
+        review_remaining_month_qty=remaining, review_future_days=review_days,
+        unreviewed_actual_demand_qty=consumed-reviewed,
+        monthly_remaining_after_actual_qty=max(0.0, budget-consumed), review_weekday=0,
+        customer_demand_knowledge_policy=WEEKLY_DEMAND_KNOWLEDGE_POLICY,
+        published_today_qty=math.fsum(today_qty), effective_month_published_qty=consumed,
+        knowledge_cutoff_day=review)
