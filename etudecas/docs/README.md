@@ -59,6 +59,11 @@ La [couverture des besoins par les ordres initiaux](COUVERTURE_INITIALE_20261115
 remplace le blocage global par une vérification des engagements, des matières
 et de la capacité datée, avec des courbes simulées complètes.
 
+Les [essais sur les budgets et le carnet initial](BUDGETS_ET_CARNET_INITIAL_20261116.md)
+écartent l'autorisation stricte par semaines pour 268967 faute de couverture
+documentée. Le complément initial de 338928 rapproche le calendrier de 268091,
+mais augmente son surplus de production et de stock ; la référence est conservée.
+
 La [correction des promesses avec composants de remplacement](SUBSTITUTION_PROMESSES_20261115.md)
 traite le décalage entre la matière utilisable à l'exécution et celle retenue
 par le MRP pour une campagne engagée, avec comparaison avant/après.
