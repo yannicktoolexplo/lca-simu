@@ -43,6 +43,8 @@ from etudecas.simulation.engine.monthly_forecast import (
     MONTHLY_CONSUMPTION_FIELDS, MONTHLY_CONSUMPTION_POLICY,
     WEEKLY_REVIEW_MONTHLY_FIELDS, WEEKLY_REVIEW_MONTHLY_POLICY,
     calendar_month_bounds, remaining_month_budget, weekly_review_month_budget,
+    DAILY_DEMAND_KNOWLEDGE_POLICY, WEEKLY_DEMAND_KNOWLEDGE_POLICY,
+    PUBLICATION_MONTHLY_FIELDS, published_month_budget,
 )
 MONTHLY_FORECAST_POLICIES = (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_POLICY)
 from etudecas.simulation.engine.finite_production_schedule import (
@@ -2186,6 +2188,10 @@ CUSTOMER_DEMAND_POLICY_FIELDS = [
     "weekly_source_qty", "day_qty", "nominal_day_qty", "allocation_start_day",
     "cumulative_before_qty", "cumulative_through_qty",
 ]
+CUSTOMER_DEMAND_KNOWLEDGE_FIELDS = ["customer_demand_knowledge_policy", "known_day", "publication_id"]
+CUSTOMER_PUBLICATION_FIELDS = ["node_id", "item_id", "uom", "publication_id", "known_day",
+    "period_start_day", "period_end_day", "source_file", "source_row", "weekly_source_qty",
+    "effective_qty_in_horizon", "published_qty", "pending_qty", "status"]
 CUSTOMER_FORECAST_PROJECTION_FIELDS = [
     "day", "node_id", "item_id", "uom", "policy", "status",
     "period_start_day", "period_end_day", "represented_start_day", "represented_end_day",
@@ -5091,7 +5097,11 @@ class SourceCustomerHistory:
     boundary. Days outside the simulated year retain their share of the week.
     """
 
-    def __init__(self, payload, *, demand_pairs, origin_date, sim_days):
+    def __init__(self, payload, *, demand_pairs, origin_date, sim_days,
+                 knowledge_policy=DAILY_DEMAND_KNOWLEDGE_POLICY):
+        if knowledge_policy not in (DAILY_DEMAND_KNOWLEDGE_POLICY, WEEKLY_DEMAND_KNOWLEDGE_POLICY):
+            raise ValueError("Unknown customer demand knowledge policy")
+        self.knowledge_policy = knowledge_policy
         if (not isinstance(payload, dict) or payload.get("schema_version") != 1
                 or payload.get("origin") != origin_date or payload.get("calendar") != "monday_start"
                 or not isinstance(payload.get("rows"), list) or not payload["rows"]
@@ -5122,6 +5132,23 @@ class SourceCustomerHistory:
         if (type(decision_day) is not int or target_day != decision_day
                 or not 0 <= decision_day < self.sim_days):
             raise ValueError("Customer history may only provide arrived demand on the current simulated day")
+        if self.knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY:
+            publication = self.publication(pair, decision_day)
+            audit = dict.fromkeys(CUSTOMER_DEMAND_POLICY_FIELDS + CUSTOMER_DEMAND_KNOWLEDGE_FIELDS, "")
+            audit.update(day=target_day, decision_day=decision_day, node_id=pair[0], item_id=pair[1],
+                uom="UN", policy="source_customer_history_v1", day_qty=0,
+                customer_demand_knowledge_policy=self.knowledge_policy,
+                status="no_publication_due_not_observed_zero")
+            if publication is None:
+                return 0, audit
+            quantity = sum(row['qty'] for row in publication['effective_daily_quantities'])
+            audit.update({field: publication[field] for field in (
+                'publication_id', 'known_day', 'period_start_day', 'period_end_day',
+                'source_file', 'source_row', 'weekly_source_qty')})
+            audit.update(day_qty=quantity, allocation_start_day=publication['period_start_day'],
+                cumulative_before_qty=0, cumulative_through_qty=quantity,
+                status="published_source_zero" if quantity == 0 else "published_weekly_demand")
+            return quantity, audit
         start = target_day - (self.origin + timedelta(days=target_day)).weekday()
         quantity, source_row, source_file = self.rows[pair, start]
         offset = target_day - start
@@ -5133,6 +5160,45 @@ class SourceCustomerHistory:
             weekly_source_qty=quantity, day_qty=through - before, allocation_start_day=start,
             cumulative_before_qty=before, cumulative_through_qty=through)
         return through - before, audit
+
+    def publication(self, pair, day):
+        """Reveal one completed Monday-Sunday week on the following Monday."""
+        if type(day) is not int or not 0 <= day < self.sim_days:
+            raise ValueError("Publication query must be inside the simulation horizon")
+        if (self.origin + timedelta(days=day)).weekday() != 0:
+            return None
+        start = day-7
+        source = self.rows.get((pair, start))
+        if source is None:
+            if start+7 <= 0:
+                return None
+            raise ValueError("Missing closed customer week is not zero")
+        quantity, source_row, source_file = source
+        effective = [dict(day=d, qty=quantity*(d-start+1)//7-quantity*(d-start)//7)
+                     for d in range(max(0, start), start+7)]
+        return dict(node_id=pair[0], item_id=pair[1], uom='UN',
+            publication_id=f'customer-week:{pair[0]}:{pair[1]}:D{start}', known_day=day,
+            period_start_day=start, period_end_day=start+6,
+            source_file=source_file, source_row=source_row, weekly_source_qty=quantity,
+            effective_daily_quantities=effective)
+
+    def publication_audit_rows(self):
+        """Ex-post source coverage, including unrevealed final-week obligations."""
+        rows = []
+        for (pair, start), (quantity, cell, file) in sorted(self.rows.items()):
+            if start >= self.sim_days or start+7 <= 0:
+                continue
+            effective = sum(quantity*(d-start+1)//7-quantity*(d-start)//7
+                            for d in range(max(0, start), min(self.sim_days, start+7)))
+            published = start+7 < self.sim_days
+            rows.append(dict(node_id=pair[0], item_id=pair[1], uom='UN',
+                publication_id=f'customer-week:{pair[0]}:{pair[1]}:D{start}', known_day=start+7,
+                period_start_day=start, period_end_day=start+6, source_file=file, source_row=cell,
+                weekly_source_qty=quantity, effective_qty_in_horizon=effective,
+                published_qty=effective if published else 0, pending_qty=0 if published else effective,
+                status=('published_source_zero' if quantity == 0 else 'published') if published
+                       else 'pending_not_disclosed'))
+        return rows
 
 
 class SourcePriorWeekCustomerDemand:
@@ -5306,7 +5372,17 @@ class RollingMrpForecast:
     def __init__(self, payload: Any, *, demand_pairs: set[tuple[str, str]], origin_date: str,
                  missing_period_policy: str | None = None, consumption_policy: str | None = None,
                  annual_projection_policy: str | None = None,
-                 customer_demand_policy: str | None = None) -> None:
+                 customer_demand_policy: str | None = None,
+                 customer_demand_knowledge_policy=DAILY_DEMAND_KNOWLEDGE_POLICY) -> None:
+        if customer_demand_knowledge_policy not in (DAILY_DEMAND_KNOWLEDGE_POLICY, WEEKLY_DEMAND_KNOWLEDGE_POLICY):
+            raise ValueError("Unknown customer demand knowledge policy")
+        if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY and (
+                customer_demand_policy != "source_customer_history_v1"
+                or consumption_policy != WEEKLY_REVIEW_MONTHLY_POLICY):
+            raise ValueError("Weekly publication requires customer history and weekly monthly review")
+        self.customer_demand_knowledge_policy = customer_demand_knowledge_policy
+        self._published_weeks = {}
+        self._publication_batches = {}
         self.customer_projection = customer_demand_policy == "source_customer_history_v1"
         if self.customer_projection and (missing_period_policy != "last_known_period_v1"
                 or consumption_policy not in ("weekly_actual_orders_v1", *MONTHLY_FORECAST_POLICIES)
@@ -5449,7 +5525,7 @@ class RollingMrpForecast:
         nearest = min(candidates, key=lambda day: (abs(day - target_day), day))
         return plan[nearest], vintage
 
-    def observe_demand(self, day: int, quantities: dict[tuple[str, str], float]) -> None:
+    def observe_demand(self, day: int, quantities: dict[tuple[str, str], float], *, publications=None) -> None:
         """Record arrived scenario orders, before service, once per day. Never record shipments."""
         if self.consumption_policy is None:
             return
@@ -5458,16 +5534,60 @@ class RollingMrpForecast:
         observed = {pair: float(qty) for pair, qty in quantities.items()}
         if any(not math.isfinite(qty) or qty < 0 for qty in observed.values()):
             raise ValueError("Arrived customer demand must be finite and nonnegative")
+        batch = None
+        if self.customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY:
+            batch = self.validate_publications(day, observed, publications)
         if day == self.consumption_revision - 1:
             if any(self._observed_demands[pair][day] != qty for pair, qty in observed.items()):
                 raise ValueError("An observed customer demand cannot be revised within the day")
+            if batch is not None and batch != self._publication_batches[day]:
+                raise ValueError("A published customer week cannot be revised")
             return
         if day != self.consumption_revision:
             raise ValueError("Forecast consumption requires consecutive observed days from simulation day zero")
+        if batch is not None:
+            if any(row['publication_id'] in self._published_weeks for row in batch):
+                raise ValueError("Customer week already published")
+            self._publication_batches[day] = batch
+            self._published_weeks.update({row['publication_id']: row for row in batch})
         for pair, qty in observed.items():
             self._observed_demands.setdefault(pair, []).append(qty)
         self.consumption_revision += 1
         self._consumption_cache.clear()
+
+    def validate_publications(self, day, observed, publications):
+        """Check dates, source identity and integer allocation before any state mutation."""
+        if not isinstance(publications, (list, tuple)) or not 0 <= day < 365:
+            raise ValueError("Weekly publication requires explicit bounded publication records")
+        expected_pairs = (self.demand_pairs if day > 0 and
+            (date.fromisoformat(self.origin_date)+timedelta(days=day)).weekday() == 0 else set())
+        pairs, identities, batch = set(), set(), []
+        for row in publications:
+            pair = row.get('node_id'), row.get('item_id')
+            start = day-7
+            identity = f'customer-week:{pair[0]}:{pair[1]}:D{start}'
+            if (pair not in expected_pairs or pair in pairs or row.get('publication_id') != identity
+                    or identity in identities or type(row.get('known_day')) is not int or row['known_day'] != day
+                    or row.get('period_start_day') != start or row.get('period_end_day') != day-1
+                    or row.get('uom') != 'UN' or not row.get('source_file') or not row.get('source_row')):
+                raise ValueError("Invalid customer publication date, pair or provenance")
+            quantity = row.get('weekly_source_qty')
+            if type(quantity) is not int or quantity < 0:
+                raise ValueError("Published customer quantity must be integer UN")
+            expected = [dict(day=d, qty=quantity*(d-start+1)//7-quantity*(d-start)//7)
+                        for d in range(max(0, start), day)]
+            if row.get('effective_daily_quantities') != expected or any(
+                    type(r.get('day')) is not int or type(r.get('qty')) is not int
+                    for r in row.get('effective_daily_quantities', [])):
+                raise ValueError("Published effective dates must preserve whole-UN source allocation")
+            if observed[pair] != sum(r['qty'] for r in expected):
+                raise ValueError("Physical arrival differs from its published effective quantities")
+            # Own the records: callers cannot later change an already published week.
+            batch.append({**row, 'effective_daily_quantities': [dict(r) for r in expected]})
+            pairs.add(pair); identities.add(identity)
+        if pairs != expected_pairs or any(observed[pair] != 0 for pair in self.demand_pairs-pairs):
+            raise ValueError("Every completed week must publish exactly once; unknown demand is not an arrival")
+        return sorted(batch, key=lambda r: r['publication_id'])
 
     def consumption_audit(self, pair: tuple[str, str], decision_day: int) -> dict[str, Any]:
         """Whole current week minus arrived orders; unused forecast expires, never becoming backlog."""
@@ -5547,7 +5667,13 @@ class RollingMrpForecast:
             row.update(status="known_calendar_month_consumed", period_start_day=start,
                        period_end_day=end, month_opening_day=start,
                        today_arrived_qty=self._observed_demands[pair][decision_day])
-            if weekly_review:
+            if self.customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY:
+                published = [r for r in self._published_weeks.values()
+                             if (r['node_id'], r['item_id']) == pair]
+                row.update(published_month_budget(budget['monthly_forecast_qty'], published,
+                    origin_date=self.origin_date, decision_day=decision_day))
+                row['redistribution_review'] = 'monday_publication_and_month_opening_inclusive_review_day'
+            elif weekly_review:
                 row.update(weekly_review_month_budget(
                     budget["monthly_forecast_qty"], self._observed_demands[pair],
                     origin_date=self.origin_date, start_day=start,
@@ -5586,13 +5712,16 @@ class RollingMrpForecast:
                 source, actual_vintage = None, None
                 fallback *= 1.05 ** projection_years
                 projected_days += 1
-            if consumption is not None and consumption["today_arrived_qty"] != "" and date == decision_day:
+            publication_mode = self.customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY
+            if (not publication_mode and consumption is not None
+                    and consumption["today_arrived_qty"] != "" and date == decision_day):
                 values.append(consumption["today_arrived_qty"])
                 actual_order_days += 1
                 continue
             if (not projection_years and consumption is not None and consumption["status"] in
                     ("known_week_consumed", "known_calendar_month_consumed")
-                    and decision_day < date <= consumption["period_end_day"]):
+                    and (decision_day <= date if publication_mode else decision_day < date)
+                    and date <= consumption["period_end_day"]):
                 source = (consumption["future_daily_qty"], consumption["source_row"])
                 actual_vintage = consumption["source_vintage_day"]
             if source is None and self.customer_projection:
@@ -7891,6 +8020,10 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Explicit planning-only consumption override; default preserves graph policy. Monthly candidate uses a calendar-month budget known at opening and is limited to365days.",
     )
+    parser.add_argument("--customer-demand-knowledge-policy",
+        choices=[DAILY_DEMAND_KNOWLEDGE_POLICY, WEEKLY_DEMAND_KNOWLEDGE_POLICY],
+        default=DAILY_DEMAND_KNOWLEDGE_POLICY,
+        help="Opt-in weekly actual publication on next Monday; grouped physical arrivals are a replay convention, not observed daily orders.")
     parser.add_argument("--production-capacity-planning-policy", choices=[FINITE_PRODUCTION_POLICY],
         default=None, help="Explicit finite-capacity placement of new lots; leaves physical capacities and nominal reference unchanged.")
     parser.add_argument(
@@ -13094,6 +13227,12 @@ def main() -> None:
     if missing_forecast_period_policy is not None and args.mrp_forecast_source != "source":
         raise ValueError("Known-period conservation requires source MRP forecasts")
     forecast_consumption_policy = args.forecast_consumption_policy or graph_meta.get("forecast_consumption_policy")
+    customer_demand_knowledge_policy = args.customer_demand_knowledge_policy
+    if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY and (
+            graph_meta.get('customer_demand_policy') != 'source_customer_history_v1'
+            or forecast_consumption_policy != WEEKLY_REVIEW_MONTHLY_POLICY
+            or not 0 < sim_days <= 365 or warmup_days):
+        raise ValueError("Weekly customer publication requires source history, weekly monthly review, no warmup and at most365days")
     if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES and sim_days > 365:
         raise ValueError("Calendar-month consumption candidate is limited to365days before long-horizon qualification")
     annual_projection_policy = graph_meta.get("forecast_annual_projection_policy")
@@ -14154,6 +14293,7 @@ def main() -> None:
             consumption_policy=forecast_consumption_policy,
             annual_projection_policy=annual_projection_policy,
             customer_demand_policy=graph_meta.get("customer_demand_policy"),
+            customer_demand_knowledge_policy=customer_demand_knowledge_policy,
         )
 
     def planning_forecast_window(
@@ -14212,7 +14352,8 @@ def main() -> None:
             customer_cover_pairs=customer_physical_cover_routes,
             current_envelope_policy=current_envelope_policy, sim_days=sim_days):
         customer_demand_calendar = (SourceCustomerHistory(graph_meta.get("customer_demand_history"),
-            demand_pairs=set(demand_pairs), origin_date=safety_calendar["start_date"], sim_days=sim_days)
+            demand_pairs=set(demand_pairs), origin_date=safety_calendar["start_date"], sim_days=sim_days,
+            knowledge_policy=customer_demand_knowledge_policy)
             if customer_demand_policy == "source_customer_history_v1" else
             SourcePriorWeekCustomerDemand(graph_meta.get("mrp_forecasts"),
                 nominal_profiles=demand_profiles, origin_date=safety_calendar["start_date"]))
@@ -17101,7 +17242,13 @@ def main() -> None:
             if forecast_consumption_policy is not None:
                 # Same raw orders later used by service/backlog; observe once,
                 # after perturbations and before any daily planning window.
-                mrp_source_forecasts.observe_demand(output_day, raw_demand_target_today)
+                if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY:
+                    publications = [row for pair in sorted(demand_pairs)
+                        if (row := customer_demand_calendar.publication(pair, output_day)) is not None]
+                    mrp_source_forecasts.observe_demand(output_day, raw_demand_target_today,
+                        publications=publications)
+                else:
+                    mrp_source_forecasts.observe_demand(output_day, raw_demand_target_today)
                 if record_day:
                     forecast_consumption_rows.extend(dict(mrp_source_forecasts.consumption_audit(pair, output_day))
                                                      for pair in sorted(forecast_consumption_pairs))
@@ -25054,10 +25201,18 @@ def main() -> None:
             }} if customer_dispatch_forecast_pairs and not customer_known_demand_pairs else {}),
             **({"customer_demand_policy": {
                 "mode": customer_demand_policy,
+                **({"knowledge_policy": customer_demand_knowledge_policy,
+                    "publication": "Monday_after_effective_week_before_decisions",
+                    "physical_timing": "grouped_publication_arrivals_replay_convention_not_observed_daily_orders",
+                    "month_attribution": "integer_allocation_by_effective_day_not_publication_month",
+                    "pending_audit_csv": "data/customer_demand_publications.csv"}
+                   if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY else {}),
                 "scope": [list(pair) for pair in sorted(demand_pairs)],
                 "status": ("historical_customer_orders_not_a_delivery_journal" if customer_demand_policy == "source_customer_history_v1"
                            else "estimated_customer_orders_from_prior_future_MRP_I_not_observed_sales"),
-                "selection": ("current_day_only_from_explicit_Monday_history_no_future_queries" if customer_demand_policy == "source_customer_history_v1"
+                "selection": ("completed_effective_week_published_next_Monday_before_decisions"
+                              if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY else
+                              "current_day_only_from_explicit_Monday_history_no_future_queries" if customer_demand_policy == "source_customer_history_v1"
                               else "last_present_period_row_with_vintage_lte_decision_and_strictly_before_Sunday_period_start"),
                 "weekly_freeze": ("explicit_historical_week_zero_preserved_missing_week_rejected"
                     if customer_demand_policy == "source_customer_history_v1" else
@@ -25214,15 +25369,21 @@ def main() -> None:
                     "period_forecast": ("calendar_month_sum_of_daily_source_rates_known_at_month_open_with_declared_nearest_fallback"
                         if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES else
                         "last_known_whole_future_source_week_before_period_start"),
-                    "consumed_by": ("scenario_customer_orders_arrived_through_review_cutoff_for_rate_actual_counter_through_decision_day_not_served_quantities"
+                    "consumed_by": ("published_customer_demand_attributed_to_effective_month_not_publication_month_or_shipments"
+                        if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY else
+                        "scenario_customer_orders_arrived_through_review_cutoff_for_rate_actual_counter_through_decision_day_not_served_quantities"
                         if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else
                         "scenario_customer_orders_arrived_through_decision_day_not_served_quantities"),
-                    "remaining": ("monthly_residual_at_latest_sunday_or_month_open_rate_fixed_until_next_review"
+                    "remaining": ("monthly_residual_at_latest_Monday_or_month_open_rate_includes_review_day_fixed_until_next_review"
+                        if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY else
+                        "monthly_residual_at_latest_sunday_or_month_open_rate_fixed_until_next_review"
                         if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else
                         "max_month_budget_minus_known_real_demand_zero_uniformly_distributed_over_remaining_future_days"
                         if forecast_consumption_policy == MONTHLY_CONSUMPTION_POLICY else
                         "max_weekly_forecast_minus_arrived_orders_zero_distributed_over_remaining_future_days"),
-                    "today": "arrived_order_in_windows_including_today_before_service",
+                    "today": ("forecast_only_published_arrivals_belong_to_previous_effective_week"
+                        if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY else
+                        "arrived_order_in_windows_including_today_before_service"),
                     "backlog": "physical_unserved_orders_added_once_by_existing_network",
                     "expiry": ("unused_forecast_expires_at_calendar_month_end_without_becoming_backlog"
                         if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES else
@@ -25233,7 +25394,9 @@ def main() -> None:
                     "industrial_rule_confirmed": False,
                     **({"period_kind": "calendar_month", "budget_vintage_cutoff": "month_opening_day",
                         "budget_reconstruction": "weekly_source_quantities_prorated_to_calendar_days_not_observed_monthly_totals",
-                        "redistribution_review": ("sunday_close_effective_monday_and_calendar_month_opening"
+                        "redistribution_review": ("next_Monday_publication_and_calendar_month_opening_inclusive_review_day"
+                            if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY else
+                            "sunday_close_effective_monday_and_calendar_month_opening"
                             if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY else
                             "daily_known_real_demand_not_confirmed_ERP_cadence"),
                         "confirmation_scope": ("monthly_real_demand_consumption_and_weekly_review_confirmed_source_budget_and_sunday_choice_remain_assumptions"
@@ -26880,15 +27043,24 @@ def main() -> None:
                                   if forecast_consumption_policy in MONTHLY_FORECAST_POLICIES else FORECAST_CONSUMPTION_FIELDS)
             if forecast_consumption_policy == WEEKLY_REVIEW_MONTHLY_POLICY:
                 consumption_fields = consumption_fields + WEEKLY_REVIEW_MONTHLY_FIELDS
+            if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY:
+                consumption_fields = consumption_fields + PUBLICATION_MONTHLY_FIELDS
             writer = csv.DictWriter(f, fieldnames=consumption_fields)
             writer.writeheader()
             writer.writerows(forecast_consumption_rows)
 
     if customer_demand_calendar is not None:
         with data_path(output_dir, "customer_demand_daily.csv").open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=CUSTOMER_DEMAND_POLICY_FIELDS)
+            fields = CUSTOMER_DEMAND_POLICY_FIELDS + (CUSTOMER_DEMAND_KNOWLEDGE_FIELDS
+                if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY else [])
+            writer = csv.DictWriter(f, fieldnames=fields)
             writer.writeheader()
             writer.writerows(customer_demand_policy_rows)
+        if customer_demand_knowledge_policy == WEEKLY_DEMAND_KNOWLEDGE_POLICY:
+            with data_path(output_dir, "customer_demand_publications.csv").open("w", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=CUSTOMER_PUBLICATION_FIELDS)
+                writer.writeheader()
+                writer.writerows(customer_demand_calendar.publication_audit_rows())
 
     if customer_demand_policy == "source_customer_history_v1":
         with data_path(output_dir, "customer_forecast_projection_weekly.csv").open("w", encoding="utf-8", newline="") as f:

@@ -74,6 +74,10 @@ La [correction des promesses avec composants de remplacement](SUBSTITUTION_PROME
 traite le décalage entre la matière utilisable à l'exécution et celle retenue
 par le MRP pour une campagne engagée, avec comparaison avant/après.
 
+L'[étude de la demande connue après la semaine](DEMANDE_CONNUE_20261116.md)
+sépare prévision, demande historique et production ; elle teste la publication
+du réel après clôture et compare les productions et stocks au témoin conservé.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes

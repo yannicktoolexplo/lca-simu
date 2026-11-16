@@ -842,6 +842,55 @@ avec `--days` au plus 365. Les deux anciennes politiques restent disponibles.
 Les budgets mensuels, le repli source et l'absence de qualification industrielle
 gardent les mêmes limites que le candidat quotidien.
 
+### Demande hebdomadaire connue après clôture
+
+Le mode optionnel `--customer-demand-knowledge-policy weekly_close_next_day_v1`
+sépare la semaine concernée par la demande de la date à laquelle son total
+devient connu. Il exige `source_customer_history_v1`, la consommation mensuelle
+avec revue hebdomadaire et un horizon d'au plus 365 jours, sans préchauffage.
+Le mode par défaut `reconstructed_daily_v1` conserve la reconstruction
+quotidienne historique ; ce mode suppose les demandes connues chaque jour.
+
+Dans le nouveau mode, une semaine lundi–dimanche est publiée le lundi suivant,
+avant les décisions. Avant publication, son total ne pilote ni le MRP ni les
+commandes physiques. Faute d'horodatages individuels, les demandes physiques sont
+traitées ensemble à cette publication : c'est une convention de rejeu agrégé,
+pas un calendrier de commandes ou de livraisons industriel mesuré.
+
+```text
+prévision_journalière = max(prévision_mensuelle − demande_publiée_du_mois, 0)
+                       / nombre_de_jours_restants
+```
+
+Dans cette formule, `prévision_mensuelle` est le budget reconstruit avec les
+versions de prévision connues à l'ouverture du mois ; `demande_publiée_du_mois`
+additionne seulement les demandes déjà publiées dont la date d'effet appartient
+à ce mois ; `nombre_de_jours_restants` compte les jours calendaires du mois à
+partir de la revue, **jour de revue inclus** ; `prévision_journalière` est le
+besoin brut prévisionnel par jour. La revue a lieu le lundi et au début du mois ;
+le taux reste fixe entre deux revues. Le total publié le lundi porte sur la
+semaine passée : il ne remplace pas la prévision de ce lundi dans la fenêtre MRP.
+Les commandes publiées et non servies restent des engagements physiques.
+
+Exemple : 300 demandées sur la première semaine d'un mois de quatre semaines,
+pour une prévision de 1 000, laissent 700 à répartir sur les trois semaines
+restantes. Sur le calendrier réel de janvier 2025, une publication le 13 janvier
+laisse 19 jours dans le mois. Le besoin prévisionnel ne constitue pas une
+obligation de produire cette même quantité : stocks, réceptions, lots et
+capacités interviennent ensuite.
+
+Une semaine à cheval sur deux mois est répartie selon ses dates d'effet avec
+la convention entière quotidienne conservée. Par exemple, 301 unités du
+27 janvier au 2 février sont publiées le 3 février : 215 se rattachent à janvier
+et 86 à février. Seules ces 86 consomment le budget de février. Cette répartition
+est reconstruite ; les commandes quotidiennes ne sont pas observées.
+
+`customer_demand_publications.csv` distingue quantités effectives dans l'horizon,
+quantités publiées et quantités encore non publiées. Ces dernières ne sont pas
+des zéros observés et ne constituent pas un gain de service. Les observations
+publiées ultérieurement ne réécrivent pas les décisions passées. La comparaison
+de service et de stocks doit rappeler l'effet des arrivées regroupées le lundi.
+
 ## 3. Construire les besoins datés de produits finis
 
 Chaque quantité prévue devient un besoin portant une date d’échéance. Le retard
