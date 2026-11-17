@@ -574,6 +574,9 @@ class ProductionBatchWip:
     target_qty: float
     executed_qty: float = 0.0
     parent_allocations: list[dict[str, Any]] = field(default_factory=list)
+    # Optional cumulative issue policy: key is the required BOM component,
+    # even when genealogy records consumption of an authorized substitute.
+    issued_by_component: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.target_qty = max(0.0, _to_float(self.target_qty, 0.0))

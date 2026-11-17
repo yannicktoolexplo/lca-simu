@@ -9,18 +9,24 @@ from __future__ import annotations
 from collections import defaultdict
 import math
 
-from .mrp_planning import FirmReceipt, Requirement
+from .mrp_planning import DatedPlan, FirmReceipt, OrderProposal, Requirement
 
 FROZEN_PRODUCTION_POLICY = "industrial_frozen_order_book_v1"
+J0_NET_PLAN_HYPOTHESIS_POLICY = "j0_net_plan_hypothesis_v1"
 
 
 class FrozenProductionBook:
-    def __init__(self, horizons_by_node, *, bom_by_pair=None):
+    def __init__(self, horizons_by_node, *, bom_by_pair=None, initial_book_policy=None):
         if not horizons_by_node or any(not isinstance(n, str) or not n or type(h) is not int or h <= 0
                                        for n, h in horizons_by_node.items()):
             raise ValueError("Frozen horizons require named sites and positive integer days")
+        if initial_book_policy not in (None, J0_NET_PLAN_HYPOTHESIS_POLICY):
+            raise ValueError("Unknown initial production-book hypothesis")
         self.horizons_by_node = dict(horizons_by_node)
         self.bom_by_pair = dict(bom_by_pair or {})
+        self.initial_book_policy = initial_book_policy
+        self.initial_plan_adopted_pairs = set()
+        self._reviewed_pairs = set()
         self.orders = {}
         self.events = []
         self.day = -1
@@ -52,7 +58,8 @@ class FrozenProductionBook:
                 row.update(state="frozen", frozen_day=day)
                 self._event(row, day, "frozen_before_review")
 
-    def _new(self, pair, identity, day, release, available, requested, qty, state):
+    def _new(self, pair, identity, day, release, available, requested, qty, state,
+             *, provenance=None, event=None):
         if (pair[0] not in self.horizons_by_node or not identity or identity in self.orders
                 or any(type(d) is not int for d in (day, release, available, requested))
                 or release < 0 or available < release or not math.isfinite(qty) or qty <= 0):
@@ -63,14 +70,73 @@ class FrozenProductionBook:
             planned_release_day=release, planned_available_day=available,
             requested_day=requested, qty=float(qty), executed_qty=0.0,
             state=state, campaign_id="", actual_release_day=None)
+        if provenance is not None:
+            row.update(provenance)
         self.orders[identity] = row
-        self._event(row, day, "initial_observed" if state == "frozen" else "created_outside_zone")
+        self._event(row, day, event or ("initial_observed" if state == "frozen" else "created_outside_zone"))
         return row
 
     def register_initial(self, pair, *, order_id, release_day, available_day, qty, known_day=0):
         if known_day != 0 or self.day > 0:
             raise ValueError("Initial observed orders must be known at the simulation origin")
         return self._new(pair, order_id, 0, release_day, available_day, available_day, qty, "frozen")
+
+    def adopt_initial_plan(self, pair, *, plan, knowledge_cutoff_day=0, basis):
+        """Hypothesize missing opening commitments from the first *net* J0 plan.
+
+        The caller must net the observed initial books, stocks and WIP first,
+        using only information known by J0 and all physical planning constraints
+        except the new-order freeze barrier. This method does not infer source
+        knowledge from future dates in a forecast, nor does it create stock.
+
+        Only launches in [1,H) become hypothetical frozen orders. Return every
+        other proposal unchanged for ordinary reconciliation. Adoption happens
+        once per pair, even when that interval contains no net requirement.
+        Validate the entire input before modifying any state or audit event.
+        """
+        if self.initial_book_policy != J0_NET_PLAN_HYPOTHESIS_POLICY:
+            raise ValueError("Initial-plan adoption requires its explicit hypothesis policy")
+        if (not isinstance(pair, tuple) or len(pair) != 2
+                or any(not isinstance(value, str) or not value for value in pair)
+                or pair[0] not in self.horizons_by_node):
+            raise ValueError("Initial-plan adoption requires a modeled frozen-horizon pair")
+        if (not isinstance(plan, DatedPlan) or type(plan.decision_day) is not int
+                or plan.decision_day != 0 or self.day > 0
+                or type(knowledge_cutoff_day) is not int or knowledge_cutoff_day != 0
+                or not isinstance(basis, str) or not basis.strip()):
+            raise ValueError("Initial-plan hypothesis requires J0, J0 knowledge and an explicit basis")
+        if pair in self.initial_plan_adopted_pairs or pair in self._reviewed_pairs:
+            raise ValueError("Initial-plan hypothesis is allowed once, before the pair's first review")
+        proposals = tuple(plan.proposals)
+        if any(not isinstance(p, OrderProposal) or not isinstance(p.proposal_id, str)
+               or not p.proposal_id.strip()
+               or any(type(d) is not int or d < 0 for d in (p.release_day,p.available_day,p.requested_day))
+               or p.available_day < p.release_day
+               or isinstance(p.qty, bool) or not isinstance(p.qty, (int, float))
+               or not math.isfinite(p.qty) or p.qty <= 0 for p in proposals):
+            raise ValueError("Initial-plan hypothesis contains an invalid net proposal")
+        if len({p.proposal_id for p in proposals}) != len(proposals):
+            raise ValueError("Initial-plan hypothesis requires unique source proposal identities")
+        if (isinstance(plan.proposed_qty, bool) or not isinstance(plan.proposed_qty, (int, float))
+                or not math.isfinite(plan.proposed_qty) or plan.proposed_qty < 0
+                or not math.isclose(plan.proposed_qty,math.fsum(p.qty for p in proposals),
+                                    rel_tol=1e-12,abs_tol=1e-7)):
+            raise ValueError("Initial-plan hypothesis requires a consistent net proposal total")
+        horizon = self.horizons_by_node[pair[0]]
+        selected = tuple(p for p in proposals if 1 <= p.release_day < horizon)
+        identities = tuple(f"BOOTSTRAP|{pair[0]}|{pair[1]}|{self.sequence+i}"
+                           for i in range(1,len(selected)+1))
+        if any(identity in self.orders for identity in identities):
+            raise ValueError("Initial-plan hypothesis identity conflicts with an existing order")
+        self.begin_day(0)
+        for p,identity in zip(selected,identities):
+            self._new(pair,identity,0,p.release_day,p.available_day,p.requested_day,p.qty,"frozen",
+                provenance=dict(origin="hypothesized_initial_plan",source_proposal_id=p.proposal_id,
+                                knowledge_cutoff_day=knowledge_cutoff_day,basis=basis),
+                event="initial_hypothesis_adopted")
+        self.sequence += len(selected)
+        self.initial_plan_adopted_pairs.add(pair)
+        return tuple(p for p in proposals if not 1 <= p.release_day < horizon)
 
     def reconcile(self, pair, day, proposals):
         self.begin_day(day)
@@ -122,6 +188,7 @@ class FrozenProductionBook:
         for row in unmatched:
             row["state"] = "cancelled"
             self._event(row,day,"outside_zone_cancelled")
+        self._reviewed_pairs.add(pair)
 
     def _pending(self, pair=None):
         return sorted((r for r in self.orders.values() if r["state"] == "frozen"

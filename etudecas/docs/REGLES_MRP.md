@@ -1724,8 +1724,9 @@ Le lot conserve sa quantité. Avant acceptation, un recalcul doit montrer que
 la quantité avancée et les propositions restantes égalent les propositions
 précédentes. Le produit fini est crédité une seule fois à sa disponibilité
 physique prévue ; le travail restant réserve séparément la machine. Pour un
-composant en unités entières, la matière requise est la somme des prélèvements
-quotidiens arrondis selon la règle d'exécution, et non un seul arrondi du lot.
+composant en unités entières, le programme historique requiert la somme des
+prélèvements quotidiens arrondis. L'option d'exécution cumulative ci-dessous
+change cette convention pour les lots physiques, sans modifier le défaut.
 
 L'audit `production_programme_audit.json` distingue la connaissance du programme,
 les cellules sources, les allocations de travail prévues, les consommations
@@ -1745,6 +1746,43 @@ continue, sans autoriser une avance des ordres figés. Les contrôles physiques
 restent nécessaires au travail réel et les retards sont tracés séparément.
 Cette variante remplace le proxy d'autorisation hebdomadaire par le carnet,
 sans promouvoir le nominal. Voir le [contrat, les limites et les preuves](changes/2026-11-17-programme-fige.md).
+
+Deux options explicites complètent cette variante. `manufacturing_work_calendar`
+déclare les jours travaillés par usine, connus au démarrage : ils bornent la
+capacité et les lancements sans transformer `tau_process` en durée physique
+continue. Les fermetures historiques conservent leur règle distincte.
+`--production-frozen-opening-policy j0_net_plan_hypothesis_v1` adopte une seule
+fois les lots du plan net J0 dont le lancement tombe dans la fenêtre initiale,
+après déduction des stocks et ordres natifs. Ces engagements portent une origine
+hypothétique ; ils ne créent ni stock ni consommation. Leur exécution conserve
+les contraintes physiques. Les options restent inactives par défaut.
+
+### Prélèvements cumulatifs des composants d'un lot
+
+L'option `--production-component-issue-policy batch_cumulative_v1` conserve
+l'avancement continu du travail mais arrondit les composants `UN` sur le cumul
+du lot. Elle évite qu'une même fabrication consomme davantage d'unités uniquement
+parce qu'elle est découpée en plusieurs journées :
+
+```text
+prélèvement = max(0, plafond(travail_cumulé_après × besoin_unitaire) − déjà_prélevé)
+```
+
+`travail_cumulé_après` est l'avancement de ce lot après le travail envisagé ;
+`besoin_unitaire` est le coefficient BOM converti dans l'unité du composant ;
+`déjà_prélevé` est la quantité physique déjà débitée pour ce composant de ce lot.
+Le plafond donne l'entier supérieur. Ainsi 484,8 puis 7 215,2 unités de travail
+requérant un étui chacune prélèvent 485 puis 7 215 étuis, soit 7 700 en tout.
+
+La faisabilité crédite les composants déjà incorporés au même lot. Ce crédit
+ne devient pas du stock libre et ne finance jamais un autre lot. Les compteurs
+repartent de zéro à chaque nouveau lot physique ; la nomenclature reste fixe
+pendant son exécution. Les masses et longueurs conservent leur multiplication
+par le travail de chaque passage. Les substitutions autorisées gardent leurs
+références physiques dans la généalogie et leur composant requis dans le compteur.
+L'audit `production_component_issues_daily.csv` rapproche travail cumulé,
+coefficient source et prélèvements physiques avant/après. L'option est désactivée
+par défaut ; les essais de calendrier l'appliquent identiquement aux trois cas.
 
 ### Ordres initiaux et nouveaux programmes
 
