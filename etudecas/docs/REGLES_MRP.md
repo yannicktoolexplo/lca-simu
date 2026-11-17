@@ -1784,6 +1784,91 @@ L'audit `production_component_issues_daily.csv` rapproche travail cumulé,
 coefficient source et prélèvements physiques avant/après. L'option est désactivée
 par défaut ; les essais de calendrier l'appliquent identiquement aux trois cas.
 
+### Protection facultative des composants d'un lot engagé
+
+`--active-batch-material-protection-policy engaged_remaining_v1` donne priorité
+aux composants restant nécessaires aux lots natifs ayant déjà effectué du travail
+physique, avant le service des usages externes. Elle exige le prélèvement cumulatif
+par lot et le suivi de lots. Elle est désactivée par défaut.
+
+```text
+besoin_restant_UN = max(0, plafond(quantité_du_lot × coefficient_BOM) − déjà_prélevé)
+stock_libre = stock_utilisable − quantité_protégée
+débit_externe = min(stock_libre, besoin_externe_avec_report)
+stock_final = stock_utilisable − débit_externe
+report_externe = besoin_externe_avec_report − débit_externe
+```
+
+`quantité_du_lot` est sa quantité physique cible ; `coefficient_BOM` est la quantité
+de composant par unité produite ; `déjà_prélevé` est ce qui a effectivement été
+incorporé à ce même lot. `quantité_protégée` est la part encore utilisable affectée
+au besoin restant. `besoin_externe_avec_report` additionne les besoins externes
+devenus connus et leurs restes non servis. La protection ne crée ni consommation
+ni stock ; le stock en contrôle n'est pas utilisable. Pour les masses et longueurs,
+le besoin restant conserve son unité continue, sans plafond d'unités physiques.
+
+Une réserve commune sert les lots les plus anciennement engagés, puis leur
+identifiant stable. Elle est déduite une seule fois du stock partagé. Les anciennes
+références ne sont utilisées que selon les substitutions autorisées ; réserver
+le stock principal ne signifie pas l'avoir physiquement épuisé. La protection
+est recalculée après le travail et disparaît avec le besoin du lot terminé.
+Le report externe conserve ses identités et échéances entre les semaines.
+
+Cette option protège contre les usages externes dans la clôture quotidienne.
+Elle ne constitue pas une réservation générale contre toutes les fabrications
+ou expéditions et ne couvre pas les fragments de conditionnement des ordres
+initiaux séparés du modèle `ProductionBatchWip`. Les exports
+`active_batch_material_protection.csv` et `active_batch_external_allocation.csv`
+séparent besoins, quantités protégées, débit physique et report.
+Un usage externe reconstruit reste une reconstruction, pas une consommation
+industrielle identifiée par l'ajout de cette règle.
+
+### Admission facultative selon les disponibilités datées
+
+`--production-material-launch-policy known_dated_continuity_v1` vérifie,
+avant le premier travail d'un nouveau lot, si ses consommations successives
+peuvent être couvertes par le stock utilisable et les réceptions fermes déjà
+connues. Elle exige le prélèvement cumulatif par lot et reste désactivée par
+défaut. La projection ne transforme pas `tau_process` en durée physique.
+
+**Cette version est réservée à la reproduction des essais, pas au nominal.**
+Réserver tous les autres ordres avant le candidat peut bloquer mutuellement
+des engagements réalisables avec une priorité commune. L'absence de démarrage
+n'établit alors pas une pénurie industrielle. Une correction de l'arbitrage
+et une nouvelle comparaison sont nécessaires avant adoption ; voir les
+[essais et leur décision](changes/2026-11-17-essais-protection-lancement.md).
+
+À chaque journée projetée, les réceptions deviennent utilisables à leur date,
+les autres besoins connus sont déduits, puis les consommations cumulées du lot
+sont vérifiées. Le stock en contrôle n'est pas crédité immédiatement : sa
+réception future utilisable est comptée une seule fois. Une réception déjà
+disponible n'est pas ajoutée au stock courant une seconde fois.
+
+La règle conserve les besoins externes connus, les restes des lots engagés,
+les ordres initiaux et les autres ordres figés. Elle projette un travail continu
+sur le calendrier déclaré et refuse les conflits avec les autres engagements
+de capacité. Le propre ordre candidat est exclu une seule fois de ces réserves.
+Cette politique est conservatrice : les composants des autres ordres figés
+sont réservés à leur lancement et une collision peut différer le candidat.
+
+Le carnet figé garde sa date prévue et sa quantité. Un refus diffère seulement
+l'admission physique et reste enregistré comme tel ; aucun ordre ni besoin
+n'est supprimé. Les lots déjà engagés continuent leur exécution habituelle.
+
+Le domaine projetable est un lot physique unique de produits en unités,
+avec capacité finie et calendrier connus. Hors domaine, ou si une transition
+de références chevauchant le travail ne peut pas être projetée, le parcours
+natif est conservé et le motif d'inapplicabilité est exporté : aucune garantie
+de continuité n'en est déduite. Les transitions archivées ne bloquent pas
+une projection actuelle.
+
+`production_material_launch_decisions.json` conserve décision, applicabilité,
+trajectoire, engagements et motifs. La présence d'un engagement dans
+l'instantané prouve qu'il est connu à la décision ; elle ne remplace pas sa date
+industrielle de création. Les incidents futurs inconnus et les futurs résidus
+reconstruits ne sont pas utilisés : la continuité annoncée reste conditionnelle
+aux informations et capacités déclarées.
+
 ### Ordres initiaux et nouveaux programmes
 
 Dans le mode `current_week_authorized_lot_multiday_v1`, l'option explicite

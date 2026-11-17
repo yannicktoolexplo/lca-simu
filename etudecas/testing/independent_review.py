@@ -1163,7 +1163,8 @@ def prospective_forecast_day_audit(audit, component, day, profile):
 
 
 def audit_external_component_service(series, events, core_rows, policy, horizon, evidence, *,
-                                     observed_policy=None, reconciliation=None, projection=None):
+                                     observed_policy=None, reconciliation=None, projection=None,
+                                     protected_by_key=None):
     """Independent accounting of a declared incremental-use scenario, not its calibration.
 
     Reconstruct each dated UN demand with integer quotient/remainder arithmetic,
@@ -1483,7 +1484,8 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
         evidence.close("external_available_balance", values["available_after_qty"],
                        values["available_before_qty"] - values["consumed_qty"], key)
         evidence.close("external_available_allocation", values["consumed_qty"],
-                       min(values["available_before_qty"], values["required_qty"]), key)
+                       min(values["available_before_qty"] - (protected_by_key or {}).get(key, 0.0),
+                           values["required_qty"]), key)
         evidence.close("external_lot_debits_match_service", values["consumed_qty"], issues[key], key)
         evidence.close("external_core_consumption_kept_separate", values["core_consumed_qty"], core[key], key)
         evidence.close("external_total_component_consumption", values["total_component_consumed_qty"],
@@ -1807,12 +1809,34 @@ def audit_run(run):
         if valid_path:
             projection["source_bytes"] = source_path.read_bytes()
     external_csv = run / "data/external_component_demand_daily.csv"
+    protected_by_key = None
+    protection_policy = summary.get("policy", {}).get("active_batch_material_protection")
+    if protection_policy:
+        if __package__:
+            from .active_batch_material_review import audit_active_batch_materials
+        else:
+            from active_batch_material_review import audit_active_batch_materials
+        e.check("active_protection_declared_policy", protection_policy.get("mode") == "engaged_remaining_v1")
+        required_exports = ("active_batch_material_protection", "active_batch_external_allocation",
+                            "external_component_demand_daily", "production_plan_events", "production_component_issues_daily")
+        present = all((run / "data" / (name + ".csv")).is_file() for name in required_exports)
+        e.check("active_protection_required_exports", present, required_exports)
+        if present:
+            protected_by_key = audit_active_batch_materials(
+                rows(run, "active_batch_material_protection"), rows(run, "active_batch_external_allocation"),
+                rows(run, "external_component_demand_daily"), rows(run, "production_plan_events"),
+                rows(run, "production_component_issues_daily"), e)
+    else:
+        e.check("active_protection_absent_without_policy",
+                not (run / "data/active_batch_external_allocation.csv").exists()
+                and not (run / "data/active_batch_material_protection.csv").exists())
     if external_policy:
         e.check("external_component_export_present", external_csv.is_file(), str(external_csv))
         if external_csv.is_file():
             audit_external_component_service(rows(run, "external_component_demand_daily"), events,
                 rows(run, "production_input_consumption_daily"), external_policy, horizon, e,
-                observed_policy=observed_policy, reconciliation=reconciliation, projection=projection)
+                observed_policy=observed_policy, reconciliation=reconciliation, projection=projection,
+                protected_by_key=protected_by_key)
     else:
         e.check("external_component_absent_without_policy", not external_csv.exists() and
                 not any(row["event_type"] == "external_component_consume" for row in events))

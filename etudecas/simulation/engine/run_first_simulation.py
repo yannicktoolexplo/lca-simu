@@ -38,6 +38,7 @@ from etudecas.simulation.engine.campaign_material_allocation import allocate_cam
 from etudecas.simulation.engine.programme_opening_coverage import (
     OPENING_COVERAGE_POLICY, reconcile_opening_programme, reserve_known_component_backlogs,
     reveal_current_component_requirements, reserve_current_component_requirements,
+    FIRM_COMPONENT_ORIGINS,
 )
 from etudecas.simulation.engine.monthly_forecast import (
     MONTHLY_CONSUMPTION_FIELDS, MONTHLY_CONSUMPTION_POLICY,
@@ -58,6 +59,14 @@ from etudecas.simulation.engine.production_component_issues import (
     BATCH_CUMULATIVE_ISSUE_POLICY, incremental_component_issue,
     cumulative_work_bound, feasible_cumulative_work,
 )
+from etudecas.simulation.engine.active_batch_materials import (
+    ACTIVE_BATCH_MATERIAL_POLICY, claims_for_engaged_batches,
+    allocate_active_batch_materials, serve_with_active_batch_protection,
+)
+from etudecas.simulation.engine.dated_material_launch import (
+    DATED_MATERIAL_LAUNCH_POLICY, assess_dated_material_launch,
+)
+from etudecas.simulation.lot_policy.models import normalize_uom
 FINITE_PRODUCTION_POLICY = "finite_lot_calendar_v1"
 FINITE_PRODUCTION_FIELDS = [
     "decision_day", "phase", "node_id", "item_id", "policy", "proposal_id", "qty",
@@ -8065,6 +8074,10 @@ def parse_args() -> argparse.Namespace:
         default=None, help="Explicit hypothetical opening commitments from the first net known forecast plan; requires frozen production. Never observed initial orders.")
     parser.add_argument("--production-component-issue-policy", choices=[BATCH_CUMULATIVE_ISSUE_POLICY],
         default=None, help="Opt-in cumulative integer component issues per physical batch; retains continuous work and credits prior issues in material feasibility.")
+    parser.add_argument("--active-batch-material-protection-policy", choices=[ACTIVE_BATCH_MATERIAL_POLICY],
+        default=None, help="Protect usable components still needed by physically engaged batches before external uses; deferred external needs remain outstanding.")
+    parser.add_argument("--production-material-launch-policy", choices=[DATED_MATERIAL_LAUNCH_POLICY],
+        default=None, help="Conditional admission of a new physical lot using known usable receipts and a continuous capacity calendar; frozen commitments remain unchanged.")
     parser.add_argument(
         "--mrp-nonbinding-standard-order-pair", action="append", default=[], metavar="NODE,ITEM",
         help="Treat the standard order quantity as a reference, not a mandatory multiple or delivery-splitting rule, for this destination pair.",
@@ -13203,6 +13216,16 @@ def main() -> None:
     cumulative_component_issues = args.production_component_issue_policy == BATCH_CUMULATIVE_ISSUE_POLICY
     if cumulative_component_issues and not args.lot_trace:
         raise ValueError("Cumulative component issues require the native batch and material genealogy")
+    active_batch_material_protection = args.active_batch_material_protection_policy is not None
+    if active_batch_material_protection and not cumulative_component_issues:
+        raise ValueError("Active batch material protection requires cumulative batch component issues")
+    active_batch_protection_rows = []
+    active_batch_external_allocation_rows = []
+    dated_material_launch = args.production_material_launch_policy is not None
+    dated_material_launch_rows = []
+    if dated_material_launch and (not cumulative_component_issues or production_capacity_planning_policy is None
+            or production_execution_policy != "dated_releases_v1" or warmup_days):
+        raise ValueError("Dated material launch requires cumulative lot issues, finite dated capacity and no warmup")
     if production_intraday_policy not in (None, "continue_engaged_campaign_v1"):
         raise ValueError("Unknown intraday production policy")
     if production_capacity_planning_policy is not None and production_intraday_policy is None:
@@ -16526,6 +16549,76 @@ def main() -> None:
             production_capacity_plan_rows.extend(dict(row, decision_day=decision_day-warmup_days,
                 phase=phase, node_id=pair[0], item_id=pair[1]) for row in rows)
 
+    def assess_current_material_launch(pair, *, decision_day, quantity, capacity_qty, own_order):
+        context=finite_capacity_context(pair,decision_day=decision_day,first_work_day=decision_day,
+            current_capacity_qty=capacity_qty)
+        if context is None or normalize_uom(item_unit_map.get(pair[1],""))!="UN":
+            return dict(policy=DATED_MATERIAL_LAUNCH_POLICY,applicable=False,allowed=None,
+                reason="unknown_finite_capacity" if context is None else "non_unit_output_not_projected",
+                snapshot_known_day=decision_day,batch_qty=quantity,projected_finish_day=None)
+        components=tuple((component,ratio) for component,ratio in process_input_requirements_by_output_pair.get(pair,())
+            if component in inbound_pairs or component in stock_pairs)
+        component_pairs={component for component,_ in components}
+        receipts=[];requirements=[];substitutions=[]
+        for component in component_pairs:
+            for identity,(available,qty,origin) in planning_commitments_by_pair.get(component,{}).items():
+                if available>decision_day and origin in FIRM_COMPONENT_ORIGINS:
+                    receipts.append(dict(identity=identity,node_id=component[0],item_id=component[1],
+                        available_day=available,qty=qty,origin=origin,known_day=decision_day,
+                        knowledge_basis="present_in_current_firm_snapshot_original_creation_date_not_inferred"))
+            for transition in reference_substitutes_by_pair.get(component,()):
+                start=int(to_float(transition.get("start_day"),0.0))
+                end=int(to_float(transition.get("end_day"),sim_days))
+                if end<decision_day:continue
+                substitutions.append(dict(node_id=component[0],item_id=component[1],
+                    start_day=start,end_day=end,
+                    reason="dated_reference_transition_not_projected_native_execution_retained"))
+
+        def append_needs(mapping, basis, excluded_prefix=None):
+            for component in component_pairs:
+                for row in mapping.get(component,()):
+                    if excluded_prefix and row.requirement_id.startswith(excluded_prefix):continue
+                    quantity=row.qty
+                    if basis=="other_frozen_order_components" and normalize_uom(item_unit_map[component[1]])=="UN":
+                        # One frozen requirement is one still-unstarted order:
+                        # reserve its complete physical cumulative debit, not
+                        # its fractional theoretical BOM equivalent.
+                        quantity=float(math.ceil(quantity))
+                    requirements.append(dict(identity=basis+":"+row.requirement_id,node_id=component[0],
+                        item_id=component[1],due_day=row.due_day,qty=quantity,known_day=decision_day,basis=basis))
+
+        append_needs(external_component_backlogs,"prior_external_backlog")
+        if known_external_component_due_today is not None:
+            append_needs(known_external_component_due_today.known_due,"revealed_external_today")
+        if external_component_calendar is not None:
+            # Known estimate vintages only, never observed_execution.merge_due
+            # for a future day and never a future Scan3 residual computation.
+            append_needs(external_component_calendar.requirements(decision_day=decision_day,
+                first_day=decision_day+1,through_day=decision_day+365),"known_external_estimate")
+        if opening_pack_orders is not None:
+            opening_needs,_=opening_pack_orders.planning(decision_day)
+            append_needs(opening_needs,"initial_order_remaining_components")
+        own_id=own_order["order_id"] if own_order is not None else None
+        if frozen_production_book is not None:
+            append_needs(frozen_production_book.material_requirements(decision_day),"other_frozen_order_components",
+                "frozen_material:"+own_id+":" if own_id else None)
+        for active_pair,active_batch in production_batch_wip_by_pair.items():
+            if active_pair==pair or active_batch.executed_qty<=0 or active_batch.is_complete:continue
+            for component,ratio in process_input_requirements_by_output_pair.get(active_pair,()):
+                if component not in component_pairs:continue
+                needed=incremental_component_issue(active_batch.executed_qty,active_batch.remaining_qty,
+                    ratio,item_unit_map[component[1]],active_batch.issued_by_component.get(component[1],0.0))
+                requirements.append(dict(identity="engaged_batch:"+active_batch.batch_id+":"+component[1],
+                    node_id=component[0],item_id=component[1],due_day=decision_day,qty=needed,
+                    known_day=decision_day,basis="unissued_remaining_material_of_other_active_batch"))
+        result=assess_dated_material_launch(decision_day=decision_day,batch_qty=quantity,components=components,
+            available_by_pair={c:available_component_quantity(max(0.0,stock.get(c,0.0)),item_unit_map[c[1]]) for c in component_pairs},
+            item_uoms=item_unit_map,firm_receipts=receipts,other_requirements=requirements,
+            capacity_context=context,own_order_id=own_id,nonprojectable_substitutions=substitutions)
+        result["unresolved_current_closures"]=(list(known_external_component_due_today.unresolved_for(component_pairs))
+            if known_external_component_due_today is not None else [])
+        return result
+
     for day in range(total_timeline_days):
         if frozen_production_book is not None:
             frozen_production_book.begin_day(day)
@@ -18268,8 +18361,8 @@ def main() -> None:
         # Opt-in information convention: today's exogenous uses are known before
         # allocating a new lot. Preview is pure; closing keeps its usual phase.
         known_external_component_due_today = None
-        if (production_programme_book is not None
-                and production_programme_book.opening_commitment_policy == OPENING_COVERAGE_POLICY):
+        if (dated_material_launch or (production_programme_book is not None
+                and production_programme_book.opening_commitment_policy == OPENING_COVERAGE_POLICY)):
             known_external_component_due_today = reveal_current_component_requirements(
                 external_component_calendar, observed_component_execution, decision_day=output_day)
 
@@ -18774,12 +18867,14 @@ def main() -> None:
                 weekly_lot_limit = max(0, int(math.floor(to_float(lot_policy.get("max_lots_per_week"), 0.0))))
                 lot_weekly_limit_blocked = False
                 first_execution_deferred = False
+                material_launch_deferred = False
+                material_launch_applicable = False
                 new_launch_support = None
                 if lot_policy["enabled"]:
                     if campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
                         campaign_requested_qty = launch_campaign_qty(desired_qty, lot_policy)
                         requested_lot_starts = campaign_lot_count(campaign_requested_qty, lot_policy)
-                        if (production_launch_commitment_policy is None and frozen_launch_order is None
+                        if (not dated_material_launch and production_launch_commitment_policy is None and frozen_launch_order is None
                                 and campaign_requested_qty > 1e-9 and not campaign_id):
                             campaign_id = lot_ledger.next_campaign_id(
                                 day=output_day,
@@ -18806,7 +18901,27 @@ def main() -> None:
                             campaign_started_qty = 0.0
                             actual_lot_starts = 0
                             first_execution_deferred = True
-                        if production_launch_commitment_policy is not None or frozen_launch_order is not None:
+                        if dated_material_launch and campaign_started_qty>LOT_TRACE_EPS:
+                            physical_batch_qty=canonical_production_batch_target_qty(campaign_started_qty,
+                                lot_policy,item_unit_map.get(out_item,""))
+                            material_admission=(dict(applicable=False,allowed=None,reason="multiple_physical_batches_not_projected",
+                                snapshot_known_day=day,batch_qty=physical_batch_qty)
+                                if abs(physical_batch_qty-campaign_started_qty)>LOT_TRACE_EPS else
+                                assess_current_material_launch(out_pair,decision_day=day,quantity=physical_batch_qty,
+                                    capacity_qty=cap,own_order=frozen_launch_order))
+                            if record_day:
+                                dated_material_launch_rows.append(dict(day=output_day,node_id=nid,item_id=out_item,
+                                    frozen_order_id=frozen_launch_order["order_id"] if frozen_launch_order is not None else "",
+                                    requested_qty=campaign_started_qty,**material_admission))
+                            material_launch_applicable=material_admission["applicable"]
+                            if material_launch_applicable and not material_admission["allowed"]:
+                                material_launch_deferred=True;first_execution_deferred=True
+                                campaign_started_qty=0.0;actual_lot_starts=0
+                            elif (not material_launch_applicable and production_launch_commitment_policy is None
+                                    and frozen_launch_order is None and not campaign_id):
+                                campaign_id=lot_ledger.next_campaign_id(day=output_day,node_id=nid,item_id=out_item)
+                                pending_production_campaign_id_by_pair[out_pair]=campaign_id
+                        if production_launch_commitment_policy is not None or frozen_launch_order is not None or material_launch_applicable:
                             first_execution = first_campaign_execution_quantity(
                                 campaign_qty=campaign_started_qty, lot_policy=lot_policy,
                                 output_uom=item_unit_map.get(out_item, ""), capacity_qty=cap,
@@ -18863,7 +18978,8 @@ def main() -> None:
                                 frozen_order_by_campaign[campaign_id] = frozen_launch_order["order_id"]
                         elif frozen_launch_order is not None:
                             frozen_production_book.blocked(frozen_launch_order["order_id"],day=day,
-                                reason="physical_material_capacity_calendar_or_weekly_lot_quota")
+                                reason="dated_material_continuity" if material_launch_deferred else
+                                    "physical_material_capacity_calendar_or_weekly_lot_quota")
                         if actual_lot_starts > 0:
                             started_production_lots_by_week_pair[week_key] = started_lots_this_week + actual_lot_starts
                             started_lots_this_week = int(started_production_lots_by_week_pair[week_key])
@@ -19583,6 +19699,25 @@ def main() -> None:
         # is invented. Keep their backlog separate from customer service KPIs.
         external_component_today: dict = {}
         if external_component_calendar is not None:
+            protected_materials = {}
+            if active_batch_material_protection:
+                eligible_material_substitutes = {
+                    component: tuple((str(t["old_item_id"]),str(t.get("consume_policy") or ""))
+                        for t in eligible_reference_transition_substitutes(component[0],component[1],output_day))
+                    for pair in production_batch_wip_by_pair
+                    for component,_ in process_input_requirements_by_output_pair.get(pair,())}
+                active_claims = claims_for_engaged_batches(production_batch_wip_by_pair,
+                    bom_by_pair=process_input_requirements_by_output_pair,
+                    modeled_pairs=set(inbound_pairs)|set(stock_pairs),item_uoms=item_unit_map,
+                    substitutes_by_pair=eligible_material_substitutes)
+                material_pairs = {(claim.node_id,claim.required_item_id) for claim in active_claims}
+                material_pairs.update((claim.node_id,item) for claim in active_claims for item,_ in claim.substitutes)
+                protected_materials, material_audit = allocate_active_batch_materials(active_claims,
+                    available_by_pair={pair:available_component_quantity(max(0.0,stock.get(pair,0.0)),item_unit_map[pair[1]])
+                        for pair in material_pairs},item_uoms=item_unit_map)
+                if record_day:
+                    active_batch_protection_rows.extend(dict(day=output_day,policy=ACTIVE_BATCH_MATERIAL_POLICY,**row)
+                        for row in material_audit)
             if known_external_component_due_today is None:
                 external_due = external_component_calendar.due(output_day)
                 if observed_component_execution is not None:
@@ -19595,11 +19730,29 @@ def main() -> None:
             for component_pair in sorted(external_execution_pairs):
                 component_uom = item_unit_map[component_pair[1]]
                 available_before = stock.get(component_pair, 0.0)
-                external_service = serve_external_component_requirements(
-                    decision_day=output_day, available_qty=available_before,
-                    backlog=external_component_backlogs.get(component_pair, ()),
-                    due=external_due.get(component_pair, ()), uom=component_uom,
-                )
+                if active_batch_material_protection:
+                    protected_qty = protected_materials.get(component_pair,0.0)
+                    external_service,physical_stock_after = serve_with_active_batch_protection(
+                        decision_day=output_day,available_qty=available_before,protected_qty=protected_qty,
+                        backlog=external_component_backlogs.get(component_pair,()),
+                        due=external_due.get(component_pair,()),uom=component_uom)
+                    if record_day:
+                        active_batch_external_allocation_rows.append(dict(day=output_day,node_id=component_pair[0],
+                            item_id=component_pair[1],uom=component_uom,available_before_qty=available_before,
+                            protected_qty=protected_qty,free_before_qty=available_before-protected_qty,
+                            external_required_qty=external_service.demand_qty+external_service.backlog_start_qty,
+                            external_consumed_qty=external_service.consumed_qty,
+                            external_remaining_qty=math.fsum(row.qty for row in external_service.remaining),
+                            physical_after_qty=physical_stock_after,free_after_qty=external_service.available_end_qty,
+                            policy=ACTIVE_BATCH_MATERIAL_POLICY,
+                            provenance="allocation_hypothesis_external_requirement_provenance_unchanged_not_new_industrial_observation"))
+                else:
+                    external_service = serve_external_component_requirements(
+                        decision_day=output_day, available_qty=available_before,
+                        backlog=external_component_backlogs.get(component_pair, ()),
+                        due=external_due.get(component_pair, ()), uom=component_uom,
+                    )
+                    physical_stock_after = external_service.available_end_qty
                 for allocation in external_service.allocations:
                     provenance = (observed_component_execution.provenance(
                         allocation.requirement_id, external_component_calendar)
@@ -19615,7 +19768,7 @@ def main() -> None:
                                           "due_day": allocation.due_day, **provenance},
                                          ensure_ascii=False, sort_keys=True),
                     )
-                stock[component_pair] = external_service.available_end_qty
+                stock[component_pair] = physical_stock_after
                 external_component_backlogs[component_pair] = external_service.remaining
                 core_consumed = consumed_today_by_pair.get(component_pair, 0.0)
                 external_component_today[component_pair] = {
@@ -19625,7 +19778,7 @@ def main() -> None:
                     "required_qty": external_service.demand_qty + external_service.backlog_start_qty,
                     "consumed_qty": external_service.consumed_qty,
                     "backlog_end_qty": math.fsum(row.qty for row in external_service.remaining),
-                    "available_before_qty": available_before, "available_after_qty": external_service.available_end_qty,
+                    "available_before_qty": available_before, "available_after_qty": physical_stock_after,
                     "core_consumed_qty": core_consumed,
                     "total_component_consumed_qty": core_consumed + external_service.consumed_qty,
                 }
@@ -26532,6 +26685,38 @@ def main() -> None:
             json.dump(dict(schema_version=1,programmes=list(production_programme_book.history),
                 events=production_programme_book.events,decisions=programme_decision_rows,
                 source_budget_overrides=programme_source_budget_rows),handle,ensure_ascii=False,indent=2)
+    if dated_material_launch:
+        summary["policy"]["production_material_launch_policy"] = dict(mode=DATED_MATERIAL_LAUNCH_POLICY,
+            scope="new_single_physical_batch_only;already_active_lots_continue_native_execution",
+            information="current_usable_stock_and_future_usable_firm_receipts_present_in_decision_snapshot",
+            knowledge="snapshot_date_proves_current_presence_not_original_industrial_order_creation",
+            obligations="other_engaged_remainders_initial_and_frozen_orders_known_external_backlog_current_need_and_estimate_vintages",
+            unknown="future_observed_residuals_and_risk_events_not_consulted;continuity_conditional",
+            capacity="continuous_work_calendar;other_firm_reservations_can_conservatively_refuse;own_order_excluded_once",
+            commitments="frozen_dates_and_quantities_unchanged;refusal_is_physical_delay_not_replanning",
+            applicability="single_UN_batch_with_known_finite_capacity;outside_domain_native_path_retained_without_continuity_claim",
+            substitutions="overlapping_unprojected_reference_transition_is_audited_bypass;archived_transitions_ignored",
+            audit="data/production_material_launch_decisions.json")
+        with data_path(output_dir,"production_material_launch_decisions.json").open("w",encoding="utf-8") as handle:
+            json.dump(dict(policy=DATED_MATERIAL_LAUNCH_POLICY,decisions=dated_material_launch_rows),handle,ensure_ascii=False,indent=2)
+    if active_batch_material_protection:
+        summary["policy"]["active_batch_material_protection"] = dict(mode=ACTIVE_BATCH_MATERIAL_POLICY,
+            scope="physically_started_incomplete_native_batches_only_no_future_programme",
+            stock="usable_stock_only;reservation_is_not_consumption;physical_end=physical_start-real_debit",
+            allocation="oldest_batch_then_stable_id;shared_pool_primary_then_native_eligible_substitutes",
+            external_needs="identities_dates_and_backlogs_preserved;no_reclassification_as_observed_industrial_use",
+            coverage="only_against_external_component_consumption_not_all_other_production_or_shipments",
+            audit="data/active_batch_material_protection.csv",
+            external_audit="data/active_batch_external_allocation.csv")
+        for filename,fields,records in (
+            ("active_batch_material_protection.csv",["day","policy","batch_id","node_id","required_item_id",
+                "physical_item_id","uom","requested_remaining_qty","protected_qty","uncovered_qty","allocation_kind"],active_batch_protection_rows),
+            ("active_batch_external_allocation.csv",["day","node_id","item_id","uom","available_before_qty","protected_qty",
+                "free_before_qty","external_required_qty","external_consumed_qty","external_remaining_qty",
+                "physical_after_qty","free_after_qty","policy","provenance"],active_batch_external_allocation_rows)):
+            with data_path(output_dir,filename).open("w",encoding="utf-8",newline="") as handle:
+                writer=csv.DictWriter(handle,fieldnames=fields)
+                writer.writeheader();writer.writerows(records)
     if cumulative_component_issues:
         summary["policy"]["production_component_issue_policy"] = dict(
             mode=BATCH_CUMULATIVE_ISSUE_POLICY,
