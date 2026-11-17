@@ -50,7 +50,14 @@ MONTHLY_FORECAST_POLICIES = (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_P
 from etudecas.simulation.engine.finite_production_schedule import (
     ProductionLotRequest, schedule_production_lots,
 )
-from etudecas.simulation.engine.frozen_production import FrozenProductionBook, FROZEN_PRODUCTION_POLICY
+from etudecas.simulation.engine.frozen_production import (
+    FrozenProductionBook, FROZEN_PRODUCTION_POLICY, J0_NET_PLAN_HYPOTHESIS_POLICY,
+)
+from etudecas.simulation.engine.manufacturing_work_calendar import resolve_manufacturing_work_calendar
+from etudecas.simulation.engine.production_component_issues import (
+    BATCH_CUMULATIVE_ISSUE_POLICY, incremental_component_issue,
+    cumulative_work_bound, feasible_cumulative_work,
+)
 FINITE_PRODUCTION_POLICY = "finite_lot_calendar_v1"
 FINITE_PRODUCTION_FIELDS = [
     "decision_day", "phase", "node_id", "item_id", "policy", "proposal_id", "qty",
@@ -6013,26 +6020,33 @@ def finite_manufacturing_plan(plan, *, requirements, firm_receipts, context):
 
 def calendarize_manufacturing_plan(plan, *, requirements, firm_receipts, closed_days,
                                   process_days, receipt_days=0, origin_date="2025-01-01",
-                                  receipt_nonworking_dates=frozenset()):
+                                  receipt_nonworking_dates=frozenset(), planning_interval_closed_days=None):
     """Move new OF before known closure; preserve quantities and every real firm.
 
     The existing tau is a planning allowance, not an invented physical duration.
-    Its planned start/completion interval must fit outside closure. Physical
+    Its planned start/completion interval must fit outside historical closure.
+    Explicit recurring workdays constrain starts, not every day of tau. Physical
     capacities/materials still decide whether that earlier proposal can execute.
     """
     if type(process_days) is not int or process_days < 1:
         raise ValueError("Manufacturing calendar requires the existing positive planning allowance")
+    closed_days = frozenset(closed_days)
+    interval_closed = closed_days if planning_interval_closed_days is None else frozenset(planning_interval_closed_days)
+    if not interval_closed.issubset(closed_days):
+        raise ValueError("Planning shutdowns must also close physical work")
+    def forbidden(release):
+        return release in closed_days or any(d in interval_closed for d in range(release, release + process_days + 1))
     changed = []
     for row in plan.proposals:
-        if not any(d in closed_days for d in range(row.release_day, row.release_day + process_days + 1)):
+        if not forbidden(row.release_day):
             changed.append(row)
             continue
         release = row.release_day
-        while any(d in closed_days for d in range(release, release + process_days + 1)):
+        while forbidden(release):
             release -= 1
         if release < plan.decision_day:
             release = plan.decision_day
-            while any(d in closed_days for d in range(release, release + process_days + 1)):
+            while forbidden(release):
                 release += 1
         available = release + process_days
         if receipt_days:
@@ -6057,12 +6071,14 @@ def manufacturing_protection_balances(plan, protection):
 
 def dated_supply_release_calendar(*, decision_day, through_day, physical_lead_days,
                                   receipt_days=0, review_days=1, pair_review_days=1, origin_date="2025-01-01",
-                                  closed_days=(), receipt_nonworking_dates=frozenset()):
+                                  closed_days=(), receipt_nonworking_dates=frozenset(),
+                                  planning_interval_closed_days=None):
     """Permitted starts -> usable dates, using existing durations and calendars.
 
     Dispatches must meet both zero-anchored executor review grids. For manufacturing,
     physical_lead_days is the existing tau planning allowance, not an inferred
-    process duration; its whole interval must avoid the declared closure.
+    process duration; its whole interval must avoid declared historical closure.
+    Optional recurring workdays constrain the launch day alone.
     Quality may finish during a manufacturing closure. No firm is rescheduled.
     """
     if (any(type(v) is not int for v in (decision_day, through_day, physical_lead_days, receipt_days, review_days, pair_review_days))
@@ -6071,11 +6087,15 @@ def dated_supply_release_calendar(*, decision_day, through_day, physical_lead_da
             or any(type(d) is not int for d in closed_days)):
         raise ValueError("Exact supply calendar requires integer dates and nonnegative durations")
     closed_days = frozenset(closed_days)
+    interval_closed = closed_days if planning_interval_closed_days is None else frozenset(planning_interval_closed_days)
+    if not interval_closed.issubset(closed_days):
+        raise ValueError("Planning shutdowns must also close physical work")
     release_period = math.lcm(review_days, pair_review_days)
     rows, release = [], decision_day
     while not rows or rows[-1][0] < through_day:
         if (release % release_period == 0
-                and not any(d in closed_days for d in range(release, release + physical_lead_days + 1))):
+                and release not in closed_days
+                and not any(d in interval_closed for d in range(release, release + physical_lead_days + 1))):
             physical = release + physical_lead_days
             available = (supplier_receipt_available_day(physical, receipt_days,
                 origin_date=origin_date, calendar="monday_friday",
@@ -6130,10 +6150,13 @@ def extend_known_supply_calendar(calendar, *, decision_day, through_day, context
         if period < 1 or period > 3660:
             raise ValueError("Known supply calendar requires a bounded review period")
         closed = frozenset(options.get("closed_days", ()))
+        interval_closed = options.get("planning_interval_closed_days")
+        interval_closed = closed if interval_closed is None else frozenset(interval_closed)
         # Ensure the existing generator has a permitted stopping point inside
         # the finite extension budget, including manufacturing start closures.
         end = next((d for d in range(through_day, bound + 1)
-                    if d % period == 0 and not any(c in closed for c in range(d, d + lead + 1))), None)
+                    if d % period == 0 and d not in closed
+                    and not any(c in interval_closed for c in range(d, d + lead + 1))), None)
         if end is None:
             raise ValueError("Known supply calendar has no start within the 3660-day bound")
         generated = dated_supply_release_calendar(decision_day=decision_day, through_day=end, **options)
@@ -8038,6 +8061,10 @@ def parse_args() -> argparse.Namespace:
         default=None, help="Explicit finite-capacity placement of new lots; leaves physical capacities and nominal reference unchanged.")
     parser.add_argument("--production-frozen-horizon-policy", choices=[FROZEN_PRODUCTION_POLICY],
         default=None, help="Opt-in persistent production commitments: launch/quantity frozen 28 days at M-1810 and 56 at M-1430.")
+    parser.add_argument("--production-frozen-opening-policy", choices=[J0_NET_PLAN_HYPOTHESIS_POLICY],
+        default=None, help="Explicit hypothetical opening commitments from the first net known forecast plan; requires frozen production. Never observed initial orders.")
+    parser.add_argument("--production-component-issue-policy", choices=[BATCH_CUMULATIVE_ISSUE_POLICY],
+        default=None, help="Opt-in cumulative integer component issues per physical batch; retains continuous work and credits prior issues in material feasibility.")
     parser.add_argument(
         "--mrp-nonbinding-standard-order-pair", action="append", default=[], metavar="NODE,ITEM",
         help="Treat the standard order quantity as a reference, not a mandatory multiple or delivery-splitting rule, for this destination pair.",
@@ -13173,6 +13200,9 @@ def main() -> None:
             production_execution_policy != "dated_releases_v1" or not args.lot_trace or warmup_days):
         raise ValueError("Physical campaign commitment requires dated lot-traced execution without warmup")
     production_intraday_policy = graph_meta.get("production_intraday_policy")
+    cumulative_component_issues = args.production_component_issue_policy == BATCH_CUMULATIVE_ISSUE_POLICY
+    if cumulative_component_issues and not args.lot_trace:
+        raise ValueError("Cumulative component issues require the native batch and material genealogy")
     if production_intraday_policy not in (None, "continue_engaged_campaign_v1"):
         raise ValueError("Unknown intraday production policy")
     if production_capacity_planning_policy is not None and production_intraday_policy is None:
@@ -14653,15 +14683,25 @@ def main() -> None:
             intraday=production_intraday_policy is not None)
     site_receipt_nonworking_dates = resolve_site_receipt_calendars(
         graph_meta.get("receipt_calendar_policy"), execution_mode=args.mrp_execution_mode, nodes=nodes)
-    manufacturing_closed_days = resolve_manufacturing_closures(graph_meta.get("manufacturing_closures"),
+    manufacturing_shutdown_days = resolve_manufacturing_closures(graph_meta.get("manufacturing_closures"),
         nodes=nodes, produced_pairs=produced_pairs, origin_date=safety_calendar["start_date"])
+    manufacturing_weekly_closed_days = resolve_manufacturing_work_calendar(
+        graph_meta.get("manufacturing_work_calendar"), nodes=nodes, produced_pairs=produced_pairs,
+        origin_date=safety_calendar["start_date"], through_day=total_timeline_days + 3661)
+    if manufacturing_weekly_closed_days and (chain_planning_policy is None or production_capacity_planning_policy is None):
+        raise ValueError("Explicit workdays require the dated finite-capacity chain")
+    manufacturing_closed_days = {pair: manufacturing_shutdown_days.get(pair, frozenset())
+        | manufacturing_weekly_closed_days.get(pair, frozenset())
+        for pair in set(manufacturing_shutdown_days) | set(manufacturing_weekly_closed_days)}
     if manufacturing_closed_days and production_execution_policy != "dated_releases_v1":
         raise ValueError("Manufacturing closure candidate requires dated production execution")
     manufacturing_calendar_by_pair = {pair: dict(closed_days=closed,
         process_days=max(1, int(math.ceil(process_tau_days_by_pair.get(pair, 0.0)))),
         receipt_days=finished_goods_release_policies.get(pair, {}).get("receipt_days", 0),
         receipt_nonworking_dates=site_receipt_nonworking_dates.get(pair[0], frozenset()),
-        origin_date=safety_calendar["start_date"]) for pair, closed in manufacturing_closed_days.items()}
+        origin_date=safety_calendar["start_date"],
+        **(dict(planning_interval_closed_days=manufacturing_shutdown_days.get(pair, frozenset()))
+           if pair in manufacturing_weekly_closed_days else {})) for pair, closed in manufacturing_closed_days.items()}
     manufacturing_calendar_rows = []
     if finished_goods_release_policies and (not dated_component_planning or not args.lot_trace
             or initialization_policy["opening_production_order_bom_issue_mode"] != "wip"):
@@ -14813,6 +14853,9 @@ def main() -> None:
         if (production_programme_book.multiday
                 and (production_capacity_planning_policy is None or production_intraday_policy is None)):
             raise ValueError("Multi-day programmes require finite planning and intraday continuation")
+    if args.production_frozen_opening_policy is not None and args.production_frozen_horizon_policy is None:
+        raise ValueError("Opening production hypothesis requires the persistent frozen order book")
+    frozen_opening_plan_rows = []
     if args.production_frozen_horizon_policy is not None:
         if (production_programme_book is None or not production_programme_book.multiday
                 or production_capacity_planning_policy is None
@@ -14820,7 +14863,8 @@ def main() -> None:
                 or warmup_days or sim_days > 365):
             raise ValueError("Frozen production requires the source-year weekly-publication finite multi-day programme and physical launch commitment")
         frozen_production_book = FrozenProductionBook({"M-1810":28,"M-1430":56},
-            bom_by_pair=process_input_requirements_by_output_pair)
+            bom_by_pair=process_input_requirements_by_output_pair,
+            initial_book_policy=args.production_frozen_opening_policy)
     internal_transfer_commitment_pairs = internal_transfer_commitment_scope(
         internal_transfer_commitment_policy, lanes_by_dest_item=lanes_by_dest_item,
         produced_pairs=produced_pairs, production_input_pairs=production_input_pairs,
@@ -14836,6 +14880,7 @@ def main() -> None:
     production_campaign_requested_qty_by_pair: dict[tuple[str, str], float] = {}
     production_campaign_target_qty_by_pair: dict[tuple[str, str], float] = {}
     production_batch_wip_by_pair: dict[tuple[str, str], ProductionBatchWip] = {}
+    production_component_issue_rows: list[dict[str, Any]] = []
     production_batch_sequence_by_campaign: dict[str, int] = defaultdict(int)
     pending_production_campaign_id_by_pair: dict[tuple[str, str], str] = {}
     production_campaign_causality_by_id: dict[str, dict[str, str]] = {}
@@ -15886,7 +15931,9 @@ def main() -> None:
                 physical_lead_days=max(1, int(math.ceil(process_tau_days_by_pair.get(pair, 0.0)))),
                 receipt_days=finished_goods_release_policies.get(pair, {}).get("receipt_days", 0),
                 receipt_nonworking_dates=site_receipt_nonworking_dates.get(pair[0], frozenset()),
-                origin_date=safety_calendar["start_date"], closed_days=manufacturing_closed_days.get(pair, ()))
+                origin_date=safety_calendar["start_date"], closed_days=manufacturing_closed_days.get(pair, ()),
+                **(dict(planning_interval_closed_days=manufacturing_shutdown_days.get(pair, frozenset()))
+                   if pair in manufacturing_weekly_closed_days else {}))
         for pair, policy in source_boundary_policies.items():
             working = policy["lead_calendar"] == "monday_friday"
             exact_supply_calendar_contexts[pair] = dict(
@@ -18353,6 +18400,14 @@ def main() -> None:
                 if batch_size <= 0:
                     batch_size = 1000.0
 
+                issue_batch = production_batch_wip_by_pair.get((nid, out_item)) if cumulative_component_issues else None
+                if issue_batch is not None:
+                    if (not hasattr(issue_batch, "issued_by_component")
+                            or issue_batch.campaign_id != open_production_campaign_id_by_pair.get((nid, out_item))):
+                        raise ValueError("Cumulative issue policy requires a fresh, consistent batch issue ledger")
+                issue_work_before = issue_batch.executed_qty if issue_batch is not None else 0.0
+                issue_totals_before = issue_batch.issued_by_component if issue_batch is not None else {}
+                cumulative_input_limits = []
                 input_limits = []
                 integer_input_limits: list[tuple[float, float, str]] = []
                 for inp in (p.get("inputs") or []):
@@ -18377,7 +18432,11 @@ def main() -> None:
                             available_bom_input_qty(nid, in_item, output_day),
                             item_unit,
                         )
-                        input_limits.append(physically_available / req_per_unit)
+                        issued_before = issue_totals_before.get(in_item, 0.0)
+                        input_limits.append(cumulative_work_bound(executed_before=issue_work_before,
+                            available=physically_available, ratio=req_per_unit, uom=item_unit,
+                            issued_before=issued_before) if cumulative_component_issues else physically_available / req_per_unit)
+                        cumulative_input_limits.append((physically_available, req_per_unit, item_unit, issued_before))
                         if item_unit == "UN":
                             integer_input_limits.append((physically_available, req_per_unit, item_unit))
 
@@ -18840,12 +18899,11 @@ def main() -> None:
                     batch_executed_start_qty = batch_wip.executed_qty
 
                 execution_plan_qty = batch_remaining_start_qty if batch_wip is not None else lot_planned_qty
+                executable_work = max(0.0, min(cap, max_from_inputs, execution_plan_qty))
                 qty = production_wip_execution_quantity(
-                    production_input_feasible_execution_quantity(
-                        max(0.0, min(cap, max_from_inputs, execution_plan_qty)),
-                        component_limits=integer_input_limits,
-                    )
-                )
+                    feasible_cumulative_work(executable_work, issue_work_before, cumulative_input_limits)
+                    if cumulative_component_issues else
+                    production_input_feasible_execution_quantity(executable_work, component_limits=integer_input_limits))
                 if new_launch_support is not None and qty <= LOT_TRACE_EPS:
                     raise ArithmeticError("A campaign authorization cannot become firm without its first physical work")
                 if not lot_policy["enabled"] and qty > 1e-9:
@@ -18878,7 +18936,10 @@ def main() -> None:
                             available_bom_input_qty(nid, in_item, output_day),
                             item_unit,
                         )
-                        item_limit = physically_available / req_per_unit
+                        item_limit = (cumulative_work_bound(executed_before=issue_work_before,
+                            available=physically_available, ratio=req_per_unit, uom=item_unit,
+                            issued_before=issue_totals_before.get(in_item, 0.0))
+                            if cumulative_component_issues else physically_available / req_per_unit)
                         if item_limit < input_binding_value:
                             input_binding_value = item_limit
                             input_binding_item = in_item
@@ -19279,11 +19340,12 @@ def main() -> None:
                     item_unit = normalize_unit(item_unit_map.get(in_item, input_unit))
                     req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
                     if req_per_unit > 0:
-                        consumed = required_component_quantity(
-                            qty,
-                            req_per_unit,
-                            item_unit,
-                        )
+                        if cumulative_component_issues and batch_wip is not None:
+                            issued_before = batch_wip.issued_by_component.get(in_item, 0.0)
+                            consumed = incremental_component_issue(batch_wip.executed_qty, qty,
+                                req_per_unit, item_unit, issued_before)
+                        else:
+                            consumed = required_component_quantity(qty, req_per_unit, item_unit)
                         production_parent_allocations.extend(
                             consume_bom_input_with_reference_transition(
                                 output_day=output_day,
@@ -19296,6 +19358,17 @@ def main() -> None:
                                 consumed_today_by_pair=consumed_today_by_pair,
                             )
                         )
+                        if cumulative_component_issues and batch_wip is not None:
+                            batch_wip.issued_by_component[in_item] = issued_before + consumed
+                            if record_day:
+                                production_component_issue_rows.append(dict(day=output_day, node_id=nid,
+                                    item_id=out_item, campaign_id=campaign_id, batch_id=batch_wip.batch_id,
+                                    component_item_id=in_item, component_uom=item_unit,
+                                    coefficient_per_output_unit=req_per_unit,
+                                    executed_before_qty=batch_wip.executed_qty,
+                                    executed_after_qty=batch_wip.executed_qty + qty,
+                                    issued_before_qty=issued_before, issued_qty=consumed,
+                                    issued_after_qty=batch_wip.issued_by_component[in_item]))
 
                 campaign_causality = production_campaign_causality_by_id.get(
                     campaign_id,
@@ -23421,6 +23494,14 @@ def main() -> None:
                 protected_backup_receipt_ids=tuple(row.receipt_id for row in closing_firms.get(pair, ())
                     if row.receipt_id in sourcing_backup_order_ids))
                 for pair, context in sourcing_inputs.items()}
+            if args.production_frozen_opening_policy is not None and day == 0:
+                # Only this initial closing snapshot may reconstruct missing
+                # pre-origin commitments. Native stocks/OF and capacity remain
+                # netted; no future observed execution supplies the hypothesis.
+                closing_inputs["manufacturing_capacity_by_pair"] = {
+                    pair: dict(context, new_order_not_before=context["first_work_day"])
+                    if pair[0] in frozen_production_book.horizons_by_node else context
+                    for pair, context in closing_inputs["manufacturing_capacity_by_pair"].items()}
             (production_execution_snapshots, closing_plans, closing_requirements,
              closing_audits) = reconcile_production_execution_snapshot(closing_inputs,
                 available_by_pair=stock, firm_receipts_by_pair=closing_firms, produced_pairs=produced_pairs)
@@ -23429,7 +23510,19 @@ def main() -> None:
                     if pair in produced_pairs and pair[0] in frozen_production_book.horizons_by_node:
                         if pair not in finite_capacity_scope:
                             raise ValueError("Frozen manufacturing requires a known finite production capacity")
-                        frozen_production_book.reconcile(pair,day,plan.proposals)
+                        proposals = plan.proposals
+                        if args.production_frozen_opening_policy is not None and day == 0:
+                            proposals = frozen_production_book.adopt_initial_plan(pair, plan=plan,
+                                knowledge_cutoff_day=0,
+                                basis="first_J0_closing_net_plan_known_forecast_after_native_stocks_and_orders;declared_calendar_capacity_and_forecast_fallbacks_not_observed_orders")
+                            frozen_opening_plan_rows.append(dict(node_id=pair[0], item_id=pair[1],
+                                decision_day=plan.decision_day, opening_available_qty=plan.opening_available_qty,
+                                proposals=[vars(p) for p in plan.proposals],
+                                requirements=[vars(r) for r in closing_requirements.get(pair, ())],
+                                native_closing_firm_receipts=[vars(r) for r in closing_firms.get(pair, ())],
+                                adopted_order_ids=[r["order_id"] for r in frozen_production_book.orders.values()
+                                    if (r["node_id"],r["item_id"]) == pair and r.get("origin") == "hypothesized_initial_plan"]))
+                        frozen_production_book.reconcile(pair,day,proposals)
             for pair, closing_audit in closing_audits.items():
                 if record_day and "campaign_material_allocation" in closing_audit:
                     campaign_material_allocation_rows.append(dict(day=output_day,
@@ -24650,7 +24743,10 @@ def main() -> None:
                 "release": "latest_causal_allowed_slot_meeting_need_else_earliest_allowed_slot_with_explicit_lateness",
                 "availability": "each_release_plus_existing_transport_or_tau_then_source_Monday_Friday_receipt",
                 "cadence": "existing_executor_day_modulo_review_period_days_no_new_frequency",
-                "manufacturing_closures": "existing_closed_days_excluded_from_planning_start_and_tau_interval",
+                "manufacturing_closures": (
+                    "historical_shutdowns_excluded_from_tau_interval;recurring_workdays_constrain_launch_and_capacity"
+                    if manufacturing_weekly_closed_days else
+                    "existing_closed_days_excluded_from_planning_start_and_tau_interval"),
                 "preserved": "firm_dates_quantities_lots_source_safety_external_supplier_calendars_and_physical_execution",
                 "limitation": "finite_capacity_and_material_feasibility_remain_execution_constraints_not_guaranteed_by_calendar",
             }} if dated_supply_calendar_policy is not None else {}),
@@ -25206,13 +25302,23 @@ def main() -> None:
             }} if production_capacity_planning_policy is not None else {}),
             **({"manufacturing_closures": {
                 "rows": graph_meta["manufacturing_closures"]["rows"],
-                "scope": [list(pair) for pair in sorted(manufacturing_closed_days)],
+                "scope": [list(pair) for pair in sorted(manufacturing_shutdown_days)],
                 "planning": "new_proposals_and_existing_tau_allowance_advanced_before_closure_if_causal_otherwise_delayed",
                 "execution": "zero_factory_capacity_including_active_work_and_same_calendar_on_daily_revalidation",
                 "capacity_before_closure": "constraint_not_guaranteed_all_proposals_can_execute_before_closure",
                 "quality_transport_source_firm_dates": "unchanged",
                 "audit_csv": "data/manufacturing_calendar_daily.csv",
-            }} if manufacturing_closed_days else {}),
+            }} if manufacturing_shutdown_days else {}),
+            **({"manufacturing_work_calendar": {
+                "rows": graph_meta["manufacturing_work_calendar"]["rows"],
+                "scope": [list(pair) for pair in sorted(manufacturing_weekly_closed_days)],
+                "planning": "same_recurring_capacity_for_new_initial_and_active_work;launch_day_must_be_open",
+                "tau": "unchanged_calendar_planning_margin_not_contiguous_work_duration",
+                "historical_shutdowns": "preserved_separate_interval_constraint",
+                "known_through_day": total_timeline_days + 3661,
+                "quality_transport_safety": "unchanged_separate_calendars",
+                "audit_csv": "data/manufacturing_calendar_daily.csv",
+            }} if manufacturing_weekly_closed_days else {}),
             **({"depot_safety_protection_policy": {
                 "mode": depot_safety_protection_policy,
                 "scope": [list(pair) for pair in sorted(depot_safety_protection_pairs)],
@@ -26426,6 +26532,22 @@ def main() -> None:
             json.dump(dict(schema_version=1,programmes=list(production_programme_book.history),
                 events=production_programme_book.events,decisions=programme_decision_rows,
                 source_budget_overrides=programme_source_budget_rows),handle,ensure_ascii=False,indent=2)
+    if cumulative_component_issues:
+        summary["policy"]["production_component_issue_policy"] = dict(
+            mode=BATCH_CUMULATIVE_ISSUE_POLICY,
+            scope="new_native_physical_batches;opening_orders_keep_existing_cumulative_rule",
+            work="continuous_equivalent_work_not_released_finished_units",
+            integer_components="ceil(cumulative_work_times_ratio)_minus_already_issued_to_this_batch",
+            mass_length="unchanged_per_pass_continuous_quantities",
+            material_credit="issued_integer_component_fraction_remains_with_same_batch_only",
+            genealogy="physical_issues_by_consumed_reference;credit_by_required_BOM_component",
+            audit="data/production_component_issues_daily.csv")
+        fields = ["day", "node_id", "item_id", "campaign_id", "batch_id", "component_item_id", "component_uom",
+            "coefficient_per_output_unit", "executed_before_qty", "executed_after_qty",
+            "issued_before_qty", "issued_qty", "issued_after_qty"]
+        with data_path(output_dir, "production_component_issues_daily.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader(); writer.writerows(production_component_issue_rows)
     if frozen_production_book is not None:
         summary["policy"]["production_programme_policy"].update(
             overridden_authorization_nodes=sorted(frozen_production_book.horizons_by_node),
@@ -26448,6 +26570,16 @@ def main() -> None:
             "planned_release_day","planned_available_day","requested_day","qty","executed_qty","state",
             "campaign_id","actual_release_day","day","event","decision_age_days","launch_delay_days","block_reason",
             "estimated_available_day","availability_status"]
+        if args.production_frozen_opening_policy is not None:
+            summary["policy"]["production_frozen_horizon_policy"].update(
+                initial_book_policy=args.production_frozen_opening_policy,
+                new_orders="one_J0_hypothetical_net_opening_book_then_outside_zone_only",
+                opening_knowledge="J0_closing_plan_known_forecasts_and_declared_fallbacks;no_future_realization",
+                opening_audit="data/frozen_production_initial_plan.json")
+            frozen_fields += ["origin", "source_proposal_id", "knowledge_cutoff_day", "basis"]
+            with data_path(output_dir,"frozen_production_initial_plan.json").open("w",encoding="utf-8") as handle:
+                json.dump(dict(policy=args.production_frozen_opening_policy, plans=frozen_opening_plan_rows),
+                    handle, ensure_ascii=False, indent=2)
         with data_path(output_dir,"frozen_production_events.csv").open("w",encoding="utf-8",newline="") as handle:
             writer=csv.DictWriter(handle,fieldnames=frozen_fields)
             writer.writeheader(); writer.writerows(frozen_production_book.events)

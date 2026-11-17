@@ -6,14 +6,18 @@ helpers. Expected dates/quantities below are literal manual calculations.
 No fixture, filesystem mutation, engine run or fabricated source file is used.
 """
 from copy import deepcopy
+from dataclasses import replace
 
 import pytest
 
-from etudecas.simulation.engine.frozen_production import FrozenProductionBook
+from etudecas.simulation.engine.frozen_production import (
+    FrozenProductionBook, J0_NET_PLAN_HYPOTHESIS_POLICY,
+)
 from etudecas.simulation.engine.mrp_planning import (
     FirmReceipt, IndustrialPlanningWindow, LotSizing, OrderProposal, Requirement,
     UnreportedPlanningWindow, exclude_unreported_revocable_requirements,
     reconcile_industrial_requirements,
+    plan_dated_requirements,
 )
 from etudecas.simulation.engine.run_first_simulation import dated_production_release
 
@@ -357,3 +361,203 @@ def test_launch_delay_stays_fixed_after_actual_start_and_completion():
     assert work[-1]["state"] == "completed"
     assert book.orders["delay"]["planned_release_day"] == 10
     assert book.orders["delay"]["actual_release_day"] == 12
+
+
+def initial_hypothesis_book():
+    return FrozenProductionBook({"M-1810":28,"M-1430":56},
+        bom_by_pair={PF1810:[(COMPONENT,2)]}, initial_book_policy=J0_NET_PLAN_HYPOTHESIS_POLICY)
+
+
+def initial_admission_snapshot(*proposals):
+    """Minimal in-memory proposal snapshot; netting has separate literal oracles."""
+    empty = plan_dated_requirements(decision_day=0,available_qty=0,requirements=[],
+        firm_receipts=[],lead_days=0,lot_sizing=LotSizing(integer=True))
+    return replace(empty,proposals=tuple(proposals),proposed_qty=sum(p.qty for p in proposals))
+
+
+@pytest.mark.parametrize("pair,horizon", [(PF1810,28),(PF1430,56)])
+def test_j0_adoption_preserves_dates_and_quantities_only_inside_initial_window(pair,horizon):
+    book=initial_hypothesis_book()
+    plan=initial_admission_snapshot(proposal("today",0,10),proposal("first",1,20),
+        proposal("last_inside",horizon-1,30),proposal("boundary",horizon,40),
+        proposal("outside",horizon+1,50))
+    before=deepcopy(plan)
+    outside=book.adopt_initial_plan(pair,plan=plan,knowledge_cutoff_day=0,
+        basis="first net J0 plan after observed opening books, finite calendar preserved")
+    assert [p.proposal_id for p in outside] == ["today","boundary","outside"]
+    assert plan == before
+    rows=list(book.orders.values())
+    assert [(r["planned_release_day"],r["qty"],r["state"]) for r in rows] == [
+        (1,20,"frozen"),(horizon-1,30,"frozen")]
+    assert [r["planned_available_day"] for r in rows] == [4,horizon+2]
+    assert all(r["order_id"].startswith("BOOTSTRAP|") and r["frozen_day"] == 0 for r in rows)
+    assert [r["source_proposal_id"] for r in rows] == ["first","last_inside"]
+    assert all(r["origin"] == "hypothesized_initial_plan" and r["knowledge_cutoff_day"] == 0
+               and r["basis"].startswith("first net J0 plan") for r in rows)
+    assert [r["event"] for r in book.events] == ["initial_hypothesis_adopted"]*2
+    # Passing only the remainder to ordinary review cannot create a second
+    # reservation of either adopted quantity; J0 itself remains inadmissible.
+    book.reconcile(pair,0,outside)
+    assert sum(r["qty"] for r in book.orders.values()) == 140  #20+30+40+50.
+    assert sum(r.qty for r in book.firm_receipts(pair,0)) == 50
+    assert book.due(pair,0) is None
+
+
+def test_j0_adoption_requires_explicit_policy_and_preserves_default_records():
+    default=make_book()
+    before=deepcopy(default.__dict__)
+    with pytest.raises(ValueError):
+        default.adopt_initial_plan(PF1810,plan=initial_admission_snapshot(proposal("net",10)),basis="test")
+    assert default.__dict__ == before
+    with pytest.raises(ValueError):
+        FrozenProductionBook({"M-1810":28},initial_book_policy="unknown")
+    enabled=initial_hypothesis_book()
+    for book in (default,enabled):
+        book.register_initial(PF1810,order_id="observed",release_day=7,available_day=10,qty=100)
+        book.reconcile(PF1810,0,[proposal("future",60)])
+    # Merely enabling the option must not relabel an observed order or change
+    # ordinary events. Only adopt_initial_plan creates hypothesis provenance.
+    assert default.orders == enabled.orders
+    assert default.events == enabled.events
+    assert "origin" not in enabled.orders["observed"]
+    assert enabled.events[0]["event"] == "initial_observed"
+
+
+@pytest.mark.parametrize("empty", [False,True])
+def test_j0_adoption_is_once_per_pair_even_when_first_plan_has_no_net_order(empty):
+    book=initial_hypothesis_book()
+    plan=initial_admission_snapshot(*([] if empty else [proposal("net",10)]))
+    book.adopt_initial_plan(PF1810,plan=plan,basis="net J0")
+    before=deepcopy(book.__dict__)
+    with pytest.raises(ValueError):
+        book.adopt_initial_plan(PF1810,plan=plan,basis="second attempt")
+    assert book.__dict__ == before
+    # The other factory has its own first plan, not a second initialization
+    # of the first factory's order book.
+    book.adopt_initial_plan(PF1430,plan=initial_admission_snapshot(proposal("other",43)),basis="other net J0")
+    assert len({r["order_id"] for r in book.orders.values()}) == (1 if empty else 2)
+
+
+@pytest.mark.parametrize("cutoff", [-1,1,True])
+def test_j0_adoption_rejects_nonzero_or_noninteger_knowledge_without_mutation(cutoff):
+    book=initial_hypothesis_book()
+    before=deepcopy(book.__dict__)
+    with pytest.raises(ValueError):
+        book.adopt_initial_plan(PF1810,plan=initial_admission_snapshot(proposal("net",10)),
+            knowledge_cutoff_day=cutoff,basis="net J0")
+    assert book.__dict__ == before
+
+
+@pytest.mark.parametrize("late_clock", [False,True])
+def test_j0_adoption_rejects_later_plan_or_later_execution_day_atomically(late_clock):
+    book=initial_hypothesis_book()
+    plan=initial_admission_snapshot(proposal("net",10))
+    if late_clock:
+        book.begin_day(1)
+    else:
+        plan=replace(plan,decision_day=1)
+    before=deepcopy(book.__dict__)
+    with pytest.raises(ValueError):
+        book.adopt_initial_plan(PF1810,plan=plan,basis="not a J0 initialization")
+    assert book.__dict__ == before
+
+
+@pytest.mark.parametrize("invalid", ["duplicate","negative_quantity","fractional_day","missing_identity","wrong_total"])
+def test_j0_adoption_validates_whole_plan_before_first_order_or_event(invalid):
+    book=initial_hypothesis_book()
+    good=proposal("good",10)
+    bad=proposal("bad",60)  #Invalid outside the adoption window must also fail.
+    if invalid == "duplicate":
+        bad=replace(bad,proposal_id="good")
+    elif invalid == "negative_quantity":
+        bad=replace(bad,qty=-1)
+    elif invalid == "fractional_day":
+        bad=replace(bad,release_day=60.5)
+    elif invalid == "missing_identity":
+        bad=replace(bad,proposal_id="")
+    plan=initial_admission_snapshot(good,bad)
+    if invalid == "wrong_total":
+        plan=replace(plan,proposed_qty=201)
+    before=deepcopy(book.__dict__)
+    with pytest.raises(ValueError):
+        book.adopt_initial_plan(PF1810,plan=plan,basis="net J0")
+    assert book.__dict__ == before
+
+
+def test_j0_adoption_requires_basis_and_precedes_ordinary_review():
+    book=initial_hypothesis_book()
+    plan=initial_admission_snapshot(proposal("net",10))
+    before=deepcopy(book.__dict__)
+    with pytest.raises(ValueError):
+        book.adopt_initial_plan(PF1810,plan=plan,basis=" ")
+    assert book.__dict__ == before
+    book.reconcile(PF1810,0,[proposal("ordinary_future",50)])
+    before=deepcopy(book.__dict__)
+    with pytest.raises(ValueError):
+        book.adopt_initial_plan(PF1810,plan=plan,basis="too late after first review")
+    assert book.__dict__ == before
+
+
+def test_j0_adoption_uses_net130_after_stock20_and_observed_order100():
+    book=initial_hypothesis_book()
+    observed=FirmReceipt("source_OF_100",10,100,"confirmed")
+    requirements=[Requirement("gross250",20,250)]
+    plan=plan_dated_requirements(decision_day=0,available_qty=20,requirements=requirements,
+        firm_receipts=[observed],lead_days=3,lot_sizing=LotSizing(integer=True))
+    assert [(p.release_day,p.available_day,p.qty) for p in plan.proposals] == [(17,20,130)]
+    outside=book.adopt_initial_plan(PF1810,plan=plan,basis="net source_OF_100 and usable20 at J0")
+    assert outside == ()
+    row,=book.orders.values()
+    assert row["qty"] == 130 and row["executed_qty"] == 0 and row["campaign_id"] == ""
+    assert sum(r.qty for r in book.material_requirements(0)[COMPONENT]) == 260
+    assert sum(r.qty for r in book.firm_receipts(PF1810,0)) == 130
+    # Native observed book remains separate. Credit it once beside the newly
+    # adopted net requirement; current usable physical stock is still20.
+    replanned=plan_dated_requirements(decision_day=0,available_qty=20,requirements=requirements,
+        firm_receipts=[observed,*book.firm_receipts(PF1810,0)],lead_days=3,
+        lot_sizing=LotSizing(integer=True))
+    assert replanned.proposals == ()
+    assert replanned.opening_available_qty == 20
+    assert observed == FirmReceipt("source_OF_100",10,100,"confirmed")
+
+
+def test_j0_adoption_adds_nothing_when_observed_order_and_stock_cover_every_need():
+    book=initial_hypothesis_book()
+    book.register_initial(PF1810,order_id="observed",release_day=7,available_day=10,qty=100)
+    observed_before=deepcopy(book.orders["observed"])
+    events_before=deepcopy(book.events)
+    plan=plan_dated_requirements(decision_day=0,available_qty=20,
+        requirements=[Requirement("gross120",20,120)],firm_receipts=book.firm_receipts(PF1810,0),
+        lead_days=3,lot_sizing=LotSizing(integer=True))
+    assert plan.proposals == ()
+    assert book.adopt_initial_plan(PF1810,plan=plan,basis="full coverage by known opening state") == ()
+    assert book.orders == {"observed":observed_before}
+    assert book.events == events_before
+    assert sum(r.qty for r in book.firm_receipts(PF1810,0)) == 100
+
+
+def test_j0_adopted_order_hands_off_once_to_native_wip_without_double_credit():
+    book=initial_hypothesis_book()
+    book.adopt_initial_plan(PF1810,plan=initial_admission_snapshot(proposal("net100",10)),
+        basis="net J0 with initial observed books already deducted")
+    identity,=book.orders
+    book.blocked(identity,day=10,reason="components_not_physically_available")
+    assert book.orders[identity]["executed_qty"] == 0
+    assert book.orders[identity]["campaign_id"] == ""
+    assert sum(r.qty for r in book.firm_receipts(PF1810,10)) == 100
+    book.bind(identity,day=12,campaign_id="native_campaign")
+    book.bind(identity,day=12,campaign_id="native_campaign")
+    book.execute(identity,day=12,qty=25)
+    assert not book.firm_receipts(PF1810,12)
+    assert not book.reserved_work(PF1810,12)
+    assert not book.material_requirements(12)
+    #25 executed WIP plus75 remaining work are one native receipt of100;
+    # neither the unstarted book nor physical usable stock contributes again.
+    plan=plan_dated_requirements(decision_day=12,available_qty=0,
+        requirements=[Requirement("gross100",20,100)],
+        firm_receipts=[FirmReceipt("campaign:native_campaign",15,100,"confirmed")],
+        lead_days=3,lot_sizing=LotSizing(integer=True))
+    assert plan.proposals == () and plan.opening_available_qty == 0
+    assert sum(e["event"] == "first_physical_work" for e in book.events) == 1
+    assert all(e["origin"] == "hypothesized_initial_plan" for e in book.events)
+    assert all(e["event"] != "initial_observed" for e in book.events)
