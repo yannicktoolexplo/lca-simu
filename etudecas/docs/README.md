@@ -78,6 +78,10 @@ L'[étude de la demande connue après la semaine](DEMANDE_CONNUE_20261116.md)
 sépare prévision, demande historique et production ; elle teste la publication
 du réel après clôture et compare les productions et stocks au témoin conservé.
 
+Le [programme figé de 4 et 8 semaines](changes/2026-11-17-programme-fige.md)
+décrit le carnet persistant expérimental, la protection des dates et quantités,
+les hypothèses d'initialisation et ses preuves de vérification.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes

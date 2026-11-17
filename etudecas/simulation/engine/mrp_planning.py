@@ -563,7 +563,7 @@ def exclude_unreported_revocable_requirements(requirements, windows, *, decision
     original, windows = tuple(requirements), tuple(windows)
     _audit_separate_own_and_other(original, (), decision_day=decision_day)
     covered, audits = set(), []
-    committed_prefixes = ("campaign:", "opening-pack:", "opening_production:")
+    committed_prefixes = ("campaign:", "opening-pack:", "opening_production:", "frozen_material:")
     for window in windows:
         days = set(range(window.first_day, window.end_day_exclusive))
         if (window.known_day > decision_day or window.first_day <= decision_day
@@ -872,7 +872,7 @@ def reconcile_industrial_purchase_envelope(requirements, windows, omitted_window
     covered = actual_days | omitted_days
     if covered and len(covered) != max(covered)-min(covered)+1:
         raise ValueError("Cumulative programme requires continuous declared horizon coverage")
-    committed_prefixes = ("campaign:","opening-pack:","opening_production:")
+    committed_prefixes = ("campaign:","opening-pack:","opening_production:","frozen_material:")
     committed = sorted((r for r in original if r.due_day in covered and r.requirement_id.startswith(committed_prefixes)),
                        key=lambda r:(r.due_day,r.requirement_id))
     revocable = sorted((r for r in original if r.due_day in covered
@@ -1011,7 +1011,7 @@ def reconcile_manufactured_output_requirements(requirements, windows, *, pair, d
     # These are actual requirements ON this output pair, never its own OF
     # receipts. The latter remain supply and are netted by the network once.
     prefixes = ("internal_commitment:", "initial_snapshot_hypothesis:",
-                "campaign:", "opening-pack:", "opening_production:")
+                "campaign:", "opening-pack:", "opening_production:", "frozen_material:")
     firm = [r for r in original if r.requirement_id in firm_ids or r.requirement_id.startswith(prefixes)]
     firm_ids.update(r.requirement_id for r in firm)
     revocable = sorted((r for r in original if (whole_snapshot or r.due_day in covered)
@@ -1111,7 +1111,7 @@ def reconcile_industrial_requirements(requirements, windows, *, pair, decision_d
             original, windows = tuple(requirements), tuple(windows)
             _, audits = _audit_separate_own_and_other(original, windows, decision_day=decision_day)
             covered = set(); added=[]
-            committed_prefixes=("campaign:","opening-pack:","opening_production:")
+            committed_prefixes=("campaign:","opening-pack:","opening_production:","frozen_material:")
             for window,audit in zip(windows,audits):
                 days=range(window.first_day,window.end_day_exclusive); covered.update(days)
                 committed=sum((Fraction(str(r.qty)) for r in original if r.due_day in days

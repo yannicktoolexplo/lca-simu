@@ -1735,6 +1735,17 @@ future déclarée et programme industriel connu. Elles ne démontrent ni la
 cadence réelle de la machine ni l'application des horizons figés de 4 et
 8 semaines. La référence par défaut reste inchangée.
 
+Une variante distincte ajoute désormais le carnet persistant :
+`--production-frozen-horizon-policy industrial_frozen_order_book_v1`.
+Les durées confirmées sont 28 jours à 1810 et 56 jours à 1430. La convention
+explicite de l'essai protège date de lancement et quantité : les ordres du
+plan précédent entrant dans la période sont figés avant recalcul ; les
+nouveaux ordres restent hors période. Le bilan hebdomadaire de demande
+continue, sans autoriser une avance des ordres figés. Les contrôles physiques
+restent nécessaires au travail réel et les retards sont tracés séparément.
+Cette variante remplace le proxy d'autorisation hebdomadaire par le carnet,
+sans promouvoir le nominal. Voir le [contrat, les limites et les preuves](changes/2026-11-17-programme-fige.md).
+
 ### Ordres initiaux et nouveaux programmes
 
 Dans le mode `current_week_authorized_lot_multiday_v1`, l'option explicite

@@ -50,6 +50,7 @@ MONTHLY_FORECAST_POLICIES = (MONTHLY_CONSUMPTION_POLICY, WEEKLY_REVIEW_MONTHLY_P
 from etudecas.simulation.engine.finite_production_schedule import (
     ProductionLotRequest, schedule_production_lots,
 )
+from etudecas.simulation.engine.frozen_production import FrozenProductionBook, FROZEN_PRODUCTION_POLICY
 FINITE_PRODUCTION_POLICY = "finite_lot_calendar_v1"
 FINITE_PRODUCTION_FIELDS = [
     "decision_day", "phase", "node_id", "item_id", "policy", "proposal_id", "qty",
@@ -4332,6 +4333,7 @@ def plan_component_network(
     item_uoms: Mapping | None = None,
     transfer_commitment_pairs: set | None = None,
     transfer_commitment_rows: tuple = (),
+    frozen_production_snapshot: Mapping | None = None,
 ) -> tuple[dict, dict, dict]:
     """Net a dated acyclic network once, downstream to upstream.
 
@@ -4386,6 +4388,13 @@ def plan_component_network(
 
     requirements = {pair: list(rows) for pair, rows in requirements_by_pair.items()}
     receipts = {pair: list(rows) for pair, rows in firm_receipts_by_pair.items()}
+    # A pure snapshot keeps counterfactual planning from committing real orders.
+    # Pending frozen outputs and their remaining BOM are each netted once;
+    # active campaigns are excluded here and stay in the native WIP pipeline.
+    for pair, rows in (frozen_production_snapshot or {}).get("receipts", {}).items():
+        receipts.setdefault(pair, []).extend(rows)
+    for pair, rows in (frozen_production_snapshot or {}).get("requirements", {}).items():
+        requirements.setdefault(pair, []).extend(rows)
     transfer_pegs = defaultdict(dict)
     promises = [dict(row) for row in transfer_commitment_rows]
     for row in promises:
@@ -5914,7 +5923,7 @@ def finite_manufacturing_plan(plan, *, requirements, firm_receipts, context):
     if not math.isfinite(rate) or rate <= 0:
         raise ValueError("Finite production planning requires an explicit positive capacity")
     first = max(plan.decision_day, context["first_work_day"])
-    committed = tuple(context.get("opening_work", ()))
+    committed = tuple(context.get("opening_work", ())) + tuple(context.get("frozen_work", ()))
     active = float(context.get("active_remaining_qty", 0.0))
     total_work = math.fsum(r.qty for r in plan.proposals) + active + math.fsum(r[2] for r in committed)
     through = max(max(r.requested_day for r in plan.proposals),
@@ -5952,6 +5961,7 @@ def finite_manufacturing_plan(plan, *, requirements, firm_receipts, context):
     # The controller cannot start a new campaign during a day that began with
     # an active one; intraday continuation only finishes its already engaged lots.
     first_new = max(first, active_finish + 1) if active > LOT_TRACE_EPS else first
+    first_new = max(first_new, context.get("new_order_not_before", first_new))
     supply_context = dict(context["supply_calendar"])
     start_calendar = dated_supply_release_calendar(
         decision_day=first_new, through_day=through, **supply_context)
@@ -8026,6 +8036,8 @@ def parse_args() -> argparse.Namespace:
         help="Opt-in weekly actual publication on next Monday; grouped physical arrivals are a replay convention, not observed daily orders.")
     parser.add_argument("--production-capacity-planning-policy", choices=[FINITE_PRODUCTION_POLICY],
         default=None, help="Explicit finite-capacity placement of new lots; leaves physical capacities and nominal reference unchanged.")
+    parser.add_argument("--production-frozen-horizon-policy", choices=[FROZEN_PRODUCTION_POLICY],
+        default=None, help="Opt-in persistent production commitments: launch/quantity frozen 28 days at M-1810 and 56 at M-1430.")
     parser.add_argument(
         "--mrp-nonbinding-standard-order-pair", action="append", default=[], metavar="NODE,ITEM",
         help="Treat the standard order quantity as a reference, not a mandatory multiple or delivery-splitting rule, for this destination pair.",
@@ -14786,6 +14798,8 @@ def main() -> None:
     production_execution_snapshot_rows: list[dict] = []
     production_launch_commitment_rows: list[dict] = []
     production_programme_book = None
+    frozen_production_book = None
+    frozen_order_by_campaign = {}
     programme_weekly_consumed = defaultdict(float)
     programme_decision_rows = []
     programme_source_budget_rows = []
@@ -14799,6 +14813,14 @@ def main() -> None:
         if (production_programme_book.multiday
                 and (production_capacity_planning_policy is None or production_intraday_policy is None)):
             raise ValueError("Multi-day programmes require finite planning and intraday continuation")
+    if args.production_frozen_horizon_policy is not None:
+        if (production_programme_book is None or not production_programme_book.multiday
+                or production_capacity_planning_policy is None
+                or customer_demand_knowledge_policy != WEEKLY_DEMAND_KNOWLEDGE_POLICY
+                or warmup_days or sim_days > 365):
+            raise ValueError("Frozen production requires the source-year weekly-publication finite multi-day programme and physical launch commitment")
+        frozen_production_book = FrozenProductionBook({"M-1810":28,"M-1430":56},
+            bom_by_pair=process_input_requirements_by_output_pair)
     internal_transfer_commitment_pairs = internal_transfer_commitment_scope(
         internal_transfer_commitment_policy, lanes_by_dest_item=lanes_by_dest_item,
         produced_pairs=produced_pairs, production_input_pairs=production_input_pairs,
@@ -16447,6 +16469,9 @@ def main() -> None:
             closed_days=manufacturing_closed_days.get(pair, ()),
             active_remaining_qty=max(0.0, open_production_campaign_qty_by_pair.get(pair, 0.0)),
             opening_work=opening, supply_calendar=exact_supply_calendar_contexts[pair],
+            **(dict(frozen_work=frozen_production_book.reserved_work(pair,decision_day),
+                    new_order_not_before=decision_day+frozen_production_book.horizons_by_node[pair[0]])
+               if frozen_production_book is not None and pair[0] in frozen_production_book.horizons_by_node else {}),
             intraday=production_intraday_policy is not None)
 
     def record_finite_capacity(rows, pair, *, decision_day, phase):
@@ -16455,6 +16480,8 @@ def main() -> None:
                 phase=phase, node_id=pair[0], item_id=pair[1]) for row in rows)
 
     for day in range(total_timeline_days):
+        if frozen_production_book is not None:
+            frozen_production_book.begin_day(day)
         record_day = day >= warmup_days
         output_day = day - warmup_days
         production_safety_decisions: dict[tuple[str, str], dict[str, Any]] = {}
@@ -18434,6 +18461,7 @@ def main() -> None:
                 campaign_remaining_start_qty = max(0.0, open_production_campaign_qty_by_pair.get(out_pair, 0.0))
                 refreshed_plan = None
                 programme_launch = False
+                frozen_launch_order = None
                 if production_execution_policy is not None:
                     snapshot = production_execution_snapshots.get(out_pair, {})
                     active_wip = production_batch_wip_by_pair.get(out_pair)
@@ -18441,6 +18469,10 @@ def main() -> None:
                         "held" if origin == "held" else "confirmed")
                         for receipt_id, (available_day, qty, origin) in planning_commitments_by_pair.get(out_pair, {}).items()
                         if available_day > day]
+                    frozen_scope = (frozen_production_book is not None
+                        and out_pair[0] in frozen_production_book.horizons_by_node)
+                    if frozen_scope:
+                        current_firms.extend(frozen_production_book.firm_receipts(out_pair,day))
                     execution_lead = network_leads.get(out_pair, 1)
                     if out_pair in finished_goods_release_policies:
                         release_policy = finished_goods_release_policies[out_pair]
@@ -18472,9 +18504,17 @@ def main() -> None:
                         production_programme_book, pair=out_pair, decision_day=day,
                         normal_release_qty=desired_qty, campaign_remaining_qty=campaign_remaining_start_qty,
                         executed_wip_qty=active_wip.executed_qty if active_wip is not None else 0.0)
+                    if frozen_scope:
+                        frozen_launch_order = frozen_production_book.due(out_pair,day)
+                        desired_qty = (frozen_launch_order["qty"] if frozen_launch_order is not None
+                            and campaign_remaining_start_qty <= LOT_TRACE_EPS and active_wip is None else 0.0)
+                        authorization_audit = dict(authorization_audit or {},
+                            frozen_order_id=frozen_launch_order["order_id"] if frozen_launch_order else "",
+                            authorization_policy=FROZEN_PRODUCTION_POLICY,
+                            current_week_budget_role="replaced_by_persistent_commitment")
                     # Local pilot: accept only at the physical execution instant.
                     # Until this point no programme credit or component has entered planning.
-                    if (production_programme_book is not None and refreshed_plan is not None
+                    if (not frozen_scope and production_programme_book is not None and refreshed_plan is not None
                             and out_pair in production_programme_book.series
                             and production_programme_book.can_select(out_pair, day)
                             and desired_qty<=LOT_TRACE_EPS and campaign_remaining_start_qty<=LOT_TRACE_EPS
@@ -18616,7 +18656,8 @@ def main() -> None:
                                     desired_qty=programme["qty"]
                                     programme_launch=True
                     if authorization_audit is not None:
-                        authorization_audit.update(approval_status="approved" if programme_launch else "not_approved",
+                        authorization_audit.update(approval_status="frozen_commitment_due" if frozen_launch_order is not None
+                            else "approved" if programme_launch else "not_approved",
                             approved_qty=desired_qty, programme_id=programme["programme_id"] if programme_launch else None)
                         programme_decision_rows.append(dict(day=output_day, status="source_authorization_gate",
                             **authorization_audit))
@@ -18679,7 +18720,7 @@ def main() -> None:
                     if campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
                         campaign_requested_qty = launch_campaign_qty(desired_qty, lot_policy)
                         requested_lot_starts = campaign_lot_count(campaign_requested_qty, lot_policy)
-                        if (production_launch_commitment_policy is None
+                        if (production_launch_commitment_policy is None and frozen_launch_order is None
                                 and campaign_requested_qty > 1e-9 and not campaign_id):
                             campaign_id = lot_ledger.next_campaign_id(
                                 day=output_day,
@@ -18699,14 +18740,22 @@ def main() -> None:
                             lot_weekly_limit_blocked = actual_lot_starts < requested_lot_starts
                         else:
                             actual_lot_starts = requested_lot_starts
-                        if production_launch_commitment_policy is not None:
+                        if (frozen_launch_order is not None
+                                and abs(campaign_started_qty-frozen_launch_order["qty"]) > LOT_TRACE_EPS):
+                            # A physical weekly quota may delay the whole frozen
+                            # order; it must never silently shorten its quantity.
+                            campaign_started_qty = 0.0
+                            actual_lot_starts = 0
+                            first_execution_deferred = True
+                        if production_launch_commitment_policy is not None or frozen_launch_order is not None:
                             first_execution = first_campaign_execution_quantity(
                                 campaign_qty=campaign_started_qty, lot_policy=lot_policy,
                                 output_uom=item_unit_map.get(out_item, ""), capacity_qty=cap,
                                 component_feasible_qty=max_from_inputs, integer_input_limits=integer_input_limits)
                             if campaign_started_qty > LOT_TRACE_EPS and first_execution <= LOT_TRACE_EPS:
-                                # No component has moved: keep the proposal revocable.
-                                # No output firm, WIP identity or weekly slot is created.
+                                # No component has moved: no physical campaign
+                                # identity or weekly slot is created. A frozen
+                                # order stays committed in its separate book.
                                 first_execution_deferred = True
                                 campaign_started_qty = 0.0
                                 actual_lot_starts = 0
@@ -18717,12 +18766,17 @@ def main() -> None:
                                     pending_production_campaign_id_by_pair[out_pair] = campaign_id
                                 new_launch_support = production_launch_support(refreshed_plan,
                                     decision_day=day, snapshot=snapshot, campaign_qty=campaign_started_qty)
+                                if frozen_launch_order is not None:
+                                    new_launch_support.update(frozen_order=dict(frozen_launch_order),
+                                        identities="persistent_model_order_id_not_industrial_order_identity",
+                                        planned_due_qty=frozen_launch_order["qty"])
                             if record_day and (first_execution_deferred or new_launch_support is not None):
                                 production_launch_commitment_rows.append(dict(
                                     day=output_day, node_id=nid, item_id=out_item,
                                     uom=item_unit_map.get(out_item, ""),
                                     campaign_id="" if first_execution_deferred else campaign_id,
-                                    status="revocable_no_physical_work" if first_execution_deferred else "first_physical_work",
+                                    status=("frozen_waiting_physical_work" if frozen_launch_order is not None
+                                            else "revocable_no_physical_work") if first_execution_deferred else "first_physical_work",
                                     requested_qty=campaign_requested_qty, committed_qty=campaign_started_qty,
                                     first_executable_qty=first_execution,
                                     weekly_lots_before=started_lots_this_week,
@@ -18745,6 +18799,12 @@ def main() -> None:
                                 if abs(campaign_started_qty-programme["qty"])>LOT_TRACE_EPS:
                                     raise ArithmeticError("A promoted programme must retain its complete original lot")
                                 production_programme_book.engage(out_pair,output_day,campaign_id)
+                            if frozen_launch_order is not None:
+                                frozen_production_book.bind(frozen_launch_order["order_id"],day=day,campaign_id=campaign_id)
+                                frozen_order_by_campaign[campaign_id] = frozen_launch_order["order_id"]
+                        elif frozen_launch_order is not None:
+                            frozen_production_book.blocked(frozen_launch_order["order_id"],day=day,
+                                reason="physical_material_capacity_calendar_or_weekly_lot_quota")
                         if actual_lot_starts > 0:
                             started_production_lots_by_week_pair[week_key] = started_lots_this_week + actual_lot_starts
                             started_lots_this_week = int(started_production_lots_by_week_pair[week_key])
@@ -19330,6 +19390,8 @@ def main() -> None:
                             uom=item_unit_map.get(out_item, ""))
                     if production_programme_book is not None:
                         production_programme_book.execute(out_pair,output_day,campaign_id,qty)
+                    if frozen_production_book is not None and campaign_id in frozen_order_by_campaign:
+                        frozen_production_book.execute(frozen_order_by_campaign[campaign_id],day=day,qty=qty)
                     open_production_campaign_qty_by_pair[out_pair] = max(0.0, campaign_remaining_start_qty - qty)
                     if open_production_campaign_qty_by_pair[out_pair] <= 1e-9:
                         open_production_campaign_id_by_pair.pop(out_pair, None)
@@ -20061,6 +20123,8 @@ def main() -> None:
                 bom_by_pair=process_input_requirements_by_output_pair, lead_days_by_pair=network_leads,
                 lot_sizing_by_pair=network_lots, reserve_targets_by_pair=reserve_targets,
                 coverage_days_by_pair=network_covers, active_campaigns_by_pair=campaigns,
+                **({"frozen_production_snapshot":frozen_production_book.planning_snapshot(day)}
+                    if frozen_production_book is not None else {}),
                 reference_substitutes_by_pair=reference_substitutes_by_pair,
                 item_uoms=item_unit_map,
                 sourcing_by_pair=sourcing_inputs,
@@ -23360,6 +23424,12 @@ def main() -> None:
             (production_execution_snapshots, closing_plans, closing_requirements,
              closing_audits) = reconcile_production_execution_snapshot(closing_inputs,
                 available_by_pair=stock, firm_receipts_by_pair=closing_firms, produced_pairs=produced_pairs)
+            if frozen_production_book is not None:
+                for pair, plan in sorted(closing_plans.items()):
+                    if pair in produced_pairs and pair[0] in frozen_production_book.horizons_by_node:
+                        if pair not in finite_capacity_scope:
+                            raise ValueError("Frozen manufacturing requires a known finite production capacity")
+                        frozen_production_book.reconcile(pair,day,plan.proposals)
             for pair, closing_audit in closing_audits.items():
                 if record_day and "campaign_material_allocation" in closing_audit:
                     campaign_material_allocation_rows.append(dict(day=output_day,
@@ -24531,6 +24601,14 @@ def main() -> None:
         expected_pairs=produced_pairs, enabled=production_programme_journal is not None,
         basis=production_programme_revision_summary["basis"])
     production_programme_revision_summary["metrics"] = production_programme_revision_metrics
+    if frozen_production_book is not None:
+        production_programme_revision_summary.update(
+            frozen_book_scope=sorted(frozen_production_book.horizons_by_node),
+            observation_limit="native_revocable_plan_journal_does_not_measure_persistent_frozen_order_revisions",
+            commitment_conventions=dict(native=production_launch_commitment_policy or "campaign_creation_authorization",
+                frozen_scope="persistent_order_commitment_then_campaign_identity_at_first_physical_work"),
+            frozen_book_audit="data/frozen_production_events.csv",
+            comparable_as_frozen_order_revision_rate=False)
     summary = {
         **({"initial_stock_availability": initial_stock_availability.audit()}
            if initial_stock_availability is not None else {}),
@@ -26348,6 +26426,37 @@ def main() -> None:
             json.dump(dict(schema_version=1,programmes=list(production_programme_book.history),
                 events=production_programme_book.events,decisions=programme_decision_rows,
                 source_budget_overrides=programme_source_budget_rows),handle,ensure_ascii=False,indent=2)
+    if frozen_production_book is not None:
+        summary["policy"]["production_programme_policy"].update(
+            overridden_authorization_nodes=sorted(frozen_production_book.horizons_by_node),
+            override_policy=FROZEN_PRODUCTION_POLICY,
+            override_effect="current_week_proxy_gate_and_advancement_disabled_for_persistent_order_book_scope")
+        summary["policy"]["production_frozen_horizon_policy"] = dict(
+            mode=FROZEN_PRODUCTION_POLICY,horizons_by_node=frozen_production_book.horizons_by_node,
+            anchor="planned_launch",interval="[day,day+H)",initial_orders="native_observed_book_preserved",
+            new_orders="outside_zone_only_no_fictitious_initial_commitment",
+            revision="freeze_previous_book_before_daily_netting_then_revise_outside_zone",
+            programme_authorization="replaces_current_week_proxy_budget_no_advancement_of_committed_orders",
+            physical_campaign_trigger="local_positive_first_physical_work_guard_even_without_global_launch_policy",
+            physical_launch_audit="data/production_launch_commitments.csv",
+            material_reservation="dated_BOM_planning_requirements_not_physical_consumption",
+            capacity_reservation="pending_frozen_work_plus_native_opening_and_active_work",
+            physical_delay="planned_date_and_quantity_preserved_actual_work_traced_separately",
+            overdue_receipt_projection="unstarted_late_order_preserves_original_finite_capacity_control_calendar_span_shifted_from_today;estimated_not_material_or_calendar_guarantee",
+            audit="data/frozen_production_events.csv")
+        frozen_fields = ["order_id","node_id","item_id","created_day","known_day","revised_day","frozen_day",
+            "planned_release_day","planned_available_day","requested_day","qty","executed_qty","state",
+            "campaign_id","actual_release_day","day","event","decision_age_days","launch_delay_days","block_reason",
+            "estimated_available_day","availability_status"]
+        with data_path(output_dir,"frozen_production_events.csv").open("w",encoding="utf-8",newline="") as handle:
+            writer=csv.DictWriter(handle,fieldnames=frozen_fields)
+            writer.writeheader(); writer.writerows(frozen_production_book.events)
+        with data_path(output_dir,"frozen_production_orders.json").open("w",encoding="utf-8") as handle:
+            json.dump(dict(policy=FROZEN_PRODUCTION_POLICY,orders=[dict(row,
+                **(dict(estimated_available_day=frozen_production_book.estimated_available_day(row,total_timeline_days-1),
+                        availability_status="estimated_original_calendar_span_shift_not_material_guarantee")
+                   if row["state"] == "frozen" else {})) for row in frozen_production_book.orders.values()]),
+                handle,ensure_ascii=False,indent=2)
     if manufactured_output_mrp_policy is not None:
         summary["policy"]["manufactured_output_mrp"] = dict(manufactured_output_mrp_policy,
             knowledge="existing_future_I_calendar_prior_vintage_current_bucket_no_H_J_K",
@@ -27391,7 +27500,7 @@ def main() -> None:
                 "original_promised_available_day", "allocation_basis", "availability_basis"])
             writer.writeheader()
             writer.writerows(opening_receipt_execution_rows)
-    if production_launch_commitment_policy is not None:
+    if production_launch_commitment_policy is not None or frozen_production_book is not None:
         with data_path(output_dir, "production_launch_commitments.csv").open("w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "uom", "campaign_id", "status",
                 "requested_qty", "committed_qty", "first_executable_qty", "weekly_lots_before",
