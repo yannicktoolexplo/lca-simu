@@ -82,6 +82,10 @@ Le [programme figé de 4 et 8 semaines](changes/2026-11-17-programme-fige.md)
 décrit le carnet persistant expérimental, la protection des dates et quantités,
 les hypothèses d'initialisation et ses preuves de vérification.
 
+Les [prochaines pistes de production](changes/2026-11-17-pistes-production.md)
+testent la protection des composants engagés, les dates de lancement et la
+mesure de production ; elles séparent gains locaux, reports et inconnues.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes
