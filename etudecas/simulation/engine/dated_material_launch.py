@@ -10,8 +10,10 @@ import math
 from etudecas.simulation.engine.production_component_issues import incremental_component_issue
 from etudecas.simulation.engine.programme_opening_coverage import FIRM_COMPONENT_ORIGINS
 from etudecas.simulation.lot_policy.models import normalize_uom
+from etudecas.simulation.engine.dated_launch_priority import project_dated_launch_priority
 
 DATED_MATERIAL_LAUNCH_POLICY = "known_dated_continuity_v1"
+DATED_MATERIAL_PRIORITY_POLICY = "known_dated_priority_v2"
 
 
 def _qty(value, unit=None):
@@ -24,7 +26,8 @@ def _qty(value, unit=None):
 
 def assess_dated_material_launch(*, decision_day, batch_qty, components, available_by_pair,
         item_uoms, firm_receipts, other_requirements, capacity_context, own_order_id=None,
-        nonprojectable_substitutions=()):
+        nonprojectable_substitutions=(), policy=DATED_MATERIAL_LAUNCH_POLICY,
+        output_pair=None, frozen_orders=()):
     """Project one fixed physical batch; return an auditable admission decision.
 
     components: ((node,item), coefficient per finished-unit) pairs.
@@ -35,7 +38,9 @@ def assess_dated_material_launch(*, decision_day, batch_qty, components, availab
         raise ValueError("Invalid dated launch decision")
     if batch_qty!=int(batch_qty):
         raise ValueError("This admission policy supports integer finished-unit batches")
-    result=dict(policy=DATED_MATERIAL_LAUNCH_POLICY,snapshot_known_day=decision_day,
+    if policy not in (DATED_MATERIAL_LAUNCH_POLICY, DATED_MATERIAL_PRIORITY_POLICY):
+        raise ValueError("Unknown dated material launch policy")
+    result=dict(policy=policy,snapshot_known_day=decision_day,
         applicable=True,allowed=False,reason="",batch_qty=batch_qty,projected_finish_day=None,
         work_allocations=[],capacity_reservations=[],component_projection=[],
         firm_receipts=[],other_requirements=[],excluded_own_order_id=own_order_id,
@@ -79,6 +84,15 @@ def assess_dated_material_launch(*, decision_day, batch_qty, components, availab
     result['usable_stock_snapshot']=[dict(node_id=p[0],item_id=p[1],qty=float(balance[p]),uom=item_uoms[p[1]])
         for p in sorted(pairs)]
     result['bom']=[dict(node_id=p[0],item_id=p[1],ratio=ratio,uom=item_uoms[p[1]]) for p,ratio in components]
+    priority = None
+    if policy == DATED_MATERIAL_PRIORITY_POLICY:
+        priority = project_dated_launch_priority(decision_day=decision_day,
+            capacity_by_day=capacity,candidate_work=work,own_order_id=own_order_id,
+            output_pair=output_pair,frozen_orders=frozen_orders,
+            opening_work=context.get('opening_work',()),frozen_work=context.get('frozen_work',()),
+            other_requirements=other_requirements)
+        other_requirements = priority['other_requirements']
+        result['priority_projection'] = {key:value for key,value in priority.items() if key!='other_requirements'}
     receipts={};requirements={};seen=set()
     for kind,records,date_field,target in (('receipt',firm_receipts,'available_day',receipts),
             ('requirement',other_requirements,'due_day',requirements)):
@@ -94,7 +108,15 @@ def assess_dated_material_launch(*, decision_day, batch_qty, components, availab
             target.setdefault(max(decision_day,when),[]).append((pair,quantity))
             result['firm_receipts' if kind=='receipt' else 'other_requirements'].append(dict(row))
     reservations={d:0.0 for d in capacity};identities=set()
-    committed=tuple(context.get('opening_work',()))+tuple(context.get('frozen_work',()))
+    if priority is not None:
+        result['capacity_reservations'] = priority['capacity_reservations']
+        if not priority['allowed']:
+            result.update(reason=priority['reason'],capacity_conflicts=priority.get('capacity_conflicts',[]));return result
+        for row in priority['capacity_reservations']:
+            for allocation in row['allocations']:
+                reservations[allocation['day']] += allocation['qty']
+    committed=(() if priority is not None else
+        tuple(context.get('opening_work',()))+tuple(context.get('frozen_work',())))
     for identity,earliest,quantity in sorted(committed,key=lambda r:(r[1],r[0])):
         if not identity or identity in identities or type(earliest) is not int:
             raise ValueError("Duplicate or invalid firm capacity identity")
@@ -133,4 +155,30 @@ def assess_dated_material_launch(*, decision_day, batch_qty, components, availab
         for pair,debit in debits.items():balance[pair]-=Decimal(str(debit));issued[pair]+=debit
         executed+=work[d]
     result.update(allowed=True,reason='known_dated_material_continuity',projected_completed_qty=executed)
+    if priority is not None:
+        # Preserve and expose successor material debts without pretending the
+        # capacity-only dates establish their future material feasibility.
+        retimed={row['identity']:row for row in other_requirements
+            if row.get('retiming_basis')}
+        last=min(horizon-1,max((row['due_day'] for row in retimed.values()),default=finish))
+        future_by_day={}
+        for row in other_requirements:
+            if finish<row['due_day']<=last:
+                future_by_day.setdefault(row['due_day'],[]).append(row)
+        successor_debts=[]
+        for d in range(finish+1,last+1):
+            for pair,quantity in receipts.get(d,()):balance[pair]+=quantity
+            for row in future_by_day.get(d,()):
+                pair=row['node_id'],row['item_id'];quantity=Decimal(str(row['qty']))
+                if pair not in balance:continue
+                before=balance[pair]
+                balance[pair]-=quantity
+                if row['identity'] in retimed:
+                    successor_debts.append(dict(identity=row['identity'],frozen_order_id=row['frozen_order_id'],
+                        due_day=d,node_id=pair[0],item_id=pair[1],qty=row['qty'],
+                        usable_before_qty=float(max(Decimal(0),before)),
+                        unfunded_qty=float(max(Decimal(0),quantity-max(Decimal(0),before))),
+                        projected_balance_after_qty=float(balance[pair]),
+                        status='conditional_projection_not_physical_consumption'))
+        result['successor_material_obligations']=successor_debts
     return result
