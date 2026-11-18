@@ -92,7 +92,8 @@ def reveal_current_component_requirements(calendar, observed_execution, *, decis
         identity=(row.get("node_id"),row.get("item_id"),row.get("budget_id"))
         if (not all(isinstance(v,str) and v for v in identity) or identity in seen
                 or type(row.get("closing_day")) is not int or row["closing_day"]!=decision_day
-                or row.get("reason")!="quantity_depends_on_current_day_production"):
+                or row.get("reason") not in ("quantity_depends_on_current_day_production",
+                                              "deferred_fixed_residual_until_close")):
             raise ValueError("Deferred component closing requires a unique current-day identity")
         seen.add(identity)
     return CurrentComponentDemandSnapshot(decision_day,estimated,snapshot,tuple(dict(r) for r in deferred))

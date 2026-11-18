@@ -901,16 +901,18 @@ def scan3_reconciliation_mode(manifest, weekly_rows, evidence, *, require_manife
                      or "scan3_minus_own_qty" in row for row in weekly_rows)
     declarations = [value for value in (top, nested) if value is not None]
     declarations.extend(sorted(row_modes))
-    if not new_schema and not declarations:
+    fixed_profile_declared = "fixed_residual_replay" in runtime
+    if not new_schema and not declarations and not fixed_profile_declared:
         evidence.check("scan3_execution_mode_legacy_implicit", True)
         return "legacy_residual"
-    allowed = {"legacy_residual", "audit_only"}
+    allowed = {"legacy_residual", "audit_only", "fixed_residual_replay"}
     manifest_declarations = [value for value in (top, nested) if value is not None]
     valid = ((not require_manifest or bool(manifest_declarations))
              and bool(declarations) and all(isinstance(value, str) and value in allowed
                                         for value in declarations)
              and len(set(declarations)) == 1
-             and (not new_schema or len(row_modes) == 1))
+             and (not new_schema or len(row_modes) == 1)
+             and (not fixed_profile_declared or all(value == "fixed_residual_replay" for value in declarations)))
     evidence.check("scan3_execution_mode_declared_and_coherent", valid, {
         "manifest": top, "runtime": nested, "weekly": sorted(row_modes),
         "new_schema": new_schema,
@@ -1365,6 +1367,17 @@ def audit_external_component_service(series, events, core_rows, policy, horizon,
                                     reconciliation.get("allocation_rows", []),
                                     horizon, scenario, evidence)
             extra = {}
+        elif mode == "fixed_residual_replay":
+            if __package__:
+                from .fixed_residual_review import audit_fixed_residual_replay
+            else:
+                from fixed_residual_review import audit_fixed_residual_replay
+            extra = audit_fixed_residual_replay(
+                reconciliation["contract"], reconciliation["budgets"], events,
+                reconciliation.get("weekly_rows", []), reconciliation.get("allocation_rows", []),
+                reconciliation.get("cumulative_rows", []), horizon, scenario, evidence,
+                reconciliation.get("fixed_declaration"), reconciliation.get("fixed_profile_bytes"),
+                validate_declared=declared_scan3_requirements, audit_closed=audit_scan3_closed_export)
         else:
             evidence.check("scan3_execution_mode_supported", False, mode)
             extra = {}
@@ -1795,6 +1808,19 @@ def audit_run(run):
                         reconciliation = dict(contract=meta["formats_reconciled_execution"],
                             budgets=meta.get("formats_reconciled_weekly_budgets"), mode=mode,
                             weekly_rows=weekly_rows, allocation_rows=allocation_rows)
+                        if mode == "fixed_residual_replay":
+                            if __package__:
+                                from .fixed_residual_review import load_profile_bytes
+                            else:
+                                from fixed_residual_review import load_profile_bytes
+                            declaration, profile_bytes = load_profile_bytes(
+                                manifest, horizon, Path(__file__).resolve().parents[2], e)
+                            cumulative_path = run / "data/Cumulative_reconciliation.csv"
+                            e.check("fixed_residual_cumulative_export_present", cumulative_path.is_file())
+                            reconciliation.update(fixed_declaration=declaration,
+                                fixed_profile_bytes=profile_bytes,
+                                cumulative_rows=list(rows(run, "Cumulative_reconciliation"))
+                                    if cumulative_path.is_file() else [])
     projection = None
     if declared_meta is not None and ("current_reference_projection" in declared_meta
                                       or "current_reference_other_use_profile" in declared_meta):

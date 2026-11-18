@@ -138,6 +138,25 @@ doit démontrer séparément l'absence de changement des quantités et des dates
 
 ## Garder une preuve compréhensible
 
+### Profil commun de besoins concurrents
+
+Le mode `fixed_residual_replay` est qualifié par un lecteur CSV indépendant du
+calcul moteur. Il vérifie les octets du profil liés au manifeste, toutes les
+clôtures attendues (zéros compris), les unités, les dates et la publication
+après la production propre. Il reconstruit les consommations et allocations
+exécutées, les besoins restant en attente et les écarts signés, hebdomadaires
+et cumulés. Une déclaration fixe ne peut pas être présentée comme un mode
+historique ordinaire ou comme une observation industrielle.
+
+Pour isoler l'effet d'une règle entre deux variantes, vérifier d'abord que le
+témoin avec profil fixe reproduit numériquement le témoin dont le profil
+provient. Comparer ensuite les demandes concurrentes par article/site/unité
+et par jour entre variantes, avec leurs dates de connaissance. L'égalité des
+seuls totaux ne suffit pas. Cette vérification protège la comparaison ; elle
+ne prouve pas que le profil reconstruit est la demande industrielle réelle.
+
+### Enregistrer les contrôles exécutés
+
 Pour enregistrer le test ciblé et son rapport dans un nouveau dossier de preuves :
 
 ```powershell

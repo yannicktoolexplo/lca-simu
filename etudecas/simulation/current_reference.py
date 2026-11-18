@@ -34,7 +34,7 @@ SEASON = 364
 MODE = "retained_W_historical_then_synthetic_v1"
 CUSTOMER_DEMAND_MODE = "flow_actual_2025_then_weekday_aligned_5pct_growth_v1"
 FORECAST_MODES = ("source_priority", "coherent_scenario")
-SCAN3_MODES = ("legacy_residual", "audit_only")
+SCAN3_MODES = ("legacy_residual", "audit_only", "fixed_residual_replay")
 SCENARIO_KNOWN_DAY = 365  # 1 January 2026: never visible to a 2025 decision.
 SCENARIO_FIRST_DAY = 369  # 5 January: first complete future Monday week.
 
@@ -47,6 +47,8 @@ def validate_scan3_mode(scan3_mode, days):
             "Scan3 audit_only is limited to the 2025 historical window: the "
             "current prospective profile still contains legacy Scan3 residuals"
         )
+    if scan3_mode == "fixed_residual_replay" and days > FIRST:
+        raise ValueError("Fixed residual replay is limited to the 2025 historical window")
 
 
 def read(path):
@@ -529,12 +531,13 @@ def runtime_observed_type(original_observed, tracker, frozen, days):
                 return super().preview_due(day, frozen.requirements(day))
             known, deferred = super().preview_due(day, estimated_due)
             closings = ()
-            if tracker.mode == "legacy_residual":
+            if tracker.mode in ("legacy_residual", "fixed_residual_replay"):
                 sources = tuple(tracker.closes.get(day, ())) + tuple(
                     getattr(tracker, "cumulative_closes", {}).get(day, ()))
                 closings = tuple(dict(node_id=r["node_id"],item_id=r["item_id"],
                     uom=r["uom"],budget_id=r["budget_id"],closing_day=day,
-                    reason="quantity_depends_on_current_day_production",
+                    reason=("deferred_fixed_residual_until_close" if tracker.mode == "fixed_residual_replay"
+                            else "quantity_depends_on_current_day_production"),
                     source_file=r["source_file"],source_cells=r["scan3_source_cell"])
                     for r in sources)
             return known, tuple(deferred) + closings
@@ -554,7 +557,9 @@ def runtime_observed_type(original_observed, tracker, frozen, days):
                 return frozen.provenance((node, item_prefix+":"+item), int(d[1:]))
             if identity in tracker.provenance:
                 return {**tracker.provenance[identity],
-                    "physical_demand_source": "reconstructed_scan3_residual_not_identified_other_format"}
+                    "physical_demand_source": ("conditional_fixed_residual_from_retained_control"
+                        if tracker.mode == "fixed_residual_replay"
+                        else "reconstructed_scan3_residual_not_identified_other_format")}
             return super().provenance(identity, forecast_calendar)
 
         def day_audit(self, pair, day):
@@ -567,12 +572,22 @@ def runtime_observed_type(original_observed, tracker, frozen, days):
 
 
 def run_engine(graph, protocol, config, frozen_path, command, output, days,
-               scan3_mode="legacy_residual"):
+               scan3_mode="legacy_residual", replay_profile_path=None):
     validate_scan3_mode(scan3_mode, days)
+    if (scan3_mode == "fixed_residual_replay") != (replay_profile_path is not None):
+        raise ValueError("Fixed residual mode requires exactly one explicit replay profile")
     adapter = importlib.import_module(config["adapter_module"])
     f3 = adapter.f3_module()
-    tracker = adapter.tracker_for(f3, graph["meta"]["formats_reconciled_weekly_budgets"],
-                                  protocol["cumulative_residual_pairs"], mode=scan3_mode)
+    if scan3_mode == "fixed_residual_replay":
+        from etudecas.simulation.reference_mrp.fixed_residual_replay import FixedResidualProfile, fixed_tracker_for
+        budgets = graph["meta"]["formats_reconciled_weekly_budgets"]
+        replay_profile = FixedResidualProfile.load(replay_profile_path, budgets, days=days, root=ROOT)
+        tracker = fixed_tracker_for(f3.WeeklyTracker, budgets, replay_profile,
+                                    protocol["cumulative_residual_pairs"])
+    else:
+        replay_profile = None
+        tracker = adapter.tracker_for(f3, graph["meta"]["formats_reconciled_weekly_budgets"],
+                                      protocol["cumulative_residual_pairs"], mode=scan3_mode)
     e4 = f3.e4_module()
     e4.TARGETS = {tuple(p) for p in protocol["forecast_reconciliation_pairs"]}
     e4.EFFECTIVE_POLICY = "F2_source_weekly_max_own_I_and_preserved_reserves"
@@ -646,11 +661,16 @@ def run_engine(graph, protocol, config, frozen_path, command, output, days,
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()
             writer.writerows(records)
-    return dict(historical_F3_budgets=len(rows), scan3_reconciliation_mode=scan3_mode,
+    result = dict(historical_F3_budgets=len(rows), scan3_reconciliation_mode=scan3_mode,
                 scan3_residual_provenance_schema_version=adapter.SCAN3_RESIDUAL_PROVENANCE_SCHEMA_VERSION,
                 E4_forecast_pairs=protocol["forecast_reconciliation_pairs"],
                 F3_cumulative_pairs=protocol["cumulative_residual_pairs"],
                 future_other_pairs=[list(p) for p in sorted(frozen.units)] if frozen else [])
+    if replay_profile is not None:
+        if sha(ROOT/replay_profile.path) != replay_profile.sha256:
+            raise ValueError("Fixed residual profile changed during execution")
+        result['fixed_residual_replay'] = replay_profile.payload()
+    return result
 
 
 def main(argv=None):
@@ -667,6 +687,8 @@ def main(argv=None):
         help="Explicit placement of new lots on known capacity; omitted preserves the retained reference")
     parser.add_argument("--scan3-mode", choices=SCAN3_MODES, default="legacy_residual",
         help="Keep the delivered residual injection, or retain J/Scan3 as audit evidence only")
+    parser.add_argument("--replay-profile-csv", type=Path,
+        help="Explicit retained-control F3 requests for fixed_residual_replay; unavailable to future MRP decisions")
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
@@ -677,10 +699,17 @@ def main(argv=None):
     if args.production_capacity_planning_policy is not None and args.days > 365:
         raise ValueError("Finite production placement is limited to365 days")
     validate_scan3_mode(args.scan3_mode, args.days)
+    if (args.scan3_mode == 'fixed_residual_replay') != (args.replay_profile_csv is not None):
+        raise ValueError("Fixed residual mode requires exactly one explicit replay profile")
     output = Path(args.output_dir).resolve()
     if not output.is_relative_to(ROOT/"etudecas") or output.exists():
         raise ValueError("Use a new output directory under etudecas")
     config, protocol, graph, inputs, frozen_path, tail = resolve_inputs()
+    if args.replay_profile_csv is not None:
+        from etudecas.simulation.reference_mrp.fixed_residual_replay import FixedResidualProfile
+        replay_profile = FixedResidualProfile.load(args.replay_profile_csv,
+            graph['meta']['formats_reconciled_weekly_budgets'], days=args.days, root=ROOT)
+        inputs[replay_profile.path] = replay_profile.sha256
     forecast_mode = args.forecast_mode or config["default_forecast_mode"]
     graph = prepare_graph(graph, config, args.days, forecast_mode)
     tail = list(tail)
@@ -732,7 +761,7 @@ def main(argv=None):
     error = None
     try:
         manifest["runtime"] = run_engine(graph, protocol, config, frozen_path, tail, output, args.days,
-                                         scan3_mode=args.scan3_mode)
+                                         scan3_mode=args.scan3_mode, replay_profile_path=args.replay_profile_csv)
     except Exception as exc:
         error = exc
         manifest["error"] = repr(exc)
