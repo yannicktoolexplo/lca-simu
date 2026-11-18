@@ -11,9 +11,11 @@ from etudecas.simulation.engine.production_component_issues import incremental_c
 from etudecas.simulation.engine.programme_opening_coverage import FIRM_COMPONENT_ORIGINS
 from etudecas.simulation.lot_policy.models import normalize_uom
 from etudecas.simulation.engine.dated_launch_priority import project_dated_launch_priority
+from etudecas.simulation.engine.dated_launch_substitution import assess_primary_only_transitions
 
 DATED_MATERIAL_LAUNCH_POLICY = "known_dated_continuity_v1"
 DATED_MATERIAL_PRIORITY_POLICY = "known_dated_priority_v2"
+DATED_MATERIAL_SUBSTITUTION_POLICY = "known_dated_substitution_v3"
 
 
 def _qty(value, unit=None):
@@ -38,8 +40,15 @@ def assess_dated_material_launch(*, decision_day, batch_qty, components, availab
         raise ValueError("Invalid dated launch decision")
     if batch_qty!=int(batch_qty):
         raise ValueError("This admission policy supports integer finished-unit batches")
-    if policy not in (DATED_MATERIAL_LAUNCH_POLICY, DATED_MATERIAL_PRIORITY_POLICY):
+    if policy not in (DATED_MATERIAL_LAUNCH_POLICY, DATED_MATERIAL_PRIORITY_POLICY,
+                      DATED_MATERIAL_SUBSTITUTION_POLICY):
         raise ValueError("Unknown dated material launch policy")
+    if policy == DATED_MATERIAL_SUBSTITUTION_POLICY:
+        components = tuple(components)
+        firm_receipts = tuple(firm_receipts)
+        other_requirements = tuple(other_requirements)
+        frozen_orders = tuple(frozen_orders)
+        nonprojectable_substitutions = tuple(nonprojectable_substitutions)
     result=dict(policy=policy,snapshot_known_day=decision_day,
         applicable=True,allowed=False,reason="",batch_qty=batch_qty,projected_finish_day=None,
         work_allocations=[],capacity_reservations=[],component_projection=[],
@@ -73,6 +82,14 @@ def assess_dated_material_launch(*, decision_day, batch_qty, components, availab
     transitions=[row for row in nonprojectable_substitutions
         if row.get('start_day',decision_day)<=finish and row.get('end_day',finish)>=decision_day]
     if transitions:
+        if policy == DATED_MATERIAL_SUBSTITUTION_POLICY:
+            return assess_primary_only_transitions(assess=assess_dated_material_launch,
+                arguments=dict(decision_day=decision_day,batch_qty=batch_qty,components=components,
+                    available_by_pair=available_by_pair,item_uoms=item_uoms,firm_receipts=firm_receipts,
+                    other_requirements=other_requirements,capacity_context=capacity_context,
+                    own_order_id=own_order_id,output_pair=output_pair,frozen_orders=frozen_orders),
+                transitions=transitions,base_result=result,result_policy=policy,
+                projection_policy=DATED_MATERIAL_PRIORITY_POLICY)
         result.update(applicable=False,allowed=None,reason='dated_substitution_not_projectable',
             substitutions=transitions);return result
     components=tuple(components);pairs={pair for pair,_ in components}
@@ -85,7 +102,7 @@ def assess_dated_material_launch(*, decision_day, batch_qty, components, availab
         for p in sorted(pairs)]
     result['bom']=[dict(node_id=p[0],item_id=p[1],ratio=ratio,uom=item_uoms[p[1]]) for p,ratio in components]
     priority = None
-    if policy == DATED_MATERIAL_PRIORITY_POLICY:
+    if policy in (DATED_MATERIAL_PRIORITY_POLICY, DATED_MATERIAL_SUBSTITUTION_POLICY):
         priority = project_dated_launch_priority(decision_day=decision_day,
             capacity_by_day=capacity,candidate_work=work,own_order_id=own_order_id,
             output_pair=output_pair,frozen_orders=frozen_orders,

@@ -64,7 +64,8 @@ from etudecas.simulation.engine.active_batch_materials import (
     allocate_active_batch_materials, serve_with_active_batch_protection,
 )
 from etudecas.simulation.engine.dated_material_launch import (
-    DATED_MATERIAL_LAUNCH_POLICY, DATED_MATERIAL_PRIORITY_POLICY, assess_dated_material_launch,
+    DATED_MATERIAL_LAUNCH_POLICY, DATED_MATERIAL_PRIORITY_POLICY, DATED_MATERIAL_SUBSTITUTION_POLICY,
+    assess_dated_material_launch,
 )
 from etudecas.simulation.engine.dated_launch_priority import frozen_material_requirement_links
 from etudecas.simulation.lot_policy.models import normalize_uom
@@ -8077,7 +8078,7 @@ def parse_args() -> argparse.Namespace:
         default=None, help="Opt-in cumulative integer component issues per physical batch; retains continuous work and credits prior issues in material feasibility.")
     parser.add_argument("--active-batch-material-protection-policy", choices=[ACTIVE_BATCH_MATERIAL_POLICY],
         default=None, help="Protect usable components still needed by physically engaged batches before external uses; deferred external needs remain outstanding.")
-    parser.add_argument("--production-material-launch-policy", choices=[DATED_MATERIAL_LAUNCH_POLICY,DATED_MATERIAL_PRIORITY_POLICY],
+    parser.add_argument("--production-material-launch-policy", choices=[DATED_MATERIAL_LAUNCH_POLICY,DATED_MATERIAL_PRIORITY_POLICY,DATED_MATERIAL_SUBSTITUTION_POLICY],
         default=None, help="Conditional admission of a new physical lot using known usable receipts and a continuous capacity calendar; frozen commitments remain unchanged.")
     parser.add_argument(
         "--mrp-nonbinding-standard-order-pair", action="append", default=[], metavar="NODE,ITEM",
@@ -16575,6 +16576,10 @@ def main() -> None:
                 substitutions.append(dict(node_id=component[0],item_id=component[1],
                     start_day=start,end_day=end,
                     reason="dated_reference_transition_not_projected_native_execution_retained"))
+                if launch_policy==DATED_MATERIAL_SUBSTITUTION_POLICY:
+                    substitutions[-1].update(old_item_id=transition.get("old_item_id"),
+                        consume_policy=transition.get("consume_policy"),known_day=0,
+                        knowledge_basis="transition_configuration_known_from_initialisation_not_observed_future_consumption")
 
         def append_needs(mapping, basis, excluded_prefix=None, structured_links=None, excluded_order_id=None):
             for component in component_pairs:
@@ -16606,7 +16611,7 @@ def main() -> None:
         own_id=own_order["order_id"] if own_order is not None else None
         priority_orders=()
         if frozen_production_book is not None:
-            if launch_policy==DATED_MATERIAL_PRIORITY_POLICY:
+            if launch_policy in (DATED_MATERIAL_PRIORITY_POLICY,DATED_MATERIAL_SUBSTITUTION_POLICY):
                 priority_orders=tuple(dict(row) for row in frozen_production_book.orders.values() if row['state']=='frozen')
                 links=frozen_material_requirement_links(priority_orders,frozen_production_book.bom_by_pair)
                 append_needs(frozen_production_book.material_requirements(decision_day),"other_frozen_order_components",
@@ -26710,12 +26715,16 @@ def main() -> None:
             applicability="single_UN_batch_with_known_finite_capacity;outside_domain_native_path_retained_without_continuity_claim",
             substitutions="overlapping_unprojected_reference_transition_is_audited_bypass;archived_transitions_ignored",
             audit="data/production_material_launch_decisions.json")
-        if args.production_material_launch_policy==DATED_MATERIAL_PRIORITY_POLICY:
+        if args.production_material_launch_policy in (DATED_MATERIAL_PRIORITY_POLICY,DATED_MATERIAL_SUBSTITUTION_POLICY):
             summary["policy"]["production_material_launch_policy"].update(
                 priority="original_planned_release_day_then_created_day_then_order_id;initial_and_active_claims_preserved",
                 successors="same_output_orders_projected_after_candidate_finish_next_day;one_new_campaign_per_output_per_day",
                 material_retiming="exact_structured_successor_links_only;other_output_initial_and_external_requirements_unchanged",
                 successor_feasibility="capacity_projection_only;unfunded_successor_material_is_reported_not_erased_or_used_as_retroactive_veto")
+        if args.production_material_launch_policy==DATED_MATERIAL_SUBSTITUTION_POLICY:
+            summary["policy"]["production_material_launch_policy"].update(
+                substitutions="primary_only_complete_candidate_projection_before_full_check;only_use_old_until_new_stock_available;unproved_or_unknown_transition_keeps_audited_bypass",
+                substitution_knowledge="configuration_known_from_initialisation;no_future_observed_substitute_consumption_used")
         with data_path(output_dir,"production_material_launch_decisions.json").open("w",encoding="utf-8") as handle:
             json.dump(dict(policy=args.production_material_launch_policy,decisions=dated_material_launch_rows),handle,ensure_ascii=False,indent=2)
     if active_batch_material_protection:
