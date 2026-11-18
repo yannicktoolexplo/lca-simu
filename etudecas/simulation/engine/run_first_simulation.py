@@ -64,8 +64,9 @@ from etudecas.simulation.engine.active_batch_materials import (
     allocate_active_batch_materials, serve_with_active_batch_protection,
 )
 from etudecas.simulation.engine.dated_material_launch import (
-    DATED_MATERIAL_LAUNCH_POLICY, assess_dated_material_launch,
+    DATED_MATERIAL_LAUNCH_POLICY, DATED_MATERIAL_PRIORITY_POLICY, assess_dated_material_launch,
 )
+from etudecas.simulation.engine.dated_launch_priority import frozen_material_requirement_links
 from etudecas.simulation.lot_policy.models import normalize_uom
 FINITE_PRODUCTION_POLICY = "finite_lot_calendar_v1"
 FINITE_PRODUCTION_FIELDS = [
@@ -8076,7 +8077,7 @@ def parse_args() -> argparse.Namespace:
         default=None, help="Opt-in cumulative integer component issues per physical batch; retains continuous work and credits prior issues in material feasibility.")
     parser.add_argument("--active-batch-material-protection-policy", choices=[ACTIVE_BATCH_MATERIAL_POLICY],
         default=None, help="Protect usable components still needed by physically engaged batches before external uses; deferred external needs remain outstanding.")
-    parser.add_argument("--production-material-launch-policy", choices=[DATED_MATERIAL_LAUNCH_POLICY],
+    parser.add_argument("--production-material-launch-policy", choices=[DATED_MATERIAL_LAUNCH_POLICY,DATED_MATERIAL_PRIORITY_POLICY],
         default=None, help="Conditional admission of a new physical lot using known usable receipts and a continuous capacity calendar; frozen commitments remain unchanged.")
     parser.add_argument(
         "--mrp-nonbinding-standard-order-pair", action="append", default=[], metavar="NODE,ITEM",
@@ -16550,10 +16551,11 @@ def main() -> None:
                 phase=phase, node_id=pair[0], item_id=pair[1]) for row in rows)
 
     def assess_current_material_launch(pair, *, decision_day, quantity, capacity_qty, own_order):
+        launch_policy=args.production_material_launch_policy
         context=finite_capacity_context(pair,decision_day=decision_day,first_work_day=decision_day,
             current_capacity_qty=capacity_qty)
         if context is None or normalize_uom(item_unit_map.get(pair[1],""))!="UN":
-            return dict(policy=DATED_MATERIAL_LAUNCH_POLICY,applicable=False,allowed=None,
+            return dict(policy=launch_policy,applicable=False,allowed=None,
                 reason="unknown_finite_capacity" if context is None else "non_unit_output_not_projected",
                 snapshot_known_day=decision_day,batch_qty=quantity,projected_finish_day=None)
         components=tuple((component,ratio) for component,ratio in process_input_requirements_by_output_pair.get(pair,())
@@ -16574,10 +16576,13 @@ def main() -> None:
                     start_day=start,end_day=end,
                     reason="dated_reference_transition_not_projected_native_execution_retained"))
 
-        def append_needs(mapping, basis, excluded_prefix=None):
+        def append_needs(mapping, basis, excluded_prefix=None, structured_links=None, excluded_order_id=None):
             for component in component_pairs:
                 for row in mapping.get(component,()):
                     if excluded_prefix and row.requirement_id.startswith(excluded_prefix):continue
+                    link = (structured_links[(component,row.requirement_id)]
+                            if structured_links is not None else {})
+                    if link and link['frozen_order_id']==excluded_order_id:continue
                     quantity=row.qty
                     if basis=="other_frozen_order_components" and normalize_uom(item_unit_map[component[1]])=="UN":
                         # One frozen requirement is one still-unstarted order:
@@ -16585,7 +16590,7 @@ def main() -> None:
                         # its fractional theoretical BOM equivalent.
                         quantity=float(math.ceil(quantity))
                     requirements.append(dict(identity=basis+":"+row.requirement_id,node_id=component[0],
-                        item_id=component[1],due_day=row.due_day,qty=quantity,known_day=decision_day,basis=basis))
+                        item_id=component[1],due_day=row.due_day,qty=quantity,known_day=decision_day,basis=basis,**link))
 
         append_needs(external_component_backlogs,"prior_external_backlog")
         if known_external_component_due_today is not None:
@@ -16599,9 +16604,16 @@ def main() -> None:
             opening_needs,_=opening_pack_orders.planning(decision_day)
             append_needs(opening_needs,"initial_order_remaining_components")
         own_id=own_order["order_id"] if own_order is not None else None
+        priority_orders=()
         if frozen_production_book is not None:
-            append_needs(frozen_production_book.material_requirements(decision_day),"other_frozen_order_components",
-                "frozen_material:"+own_id+":" if own_id else None)
+            if launch_policy==DATED_MATERIAL_PRIORITY_POLICY:
+                priority_orders=tuple(dict(row) for row in frozen_production_book.orders.values() if row['state']=='frozen')
+                links=frozen_material_requirement_links(priority_orders,frozen_production_book.bom_by_pair)
+                append_needs(frozen_production_book.material_requirements(decision_day),"other_frozen_order_components",
+                    structured_links=links,excluded_order_id=own_id)
+            else:
+                append_needs(frozen_production_book.material_requirements(decision_day),"other_frozen_order_components",
+                    "frozen_material:"+own_id+":" if own_id else None)
         for active_pair,active_batch in production_batch_wip_by_pair.items():
             if active_pair==pair or active_batch.executed_qty<=0 or active_batch.is_complete:continue
             for component,ratio in process_input_requirements_by_output_pair.get(active_pair,()):
@@ -16614,7 +16626,8 @@ def main() -> None:
         result=assess_dated_material_launch(decision_day=decision_day,batch_qty=quantity,components=components,
             available_by_pair={c:available_component_quantity(max(0.0,stock.get(c,0.0)),item_unit_map[c[1]]) for c in component_pairs},
             item_uoms=item_unit_map,firm_receipts=receipts,other_requirements=requirements,
-            capacity_context=context,own_order_id=own_id,nonprojectable_substitutions=substitutions)
+            capacity_context=context,own_order_id=own_id,nonprojectable_substitutions=substitutions,
+            policy=launch_policy,output_pair=pair,frozen_orders=priority_orders)
         result["unresolved_current_closures"]=(list(known_external_component_due_today.unresolved_for(component_pairs))
             if known_external_component_due_today is not None else [])
         return result
@@ -26686,7 +26699,7 @@ def main() -> None:
                 events=production_programme_book.events,decisions=programme_decision_rows,
                 source_budget_overrides=programme_source_budget_rows),handle,ensure_ascii=False,indent=2)
     if dated_material_launch:
-        summary["policy"]["production_material_launch_policy"] = dict(mode=DATED_MATERIAL_LAUNCH_POLICY,
+        summary["policy"]["production_material_launch_policy"] = dict(mode=args.production_material_launch_policy,
             scope="new_single_physical_batch_only;already_active_lots_continue_native_execution",
             information="current_usable_stock_and_future_usable_firm_receipts_present_in_decision_snapshot",
             knowledge="snapshot_date_proves_current_presence_not_original_industrial_order_creation",
@@ -26697,8 +26710,14 @@ def main() -> None:
             applicability="single_UN_batch_with_known_finite_capacity;outside_domain_native_path_retained_without_continuity_claim",
             substitutions="overlapping_unprojected_reference_transition_is_audited_bypass;archived_transitions_ignored",
             audit="data/production_material_launch_decisions.json")
+        if args.production_material_launch_policy==DATED_MATERIAL_PRIORITY_POLICY:
+            summary["policy"]["production_material_launch_policy"].update(
+                priority="original_planned_release_day_then_created_day_then_order_id;initial_and_active_claims_preserved",
+                successors="same_output_orders_projected_after_candidate_finish_next_day;one_new_campaign_per_output_per_day",
+                material_retiming="exact_structured_successor_links_only;other_output_initial_and_external_requirements_unchanged",
+                successor_feasibility="capacity_projection_only;unfunded_successor_material_is_reported_not_erased_or_used_as_retroactive_veto")
         with data_path(output_dir,"production_material_launch_decisions.json").open("w",encoding="utf-8") as handle:
-            json.dump(dict(policy=DATED_MATERIAL_LAUNCH_POLICY,decisions=dated_material_launch_rows),handle,ensure_ascii=False,indent=2)
+            json.dump(dict(policy=args.production_material_launch_policy,decisions=dated_material_launch_rows),handle,ensure_ascii=False,indent=2)
     if active_batch_material_protection:
         summary["policy"]["active_batch_material_protection"] = dict(mode=ACTIVE_BATCH_MATERIAL_POLICY,
             scope="physically_started_incomplete_native_batches_only_no_future_programme",

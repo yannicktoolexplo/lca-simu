@@ -1869,6 +1869,37 @@ industrielle de création. Les incidents futurs inconnus et les futurs résidus
 reconstruits ne sont pas utilisés : la continuité annoncée reste conditionnelle
 aux informations et capacités déclarées.
 
+### Admission avec une priorité commune de capacité et de matière
+
+L'option expérimentale `--production-material-launch-policy known_dated_priority_v2`
+conserve la sélection native des ordres : date de lancement prévue d'origine,
+puis date de création, puis identifiant comparé comme une chaîne. Une date
+passée n'est pas remplacée par aujourd'hui pour départager les priorités.
+L'ancienne option reste disponible pour reproduire ses essais ; aucune des
+deux n'est activée par défaut.
+
+Les travaux engagés et les ordres initiaux gardent leur protection. Le candidat
+est projeté une seule fois, sans pause fictive pour contourner un conflit de
+capacité. Les ordres figés suivants du même site et du même produit sont
+projetés après lui, dans la même priorité. Une seule nouvelle campagne de ce
+produit peut commencer par jour dans l'exécution actuelle : la suivante ne
+profite donc pas du reliquat de capacité le jour de la fin de la précédente.
+C'est une convention du moteur, pas une règle industrielle confirmée.
+
+Seuls les besoins composants exactement reliés à ces ordres suivants sont
+reportés à leur date physique projetée. Les quantités, identifiants, dates
+prévues du carnet et engagements ne sont pas modifiés. Les besoins des autres
+produits, les ordres initiaux et les dettes des autres usages gardent leurs
+dates et leur protection. Le candidat ne consomme aucun stock dans cette
+projection et ne reçoit aucune quantité fictive.
+
+Le journal de décision expose les dates originales, l'ordre de priorité,
+la capacité affectée, les retards projetés et les manques de composants des
+ordres suivants. Autoriser le candidat ne garantit pas la faisabilité de
+tous ses successeurs. Les domaines non projetables, notamment certaines
+substitutions, gardent leur parcours natif explicitement signalé ; ils ne
+constituent pas une preuve de continuité apportée par cette option.
+
 ### Ordres initiaux et nouveaux programmes
 
 Dans le mode `current_week_authorized_lot_multiday_v1`, l'option explicite

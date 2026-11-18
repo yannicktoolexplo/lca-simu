@@ -90,6 +90,10 @@ Les [essais de protection et de lancement](changes/2026-11-17-essais-protection-
 comparent ces deux règles séparément dans le moteur, avec leurs témoins,
 les fabrications, les stocks et les besoins concurrents conservés.
 
+La [correction de la priorité des ordres](changes/2026-11-18-priorite-ordres.md)
+traite le blocage de l'admission en accordant la même priorité à la machine
+et aux composants, puis compare les deux produits sur la période conservée.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes
