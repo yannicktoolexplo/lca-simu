@@ -153,3 +153,31 @@ chemin multiplicatif doivent être strictement positifs.
 
 Voir [les vérifications d'exécution](EXECUTION_VERIFICATION.md) pour les limites
 et la distinction entre contrat d'entrée, conservation et validation métier.
+
+## Profil commun de besoins concurrents pour un essai historique
+
+L'adaptateur `etudecas.simulation.current_reference` accepte le mode expérimental
+`--scan3-mode fixed_residual_replay` avec `--replay-profile-csv CHEMIN`. Le profil
+est obligatoire dans ce mode et interdit dans les autres. Le mode nominal reste
+`legacy_residual`. Ce parcours est limité à la première année documentée ; il
+ne constitue pas une règle de prévision prospective.
+
+Le CSV conserve les **quantités demandées** des résidus d'un témoin identifié,
+jamais les anciennes consommations ni les anciennes dettes. Chaque budget clos
+doit figurer exactement une fois, y compris avec une demande explicitement
+nulle. Identité article/site, unité, fenêtre, clôture, identifiant du besoin et
+quantité source doivent correspondre au graphe. Les quantités en unités
+physiques restent entières ; une ligne manquante n'est pas un zéro.
+
+Les quantités deviennent accessibles à la phase de clôture **après la
+production propre du jour**. Avant cette phase, l'aperçu indique seulement
+qu'une clôture reste à traiter ; il n'expose pas sa quantité. Les prévisions
+et calendriers d'observations du graphe ne sont pas remplacés. Les demandes
+non servies restent dans le registre natif des besoins en attente.
+
+Le manifeste lie le profil à ses octets par SHA-256. Son statut est
+`conditional_scenario_not_industrial_observation` : un résidu extrait d'un
+témoin simulé n'est pas une observation industrielle indépendante. Les exports
+conservent séparément le retrait source, la consommation propre de l'essai,
+le besoin fixé et leur écart signé, sans forcer ce dernier à zéro. Voir les
+[contrôles associés](TEST_VALIDATION.md#profil-commun-de-besoins-concurrents).
