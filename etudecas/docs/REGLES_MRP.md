@@ -1900,6 +1900,32 @@ tous ses successeurs. Les domaines non projetables, notamment certaines
 substitutions, gardent leur parcours natif explicitement signalé ; ils ne
 constituent pas une preuve de continuité apportée par cette option.
 
+### Admission malgré une transition de référence inutilisée
+
+L'option expérimentale `--production-material-launch-policy known_dated_substitution_v3`
+reprend la priorité de la version v2. Elle peut lever le contournement du contrôle
+matière quand une transition `use_old_until_new_stock_available` est configurée
+mais que les références principales suffisent à toute la campagne projetée.
+Les versions précédentes et le nominal gardent leur comportement.
+
+Une première projection vérifie séparément les principaux concernés jusqu'à
+la fin du lot, avec les stocks utilisables, les réceptions fermes connues,
+les besoins concurrents et les mêmes priorités. Le stock au lancement, seul,
+ne constitue pas une preuve. Un manque sur un autre composant ne doit pas
+interrompre prématurément cette vérification des principaux.
+
+Si leur couverture est démontrée, le contrôle est ensuite exécuté sur tous
+les composants. Si une substitution peut être nécessaire, si sa politique
+est inconnue ou si ses métadonnées manquent, le parcours natif reste conservé
+avec le motif non projetable ; ce cas n'est pas présenté comme une admission
+validée. Un conflit de capacité démontré reste un refus distinct.
+
+Le journal `production_material_launch_decisions.json` expose la preuve dans
+`substitution_projection`, son intervalle, les principaux, leurs débits datés
+et la première insuffisance éventuelle. Cette preuve est conditionnelle aux
+engagements et capacités connus. Elle n'utilise pas les consommations futures
+observées et n'affecte ni ne consomme de stock de substitution.
+
 ### Ordres initiaux et nouveaux programmes
 
 Dans le mode `current_week_authorized_lot_multiday_v1`, l'option explicite

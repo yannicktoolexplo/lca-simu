@@ -94,6 +94,10 @@ La [correction de la priorité des ordres](changes/2026-11-18-priorite-ordres.md
 traite le blocage de l'admission en accordant la même priorité à la machine
 et aux composants, puis compare les deux produits sur la période conservée.
 
+Le [contrôle des matières pendant une transition de référence](changes/2026-11-18-applicabilite-substitutions.md)
+vérifie si la référence principale suffit à la campagne avant de conserver
+ou de lever le contournement du contrôle des autres composants.
+
 L'[analyse de l'ensemble des données réelles, priorité 268967](changes/2026-11-14-analyse-reel-268967.md)
 rapproche stocks, mouvements, production, demande, prévisions et finance sur
 2025 ; elle distingue les écarts mesurés, les mécanismes simulés et les causes
