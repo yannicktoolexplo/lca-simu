@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De Muret aux composants · Données 2025</title>
+<style>
+:root{color-scheme:light;--ink:#193447;--muted:#4c6170;--line:#cfdee3;--subtle:#eaf2f4;--paper:#fff;--main:#145e67;--demand:#9b4f12;--canvas:#f3f6f6;--focus:#9b4f12}
+*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--ink);font:16px/1.45 system-ui,sans-serif}
+main{max-width:1240px;margin:0 auto;padding:24px}h1{font-size:1.9rem;margin:0 0 6px}h2{font-size:1.3rem;margin:0 0 8px}h3{font-size:1.08rem;margin:0 0 8px}p{margin:8px 0}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:17px 20px;margin:14px 0}
+.intro,.hint,.source{color:var(--muted)}.hint,.source{font-size:.88rem}
+label{display:inline-flex;flex-direction:column;gap:4px;font-weight:650;font-size:.92rem}select,button{font:inherit;color:var(--ink);border:1px solid #9cbbc0;background:#fff;padding:7px 10px;border-radius:7px;min-height:38px}
+button{cursor:pointer}button:disabled{opacity:.55;cursor:default}button[aria-current=true],button[aria-pressed=true]{background:var(--main);color:#fff;border-color:var(--main)}
+a{color:#085965;text-underline-offset:3px}a:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+.bar,.presets,.filters,.legend,.neighbors{display:flex;gap:9px 12px;align-items:flex-end;flex-wrap:wrap;margin:8px 0}
+.legend{font-size:.88rem;align-items:center}.legend span{display:inline-flex;align-items:center;gap:6px}
+.key{width:17px;height:3px;display:inline-block;border-radius:3px;background:var(--main)}.key.demand{background:var(--demand)}.key.unknown{background:transparent;border-top:2px dashed #718692}
+.quick,.neighbors a{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 10px;text-align:left;font-size:.91rem;text-decoration:none}
+.quick:hover,.neighbors a:hover{background:var(--subtle)}.neighbors [aria-current=true]{background:var(--main);color:white;border-color:var(--main)}
+.graph{overflow-x:auto}.graph svg{display:block;width:100%;min-width:620px;max-height:310px;overflow:visible}
+.gridline{stroke:#dbe6e9}.tick{font-size:11px;fill:var(--muted)}.midline{stroke:#96afb4;stroke-width:1.1}.series{fill:none;stroke-width:2.1;pointer-events:none}
+.series-demand{stroke:var(--demand)}.series-net{stroke:var(--main)}.dot-net{fill:var(--main);stroke:white;stroke-width:1.5}.dot-demand{fill:var(--demand)}
+.week-marker{fill:transparent;stroke:transparent}.week-link:hover .week-marker,.week-link:focus .week-marker{fill:#c1e2e680;stroke:var(--main)}.week-link[aria-current=true] .week-marker{fill:#c1e2e680;stroke:var(--main);stroke-width:1.7}
+.day-band{fill:#eaf4f5}.datum{pointer-events:none}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px;margin:12px 0}.fact{padding:9px 10px;background:#edf4f5;border-radius:7px;min-height:66px}.fact span{display:block;font-size:.82rem;color:var(--muted)}.fact strong{display:block;font-size:1.07rem}
+.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:.91rem;line-height:1.35}th,td{padding:7px 8px;border-bottom:1px solid #e0e9eb;text-align:left;vertical-align:top}th{font-weight:650;background:#edf4f5;white-space:normal}td.num{text-align:right;white-space:nowrap}.row-active td{background:#eef8f8}
+.flag{display:inline-block;border-radius:4px;font-size:.79rem;font-weight:650;padding:1px 6px;background:#ecf4f5;color:#245761}.flag.alt{background:#f9ede0;color:#7c4318}
+.tagline{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0}details{border-top:1px solid var(--line);padding:9px 0 0;margin-top:10px}summary{cursor:pointer;color:#095a68;font-weight:650}.explain{border-left:3px solid #78aeb3;margin:10px 0;padding:5px 12px;background:#f1f7f7}
+.route-list{padding-left:20px;margin:8px 0}.route-list li{margin:6px 0}.route-list button{margin:3px 4px 1px 0}
+.flow-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.component-list{margin:10px 0}.nearby{margin:8px 0 0}
+.cell-date{white-space:nowrap}.status{font-size:.9rem;color:var(--muted)}.same-date{font-weight:700}caption{font-weight:650;text-align:left;padding:4px 0 8px}
+@media(max-width:740px){main{padding:13px}.card{padding:13px 12px}.flow-grid{grid-template-columns:1fr}h1{font-size:1.55rem}}
+@media(print){body{background:#fff}.card{break-inside:avoid}.graph svg{min-width:0}.bar button{display:none}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>De Muret aux composants</h1>
+    <p class="intro">Données industrielles 2025. Sélectionnez un produit et une semaine, ou cliquez sur une date du graphique pour ouvrir son dossier.</p>
+  </header>
+  <section class="card" aria-labelledby="timeline-title">
+    <h2 id="timeline-title">Mouvements et demande à Muret</h2>
+    <div id="filters" class="filters"></div>
+    <div id="chart" class="graph"></div>
+    <div class="legend" aria-label="Légende">
+      <span><i class="key"></i>Sortie nette dans le sens sortant</span>
+      <span><i class="key demand"></i>Demande réelle</span>
+      <span><i class="key unknown"></i>Période inconnue</span>
+    </div>
+    <p class="hint">La courbe inverse le signe du mouvement « Sorties » pour lire le flux sortant vers le haut. Un point sous zéro indique un mouvement net dans l’autre sens. Le mouvement agrégé laisse la quantité livrée aux clients inconnue.</p>
+    <div id="examples" class="presets"></div>
+  </section>
+  <section id="case" class="card" aria-live="polite"></section>
+  <section id="factory" class="card"></section>
+  <section id="upstream" class="card" aria-labelledby="upstream-title"></section>
+  <section class="card">
+    <h2>Comment lire les liens</h2>
+    <p>Une photo, un mouvement ou une demande viennent d’un fichier source. Le calcul de clôture rapproche les dates. Les relations de nomenclature et de site orientent la recherche. Le lien entre un départ, un ordre et un lot physique reste inconnu dans ces exports.</p>
+    <p>Le repère dominical d’un mouvement représente sa semaine de comptabilisation. Les lignes MRP indiquent un plan calculé à une date donnée. Le carnet partiel fournit des dates prévues et ne fournit ni identité industrielle ni date de création des ordres.</p>
+  </section>
+  <noscript>Activez JavaScript pour sélectionner la semaine et afficher les pièces intégrées au fichier.</noscript>
+</main>
+<script type="application/json" id="muret-data">__MURET_DATA__</script>
+<script>
+__MURET_SCRIPT__
+</script>
+</body>
+</html>
