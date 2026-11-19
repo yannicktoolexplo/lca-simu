@@ -54,6 +54,9 @@ from etudecas.simulation.engine.finite_production_schedule import (
 from etudecas.simulation.engine.frozen_production import (
     FrozenProductionBook, FROZEN_PRODUCTION_POLICY, J0_NET_PLAN_HYPOTHESIS_POLICY,
 )
+from etudecas.simulation.engine.frozen_reduction import (
+    FROZEN_REDUCTION_POLICY, reduce_unstarted_frozen_orders,
+)
 from etudecas.simulation.engine.manufacturing_work_calendar import resolve_manufacturing_work_calendar
 from etudecas.simulation.engine.production_component_issues import (
     BATCH_CUMULATIVE_ISSUE_POLICY, incremental_component_issue,
@@ -4956,7 +4959,10 @@ def plan_component_network(
            if pair in campaign_credit_canonicalizations else {}),
         **({"sourced_plan": sourced_plans[pair]} if pair in sourced_plans else {}),
         **({"protected_plan": protected_plans[pair]} if pair in protected_plans else {}),
-        **({"protection_points": applied_protection_points[pair]} if pair in applied_protection_points else {}),
+        # An explicit empty tuple means this native plan applies no persistent
+        # stock floor. A positive coverage window alone does not create one;
+        # any legacy reserve remains an ordinary dated requirement above.
+        "protection_points": tuple(applied_protection_points.get(pair, ())),
         **coverage_protection_audits.get(pair, {}),
         **industrial_audits.get(pair, {}),
         **({"manufactured_output_mrp": manufactured_output_audits[pair],
@@ -8148,6 +8154,8 @@ def parse_args() -> argparse.Namespace:
         default=None, help="Opt-in persistent production commitments: launch/quantity frozen 28 days at M-1810 and 56 at M-1430.")
     parser.add_argument("--production-frozen-opening-policy", choices=[J0_NET_PLAN_HYPOTHESIS_POLICY],
         default=None, help="Explicit hypothetical opening commitments from the first net known forecast plan; requires frozen production. Never observed initial orders.")
+    parser.add_argument("--production-frozen-reduction-policy", choices=[FROZEN_REDUCTION_POLICY],
+        default=None, help="Experimental Monday review: cancel whole unstarted simulated frozen lots only if dated needs and protection do not deteriorate; observed/opening/active orders stay firm.")
     parser.add_argument("--production-component-issue-policy", choices=[BATCH_CUMULATIVE_ISSUE_POLICY],
         default=None, help="Opt-in cumulative integer component issues per physical batch; retains continuous work and credits prior issues in material feasibility.")
     parser.add_argument("--active-batch-material-protection-policy", choices=[ACTIVE_BATCH_MATERIAL_POLICY],
@@ -14944,6 +14952,7 @@ def main() -> None:
     production_launch_commitment_rows: list[dict] = []
     production_programme_book = None
     frozen_production_book = None
+    frozen_production_reduction_rows: list[dict] = []
     frozen_order_by_campaign = {}
     programme_weekly_consumed = defaultdict(float)
     programme_decision_rows = []
@@ -14960,6 +14969,10 @@ def main() -> None:
             raise ValueError("Multi-day programmes require finite planning and intraday continuation")
     if args.production_frozen_opening_policy is not None and args.production_frozen_horizon_policy is None:
         raise ValueError("Opening production hypothesis requires the persistent frozen order book")
+    if args.production_frozen_reduction_policy is not None and (
+            args.production_frozen_horizon_policy is None
+            or production_capacity_planning_policy != UNCONSTRAINED_PRODUCTION_POLICY):
+        raise ValueError("Frozen whole-lot reduction requires the persistent book and the unmodeled-capacity launch calendar")
     frozen_opening_plan_rows = []
     if args.production_frozen_horizon_policy is not None:
         if (production_programme_book is None or not production_programme_book.multiday
@@ -23821,6 +23834,21 @@ def main() -> None:
             (production_execution_snapshots, closing_plans, closing_requirements,
              closing_audits) = reconcile_production_execution_snapshot(closing_inputs,
                 available_by_pair=stock, firm_receipts_by_pair=closing_firms, produced_pairs=produced_pairs)
+            if (args.production_frozen_reduction_policy is not None and day > 0
+                    and (safety_calendar["weekday"] + day) % 7 == 0):
+                # Hypothesis: unnecessary whole lots may be cancelled, while no
+                # new launch is introduced inside the industrial frozen horizon.
+                # Counterfactuals change no physical state and preserve dated
+                # requirements/protection; any later replacement stays a proposal.
+                closing_inputs, reviewed_result, reduction_rows = reduce_unstarted_frozen_orders(
+                    frozen_production_book, day=day, network_inputs=closing_inputs,
+                    available_by_pair=stock, firm_receipts_by_pair=closing_firms,
+                    produced_pairs=produced_pairs, reconcile=reconcile_production_execution_snapshot,
+                    current_result=(production_execution_snapshots, closing_plans,
+                                    closing_requirements, closing_audits))
+                (production_execution_snapshots, closing_plans, closing_requirements,
+                 closing_audits) = reviewed_result
+                frozen_production_reduction_rows.extend(reduction_rows)
             if frozen_production_book is not None:
                 for pair, plan in sorted(closing_plans.items()):
                     if pair in produced_pairs and pair[0] in frozen_production_book.horizons_by_node:
@@ -26971,6 +26999,19 @@ def main() -> None:
                         availability_status="estimated_original_calendar_span_shift_not_material_guarantee")
                    if row["state"] == "frozen" else {})) for row in frozen_production_book.orders.values()]),
                 handle,ensure_ascii=False,indent=2)
+        if args.production_frozen_reduction_policy is not None:
+            summary["policy"]["production_frozen_reduction_policy"] = dict(
+                mode=args.production_frozen_reduction_policy,
+                status="experimental_industrial_permission_not_confirmed",
+                review="Monday_after_daily_physical_movements_no_initial_review",
+                scope="simulated_unstarted_frozen_whole_lots_only",
+                invariant="dated_needs_and_protection_not_worsened_new_launches_outside_frozen_zone",
+                limitation="future_replacements_are_conditional_plans_not_firm_receipts_or_material_guarantees",
+                audit="data/frozen_production_reduction.json")
+            with data_path(output_dir, "frozen_production_reduction.json").open("w", encoding="utf-8") as handle:
+                json.dump(dict(policy=args.production_frozen_reduction_policy,
+                               reviews=frozen_production_reduction_rows), handle,
+                          ensure_ascii=False, indent=2)
     if manufactured_output_mrp_policy is not None:
         summary["policy"]["manufactured_output_mrp"] = dict(manufactured_output_mrp_policy,
             knowledge="existing_future_I_calendar_prior_vintage_current_bucket_no_H_J_K",

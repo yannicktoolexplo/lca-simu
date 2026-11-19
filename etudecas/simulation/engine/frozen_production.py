@@ -190,8 +190,10 @@ class FrozenProductionBook:
             self._event(row,day,"outside_zone_cancelled")
         self._reviewed_pairs.add(pair)
 
-    def _pending(self, pair=None):
+    def _pending(self, pair=None, *, exclude_order_ids=()):
+        excluded = frozenset(exclude_order_ids)
         return sorted((r for r in self.orders.values() if r["state"] == "frozen"
+            and r["order_id"] not in excluded
             and (pair is None or (r["node_id"],r["item_id"]) == pair)),
             key=lambda r:(r["planned_release_day"],r["created_day"],r["order_id"]))
 
@@ -221,28 +223,56 @@ class FrozenProductionBook:
             row["state"] = "completed"
         self._event(row,day,"physical_work")
 
-    def firm_receipts(self, pair, day):
+    def firm_receipts(self, pair, day, *, exclude_order_ids=()):
         # Active/completed outputs are represented by native WIP/held stock.
         # Overdue unstarted work remains a future commitment, never virtual stock.
         return tuple(FirmReceipt(r["order_id"],self.estimated_available_day(r,day),r["qty"],"confirmed")
-                     for r in self._pending(pair))
+                     for r in self._pending(pair, exclude_order_ids=exclude_order_ids))
 
-    def reserved_work(self, pair, day):
-        return tuple((r["order_id"],max(day,r["planned_release_day"]),r["qty"]) for r in self._pending(pair))
+    def reserved_work(self, pair, day, *, exclude_order_ids=()):
+        return tuple((r["order_id"],max(day,r["planned_release_day"]),r["qty"])
+                     for r in self._pending(pair, exclude_order_ids=exclude_order_ids))
 
-    def material_requirements(self, day):
+    def material_requirements(self, day, *, exclude_order_ids=()):
         result = defaultdict(list)
-        for row in self._pending():
+        for row in self._pending(exclude_order_ids=exclude_order_ids):
             pair = row["node_id"],row["item_id"]
             for component, coefficient in self.bom_by_pair.get(pair, ()):
                 result[component].append(Requirement("frozen_material:"+row["order_id"]+":"+"|".join(component),
                     max(day,row["planned_release_day"]),row["qty"]*coefficient))
         return {pair:tuple(rows) for pair,rows in result.items()}
 
-    def planning_snapshot(self, day):
-        pairs = {(r["node_id"],r["item_id"]) for r in self._pending()}
-        return dict(receipts={p:self.firm_receipts(p,day) for p in pairs},
-                    requirements=self.material_requirements(day))
+    def planning_snapshot(self, day, *, exclude_order_ids=()):
+        pairs = {(r["node_id"],r["item_id"])
+                 for r in self._pending(exclude_order_ids=exclude_order_ids)}
+        return dict(receipts={p:self.firm_receipts(p,day,exclude_order_ids=exclude_order_ids) for p in pairs},
+                    requirements=self.material_requirements(day,exclude_order_ids=exclude_order_ids))
+
+    def reducible_unstarted_orders(self):
+        """Only model-created commitments, never observed/opening hypotheses."""
+        simulated = {event["order_id"] for event in self.events
+                     if event["event"] == "created_outside_zone"}
+        return tuple(sorted((row for row in self._pending()
+            if row["order_id"] in simulated and not row["campaign_id"]
+            and row["actual_release_day"] is None and row["executed_qty"] == 0),
+            key=lambda row: (row["planned_release_day"],row["created_day"],row["order_id"]),
+            reverse=True))
+
+    def cancel_unstarted_whole_lot(self, order_id, *, day):
+        """Explicit experimental exception after a successful dated re-netting.
+
+        Keep the original identity, dates and quantity as an audit record. This
+        method owns no physical stock and cannot cancel native WIP or initial OF.
+        The calling policy must first establish its no-worsening counterfactual.
+        """
+        if day != self.day or order_id not in {r["order_id"] for r in self.reducible_unstarted_orders()}:
+            raise ValueError("Reduction requires a current, unstarted simulated frozen order")
+        row = self.orders[order_id]
+        if not float(row["qty"]).is_integer():
+            raise ValueError("Whole-lot reduction requires integer physical units")
+        row.update(state="cancelled", revised_day=day)
+        self._event(dict(row, block_reason="known_needs_and_protection_not_worsened"),
+                    day, "unstarted_whole_lot_cancelled")
 
     def blocked(self, order_id, *, day, reason):
         row = self.orders[order_id]

@@ -6,6 +6,56 @@ Leur validité technique ne prouve ni leur plausibilité métier ni la validité
 scientifique du résultat. Un multiplicateur de 1 conserve le paramètre de base ;
 0 est accepté par le parseur, mais le moteur peut appliquer ses propres planchers.
 
+### Option expérimentale : réduction des ordres figés non lancés
+
+`--production-frozen-reduction-policy unstarted_whole_lot_reduction_v1`
+teste une exception au gel strict, avec le carnet figé et le calendrier de
+lancement sans capacité modélisée. Le défaut reste le gel des dates et quantités.
+L'autorisation industrielle de cette exception n'est pas confirmée.
+
+À la clôture du lundi, un lot entier simulé encore non lancé peut être annulé
+si le recalcul conserve les besoins des PF et leur protection, sans dégrader
+leur couverture datée ni celle des demandes externes. Le gel s'applique aux
+fabrications ; les achats de composants suivent leurs propres délais et règles.
+Les ordres initiaux et les fabrications déjà engagées restent intangibles.
+L'identité, la quantité et la date d'origine restent dans le journal. La
+réception prévue, les besoins de composants et la réservation de travail sont
+retirés ensemble ; aucune matière ni réception physique n'est créée ou annulée.
+Un remplacement ultérieur reste une proposition hors de la période figée de
+28 ou 56 jours, avec une disponibilité projetée, pas une promesse ferme.
+
+Le rapprochement industriel peut remplacer des identifiants de besoins et
+réaffecter un composant à d'autres usages. Les versions, fenêtres, unités et
+quantités sources doivent alors rester traçables. Les compléments prévisionnels
+normalisés sur des semaines futures peuvent être révisés ; ils ne constituent
+pas des commandes clients fermes. Les autres besoins déclarés et les lots
+conservés gardent leur protection datée. Le contrôle utilise un seul stock et
+les réceptions et propositions déjà présentes : aucun achat supplémentaire
+n'est créé pour le faire réussir. Toute quantité prévisionnelle supplémentaire
+doit être couverte à sa date. La sécurité dynamique suit les besoins révisés,
+avec les mêmes paramètres source ; les quantités fixes restent protégées.
+L'anticipation liée aux délais de sécurité est vérifiée séparément, sans
+l'ajouter une deuxième fois à la consommation physique.
+
+Lorsque la politique existante arrondit les achats nets au kilogramme le plus
+proche, un reliquat strictement inférieur à 0,5 kg peut subsister dans la
+sécurité dynamique prévisionnelle. Le contrôle conserve explicitement ce
+reliquat, avec le même quantum dans les entrées et les deux plans. Il ne crée
+aucune matière : les besoins datés, les quantités fixes de sécurité et le stock
+physique restent soumis à leurs contrôles stricts. Cette convention ne
+s'applique pas aux unités physiques entières.
+
+À la fin de l'horizon prévisionnel, la réserve de repli reste une quantité
+calculée : maximum entre le plancher fixe et les besoins de la fenêtre initiale
+connue, selon les jours source. Elle est recalculée après retrait d'un lot
+uniquement si cette formule et ses champs d'audit sont vérifiés. La fenêtre
+future incomplète reste déclarée inconnue ; elle n'est pas remplie de zéros.
+
+L'export `data/frozen_production_reduction.json` explique chaque décision et
+ses contrôles datés. Les gains de stock ou de production doivent être comparés
+aux reports, au service et à l'autre PF ; cette option ne définit ni une durée
+de fabrication ni une capacité machine industrielle.
+
 ### Option expérimentale : lancements PF sans débit machine modélisé
 
 Le moteur CLI accepte le couple explicite
