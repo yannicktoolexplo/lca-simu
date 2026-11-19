@@ -6,6 +6,44 @@ Leur validité technique ne prouve ni leur plausibilité métier ni la validité
 scientifique du résultat. Un multiplicateur de 1 conserve le paramètre de base ;
 0 est accepté par le parseur, mais le moteur peut appliquer ses propres planchers.
 
+### Option expérimentale : lancements PF sans débit machine modélisé
+
+Le moteur CLI accepte le couple explicite
+`--production-capacity-planning-policy unconstrained_lot_calendar_v1` et
+`--production-material-launch-policy known_material_kit_unconstrained_v1`.
+Il exige le carnet figé `industrial_frozen_order_book_v1`, les autres contrats
+du programme daté et un horizon d'au plus 365 jours. Ce choix ne modifie pas
+le graphe de référence : le scénario doit déclarer une capacité PF non modélisée
+(`capacity.max_rate = 0`). Dans cette convention du moteur, zéro signifie
+**absence de plafond**, pas usine arrêtée. Les fermetures sont déclarées par
+le calendrier. Un quota hebdomadaire positif reste applicable ; le scénario
+sans plafond de lancement le désactive explicitement avec
+`lot_execution.max_lots_per_week = 0`.
+
+Le calcul conserve la prévision consommée par la demande réelle connue, les
+besoins nets, les quantités de lot et les ordres engagés. Il place les nouveaux
+lancements sur les jours ouverts en respectant les horizons figés de 28 jours
+à 1810 et 56 jours à 1430. Plusieurs ordres déjà dus peuvent être exécutés le
+même jour, chacun avec son identité et son contrôle matière. Le kit complet
+de chaque ordre est vérifié sur le stock utilisable courant, avec les arrondis
+par lot physique ; une réception future ne finance pas ce lancement.
+
+Les ordres initiaux de conditionnement des mêmes PF acceptent également cette
+déclaration explicite de débit nul. Ils conservent leur ordre de priorité, leurs
+quantités, leurs besoins d'emballage et leurs dates sources de disponibilité.
+Leurs matières déjà incorporées restent du travail en cours initial : elles
+ne sont pas consommées une seconde fois. Une fermeture impose toujours zéro
+travail, y compris sur ces ordres initiaux.
+
+Le mode conserve la résolution journalière existante : un lot intégralement
+approvisionné peut être terminé dans la journée. Cela ne constitue ni une durée
+physique mesurée ni une simulation de lots en cours parallèles. Les marges de
+planification et les délais de contrôle/disponibilité restent distincts. Les
+sorties amont disposant d'un débit positif conservent leur calcul capacitaire.
+L'option n'est pas activée par défaut et n'est pas exposée par le raccourci CLI
+de la référence nominale ; elle s'utilise avec un graphe et des arguments moteur
+préparés explicitement.
+
 ## 1. Contrat du parseur Python/JSON
 
 `request_from_dict` exige exactement une source : `input_graph` ou `input_path`.
