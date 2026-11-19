@@ -545,8 +545,11 @@ def opening_pack_case(orders=((1, 0, 2, 200),), *, closed=()):
     return pair, units, components, payload, kwargs
 
 
-def opening_pack_runtime(orders=((1, 0, 2, 200),), *, carton=10, boxes=500, closed=()):
+def opening_pack_runtime(orders=((1, 0, 2, 200),), *, carton=10, boxes=500, closed=(), unmodeled=False):
     pair, units, components, payload, kwargs = opening_pack_case(orders, closed=closed)
+    if unmodeled:
+        kwargs["nodes"][0]["processes"][0]["capacity"]["max_rate"] = 0
+        kwargs["unmodeled_capacity_pairs"] = (pair,)
     book = engine.OpeningPackOrders(payload, **kwargs)
     stock = defaultdict(float, {components[0]: 500, components[1]: boxes,
                                components[2]: carton, (pair[0], "bulk"): 50})
@@ -701,3 +704,118 @@ def test_opening_pack_rejects_ambiguous_roles_and_unphysical_contracts(fault):
     elif fault == "fractional_pf": kwargs["opening_orders"][0]["receipt_qty"] = 1.5
     with pytest.raises(ValueError):
         engine.OpeningPackOrders(payload, **kwargs)
+
+
+def test_opening_pack_unmodeled_requires_explicit_zero_rate_scope_and_keeps_finite_guard():
+    pair, units, components, payload, kwargs = opening_pack_case()
+    kwargs["nodes"][0]["processes"][0]["capacity"]["max_rate"] = 0
+    with pytest.raises(ValueError, match="explicit shared capacity"):
+        engine.OpeningPackOrders(payload, **kwargs)
+    kwargs["unmodeled_capacity_pairs"] = (pair,)
+    book = engine.OpeningPackOrders(payload, **kwargs)
+    assert book.unmodeled_capacity_pairs == frozenset({pair})
+    assert book.rows["OF:1"]["capacity_mode"] == "unmodeled"
+    assert book.candidate(book.rows["OF:1"], day=0, capacity=math.inf,
+        available={p: 500 for p in components})["qty"] == 200
+    with pytest.raises(ValueError, match="open without a rate"):
+        book.candidate(book.rows["OF:1"], day=0, capacity=1000000,
+            available={p: 500 for p in components})
+    # Missing, negative and nonfinite rates cannot be reinterpreted as zero.
+    for capacity in ({}, {"max_rate": -1}, {"max_rate": math.nan}, {"max_rate": math.inf}):
+        invalid = deepcopy(kwargs)
+        invalid["nodes"][0]["processes"][0]["capacity"] = capacity
+        with pytest.raises(ValueError, match="explicit shared capacity"):
+            engine.OpeningPackOrders(payload, **invalid)
+    kwargs["nodes"][0]["processes"][0]["capacity"]["max_rate"] = 150
+    finite = engine.OpeningPackOrders(payload, **kwargs)
+    assert not finite.unmodeled_capacity_pairs
+    with pytest.raises(ValueError, match="finite nonnegative"):
+        finite.candidate(finite.rows["OF:1"], day=0, capacity=math.inf,
+            available={p: 500 for p in components})
+
+
+def test_opening_pack_unmodeled_preserves_fifo_initial_quantities_genealogy_and_new_work_budget():
+    state = opening_pack_runtime(((2, 0, 2, 80), (1, 0, 2, 100)), unmodeled=True)
+    remaining, fragments = state["execute"](0, engine.manufacturing_controlled_capacity(0, capacity_multiplier=1))
+    assert math.isinf(remaining)
+    assert [(f["order_id"], f["qty"], f["available_day"]) for f in fragments] == [
+        ("OF:1", 100, 2), ("OF:2", 80, 2)]
+    assert all(f["capacity_mode"] == "unmodeled" for f in fragments)
+    assert [state["stock"][p] for p in state["components"]] == [320, 320, 7]
+    assert state["stock"][state["pair"][0], "bulk"] == 50
+    assert state["stock"][state["pair"]] == 0
+    assert state["availability"].held_by_pair[state["pair"]] == 180
+    assert len({f["lot_id"] for f in fragments}) == 2
+    for fragment in fragments:
+        consumed = [row for row in state["ledger"].event_rows
+            if row["event_type"] == "production_consume" and row["source_id"] == fragment["fragment_id"]]
+        assert {row["item_id"]: row["qty"] for row in consumed} == {
+            pair[1]: qty for pair, qty in fragment["components"].items()}
+        assert any('"capacity_mode": "unmodeled"' in event.get("notes", "")
+            for event in state["ledger"].event_rows if event["lot_id"] == fragment["lot_id"])
+    # Same native daily capacity function sees initial conditioning and new
+    # work once, without turning either quantity into an implicit machine rate.
+    assert math.isinf(engine.production_remaining_day_capacity(remaining,
+        executed_qty=50, opening_pack_qty=180))
+    assert engine.production_remaining_day_capacity(0, executed_qty=0, opening_pack_qty=0) == 0
+    assert state["execute"](0, math.inf)[1] == []  # Source OF cannot execute twice.
+
+
+def test_opening_pack_unmodeled_keeps_source_identity_units_and_unique_process_guards():
+    for fault in ("duplicate_order", "fractional_output", "non_unit_output", "multiple_outputs",
+                  "multiple_processes", "unknown_pack_role"):
+        pair, units, components, payload, kwargs = opening_pack_case()
+        kwargs["nodes"][0]["processes"][0]["capacity"]["max_rate"] = 0
+        kwargs["unmodeled_capacity_pairs"] = (pair,)
+        if fault == "duplicate_order":
+            kwargs["opening_orders"].append(dict(kwargs["opening_orders"][0]))
+        elif fault == "fractional_output":
+            kwargs["opening_orders"][0]["receipt_qty"] = 1.5
+        elif fault == "non_unit_output":
+            units["PF"] = "KG"
+        elif fault == "multiple_outputs":
+            kwargs["nodes"][0]["processes"][0]["outputs"].append(dict(item_id="other"))
+        elif fault == "multiple_processes":
+            kwargs["nodes"][0]["processes"].append(deepcopy(kwargs["nodes"][0]["processes"][0]))
+        else:
+            payload["rows"][0]["pack_components"][0]["role"] = "unknown"
+        with pytest.raises(ValueError):
+            engine.OpeningPackOrders(payload, **kwargs)
+
+
+def test_opening_pack_unmodeled_still_blocks_on_material_and_nets_residual_once():
+    state = opening_pack_runtime(((2, 0, 2, 80), (1, 0, 2, 100)), boxes=130, unmodeled=True)
+    remaining, fragments = state["execute"](0, math.inf)
+    assert math.isinf(remaining)
+    assert [(f["order_id"], f["qty"]) for f in fragments] == [("OF:1", 100), ("OF:2", 30)]
+    assert state["stock"][state["components"][1]] == 0
+    needs = engine.sync_opening_pack_commitments(state["book"], decision_day=0, commitments=state["commitments"])
+    snapshot = deepcopy(state["commitments"])
+    engine.sync_opening_pack_commitments(state["book"], decision_day=0, commitments=state["commitments"])
+    assert state["commitments"] == snapshot
+    assert sorted((row[1], row[2]) for row in snapshot[state["pair"]].values()) == [
+        (30, "held"), (50, "production"), (100, "held")]
+    assert {pair: [row.qty for row in rows] for pair, rows in needs.items()} == {
+        state["components"][0]: [50], state["components"][1]: [50]}
+    no_carton = opening_pack_runtime(carton=0, unmodeled=True)
+    before = dict(no_carton["stock"])
+    assert no_carton["execute"](0, math.inf)[1] == []
+    assert dict(no_carton["stock"]) == before and not no_carton["book"].fragments
+
+
+def test_opening_pack_unmodeled_respects_source_dates_closure_and_late_quality_release():
+    state = opening_pack_runtime(((1, 1, 5, 100),), closed=(1, 2), unmodeled=True)
+    assert state["execute"](0, math.inf)[1] == []  # Source G not reached.
+    assert state["execute"](1, math.inf) == (0, [])
+    assert state["execute"](2, math.inf) == (0, [])
+    # Even a direct candidate cannot bypass the declared closure with infinity.
+    assert state["book"].candidate(state["book"].rows["OF:1"], day=2, capacity=math.inf,
+        available=state["stock"])["qty"] == 0
+    needs, firms = state["book"].planning(1)
+    assert {row.due_day for rows in needs.values() for row in rows} == {3}
+    remaining, fragments = state["execute"](3, math.inf)
+    assert math.isinf(remaining) and fragments[0]["qty"] == 100
+    assert fragments[0]["available_day"] == 6  # Sat4Jan + Fri/Mon source2workdays -> Tue7Jan.
+    assert state["book"].rows["OF:1"]["physical_delivery_day"] == 1
+    assert state["book"].rows["OF:1"]["arrival_day"] == 5
+    assert firms[state["pair"]][0].receipt_id == "OF:1"
