@@ -1,4 +1,4 @@
-"""Replay one native case with the explicit hypothesis of an earlier lot."""
+"""Replay one native case with explicit earlier-lot hypotheses."""
 from __future__ import annotations
 
 import argparse
@@ -16,7 +16,12 @@ def run(case_path: Path, scenario_path: Path) -> Path:
     case_path = case_path.resolve()
     scenario_path = scenario_path.resolve()
     case = reference.read(case_path)
-    scenario = ProgrammeAdvance(**reference.read(scenario_path))
+    source = reference.read(scenario_path)
+    multiple = isinstance(source, list)
+    if multiple and len(source) != 2:
+        raise ValueError("The order list must contain exactly two advances")
+    scenarios = tuple(ProgrammeAdvance(**row) for row in (source if multiple else [source]))
+    scenario = scenarios if multiple else scenarios[0]
     graph_path = Path(case["graph"]).resolve()
     output = Path(case["output"]).resolve()
     profile_path = Path(case["replay_profile_path"]).resolve()
@@ -47,7 +52,8 @@ def run(case_path: Path, scenario_path: Path) -> Path:
         with programme_advance_trial(scenario) as audit:
             runtime = reference.run_engine(graph, protocol, config, frozen_path,
                 arguments, output, days, scan3_mode=case["scan3_mode"], replay_profile_path=profile_path)
-        if not any(row["event"] == "native_freeze_confirmed" for row in audit):
+        confirmed = [row["order_id"] for row in audit if row["event"] == "native_freeze_confirmed"]
+        if sorted(confirmed) != sorted(row.order_id for row in scenarios):
             raise ValueError("The intervention did not reach its declared native freeze")
     except Exception as exc:
         failure = repr(exc)
@@ -56,7 +62,8 @@ def run(case_path: Path, scenario_path: Path) -> Path:
         stable = before == code_fingerprint() and all(
             reference.sha(reference.ROOT / path) == digest for path, digest in inputs.items())
         with audit_path.open("x", encoding="utf-8") as stream:
-            json.dump(dict(scenario=asdict(scenario), decisions=audit), stream, ensure_ascii=False, indent=2)
+            serialized = [asdict(row) for row in scenarios] if multiple else asdict(scenario)
+            json.dump(dict(scenario=serialized, decisions=audit), stream, ensure_ascii=False, indent=2)
         manifest = dict(status="passed_execution" if failure is None and stable else "failed_execution",
             returncode=0 if failure is None and stable else 1, reference=config["reference_id"],
             graph=reference.rel(graph_path), output=reference.rel(output), days=days,
