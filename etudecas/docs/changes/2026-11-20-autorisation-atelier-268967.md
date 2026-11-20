@@ -55,7 +55,7 @@ Le gain sur l’écart de stock physique vient du relevé du 14 avril. Il
 passe de 847 884 à 740 084 unités simulées, pour 709 197 observées.
 Le report laisse le service de 268967 et de 268091 identique jusqu’au
 30 avril. Le stock déjà disponible absorbe l’attente.
-[Graphique](../../resultats/autorisation_atelier_268967_20261120.png)
+[Courbes HTML avec semaines cliquables](../../resultats/autorisation_atelier_268967_20261120.html) · [Graphique](../../resultats/autorisation_atelier_268967_20261120.png)
 
 Le programme de 268967 change pour 14 publications de lancement, avec
 un taux de révision inchangé de 1 304 sur 2 651 comparaisons actives.
@@ -66,6 +66,39 @@ L’essai confirme l’intérêt de distinguer l’engagement d’achat, le trav
 et la libération. Le 14 avril reste une hypothèse. La durée du deuxième
 lot et la part éventuelle d’autres lots dans la seconde semaine restent
 à départager. La référence nominale garde ses paramètres.
+
+## Ce que l’étalement peut expliquer
+
+L’engagement ouvre le besoin d’achat. Le premier travail exige une
+autorisation d’atelier, un jour ouvré et le kit de composants utilisables.
+Dans un essai de travail progressif, les retraits suivent l’avancement
+cumulé et le lot entier entre en stock à l’achèvement. Le départ, l’arrivée
+et le contrôle de réception déterminent ensuite le stock utilisable à
+D1920. La taille de lot de **107 800 unités** fixe la quantité du lot.
+La durée de travail reste un paramètre distinct.
+
+Les semaines des 14 et 21 avril cumulent **165 920 étuis** et **33 920 m**
+d’un second emballage, soit **160 000 équivalents produit fini**. Le lot
+de 107 800 laisse entre **52 200 et 58 120 équivalents** à expliquer selon
+le composant suivi. La version MRP du 16 février porte deux repères de
+besoin à 1430, le 6 et le 20 avril. Il s’agit de sorties de composants
+planifiées. Les identités et la fin physique des lots demeurent inconnues.
+
+Un calcul conditionnel répartit les 107 800 unités sur dix jours ouvrés
+à partir du 14 avril. Avec 53 900 par semaine et les autres retraits
+conservés, l’écart moyen sur les dix semaines documentées serait de
+**7 395 étuis**. Toute répartition de 13 800 à 71 920 unités la première
+semaine donne le même écart. Le score hebdomadaire laisse donc la cadence
+indéterminée. Ce calcul reste un test arithmétique.
+
+Avec départ du lot entier après achèvement le 25 avril et deux jours de
+transport, l’arrivée serait le 27 avril. Les relevés de D1920 exigent
+déjà au moins **33 622 unités d’apports** pendant la semaine du 14 avril.
+Il faut distinguer l’arrivée d’un autre lot ou stock déjà achevé, des
+tranches achevées et expédiées séparément, ainsi que d’éventuels décalages
+d’écriture. Un journal par lot des prélèvements, fins de travail, départs
+et réceptions départagerait ces explications.
+[Calcul et cellules sources](../../artifacts/testing/autorisation_atelier_html_20261120/work_spread_bounds.json)
 
 Le premier calcul a été interrompu après détection d’un défaut dans
 l’ordre d’initialisation d’un export. Le calcul qualifié reprend les
