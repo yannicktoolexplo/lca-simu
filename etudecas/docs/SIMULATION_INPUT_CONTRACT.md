@@ -94,6 +94,24 @@ L'option n'est pas activée par défaut et n'est pas exposée par le raccourci C
 de la référence nominale ; elle s'utilise avec un graphe et des arguments moteur
 préparés explicitement.
 
+#### Durée d'exécution d'un lot engagé
+
+`--engaged-lot-work-days "IDENTIFIANT_ORDRE,JOURS"` permet d'étudier un
+seul ordre figé dans ce mode. Il faut un calendrier ouvré déclaré, un lot
+physique en unités entières et les prélèvements cumulés du lot
+(`--production-component-issue-policy batch_cumulative_v1`). La durée doit
+être entière et laisser au moins une unité de travail dans chaque tranche.
+Une fermeture ou un manque de matière peut reporter du travail au-delà de
+la durée saisie. Le kit complet reste exigé au lancement.
+
+L'ordre conserve ses dates au carnet jusqu'au premier travail. Le moteur
+prélève alors les composants au fur et à mesure, suit l'encours et projette
+une seule réception MRP à partir du travail restant. La sortie physique du
+lot entier intervient à la fin du travail, puis le transport et le contrôle
+qualité suivent leurs règles propres. La durée est une hypothèse de scénario.
+Ce mode utilise l'unique encours du couple usine–produit et refuse le
+chevauchement si un autre ordre dû de ce couple doit attendre derrière lui.
+
 ## 1. Contrat du parseur Python/JSON
 
 `request_from_dict` exige exactement une source : `input_graph` ou `input_path`.
