@@ -7,6 +7,7 @@ creates physical stock, work, or consumption.
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 import math
 
 from .mrp_planning import DatedPlan, FirmReceipt, OrderProposal, Requirement
@@ -15,8 +16,29 @@ FROZEN_PRODUCTION_POLICY = "industrial_frozen_order_book_v1"
 J0_NET_PLAN_HYPOTHESIS_POLICY = "j0_net_plan_hypothesis_v1"
 
 
+@dataclass(frozen=True)
+class FrozenLotAuthorization:
+    order_id: str
+    not_before_day: int
+
+    @classmethod
+    def parse(cls, specification):
+        identity, separator, day = specification.partition(",")
+        fields = identity.split("|")
+        if (not separator or not day.isascii() or not day.isdecimal()
+                or len(fields) != 4 or fields[0] != "FROZEN" or not all(fields[1:])
+                or not fields[3].isascii() or not fields[3].isdecimal() or int(fields[3]) <= 0):
+            raise ValueError("Frozen lot work authorization expects ORDER_ID,DAY for one simulated frozen order")
+        return cls(identity, int(day))
+
+    @property
+    def pair(self):
+        _, node, item, _ = self.order_id.split("|")
+        return node, item
+
+
 class FrozenProductionBook:
-    def __init__(self, horizons_by_node, *, bom_by_pair=None, initial_book_policy=None):
+    def __init__(self, horizons_by_node, *, bom_by_pair=None, initial_book_policy=None, work_authorization=None):
         if not horizons_by_node or any(not isinstance(n, str) or not n or type(h) is not int or h <= 0
                                        for n, h in horizons_by_node.items()):
             raise ValueError("Frozen horizons require named sites and positive integer days")
@@ -31,32 +53,55 @@ class FrozenProductionBook:
         self.events = []
         self.day = -1
         self.sequence = 0
+        self.work_authorization = work_authorization
 
     def _event(self, row, day, event):
         self.events.append(dict(row, day=day, event=event,
             decision_age_days=day-row["created_day"],
             estimated_available_day=self.estimated_available_day(row,day),
-            availability_status="estimated_original_calendar_span_shift_not_material_guarantee",
+            availability_status=self.availability_status(row,day),
             launch_delay_days=max(0, (row["actual_release_day"]
                 if row["actual_release_day"] is not None else day)-row["planned_release_day"])
                 if row["state"] in ("frozen", "active", "completed") else 0))
 
-    @staticmethod
-    def estimated_available_day(row, day):
+    def _earliest_work_day(self, row, day):
+        planned = row["planned_release_day"]
+        authorization = self.work_authorization
+        # The workshop hold becomes known only when the frozen order is due.
+        if authorization is not None and row["order_id"] == authorization.order_id and day >= planned:
+            return max(planned, authorization.not_before_day)
+        return planned
+
+    def launch_is_authorized(self, row, day):
+        return self._earliest_work_day(row, day) <= day
+
+    def availability_status(self, row, day):
+        if row["planned_release_day"] <= day < self._earliest_work_day(row, day):
+            return "estimated_after_work_authorization_not_material_guarantee"
+        return "estimated_original_calendar_span_shift_not_material_guarantee"
+
+    def estimated_available_day(self, row, day):
         # Retain the original finite-capacity/control span when unstarted work
         # is late. This declared calendar-day bound is not an observed ETA and
         # does not claim feasibility against revised calendars/materials.
-        return max(day+1, row["planned_available_day"]+max(0,day-row["planned_release_day"]))
+        work_day = max(day, self._earliest_work_day(row, day))
+        return max(day+1, row["planned_available_day"]+max(0,work_day-row["planned_release_day"]))
 
     def begin_day(self, day):
         if type(day) is not int or day < 0 or day < self.day:
             raise ValueError("Order-book time must be nonnegative and monotone")
+        new_day = day != self.day
         self.day = day
         for row in self.orders.values():
             if (row["state"] == "planned"
                     and row["planned_release_day"] < day+self.horizons_by_node[row["node_id"]]):
                 row.update(state="frozen", frozen_day=day)
                 self._event(row, day, "frozen_before_review")
+        if self.work_authorization is not None and new_day:
+            row = self.orders.get(self.work_authorization.order_id)
+            if (row is not None and row["state"] == "frozen"
+                    and row["planned_release_day"] <= day < self._earliest_work_day(row, day)):
+                self.blocked(row["order_id"], day=day, reason="atelier_authorization_not_before")
 
     def _new(self, pair, identity, day, release, available, requested, qty, state,
              *, provenance=None, event=None):
@@ -199,16 +244,16 @@ class FrozenProductionBook:
 
     def due(self, pair, day):
         self.begin_day(day)
-        return next((r for r in self._pending(pair) if r["planned_release_day"] <= day), None)
+        return next((r for r in self._pending(pair) if self.launch_is_authorized(r, day)), None)
 
     def bind(self, order_id, *, day, campaign_id):
         self.begin_day(day)
         row = self.orders[order_id]
         if row["state"] == "active" and row["campaign_id"] == campaign_id:
             return
-        if (row["state"] != "frozen" or day < row["planned_release_day"] or not campaign_id
+        if (row["state"] != "frozen" or not self.launch_is_authorized(row, day) or not campaign_id
                 or any(r["campaign_id"] == campaign_id for r in self.orders.values())):
-            raise ValueError("A frozen order can launch once, never before its planned date")
+            raise ValueError("A frozen order can launch once, never before its planned or authorized date")
         row.update(state="active",campaign_id=campaign_id,actual_release_day=day)
         self._event(row,day,"first_physical_work")
 
@@ -230,7 +275,7 @@ class FrozenProductionBook:
                      for r in self._pending(pair, exclude_order_ids=exclude_order_ids))
 
     def reserved_work(self, pair, day, *, exclude_order_ids=()):
-        return tuple((r["order_id"],max(day,r["planned_release_day"]),r["qty"])
+        return tuple((r["order_id"],max(day,self._earliest_work_day(r,day)),r["qty"])
                      for r in self._pending(pair, exclude_order_ids=exclude_order_ids))
 
     def material_requirements(self, day, *, exclude_order_ids=()):
