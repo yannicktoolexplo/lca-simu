@@ -77,6 +77,7 @@ from etudecas.simulation.engine.unconstrained_material_launch import (
 from etudecas.simulation.engine.uncapacitated_schedule import (
     UNCONSTRAINED_PRODUCTION_POLICY, schedule_uncapacitated_lots, next_due_frozen_order,
 )
+from etudecas.simulation.engine.engaged_lot_work import EngagedLotWork
 from etudecas.simulation.lot_policy.models import normalize_uom
 FINITE_PRODUCTION_POLICY = "finite_lot_calendar_v1"
 FINITE_PRODUCTION_FIELDS = [
@@ -8152,6 +8153,8 @@ def parse_args() -> argparse.Namespace:
         default=None, help="Explicit finite capacity or known launch calendar without a machine rate; nominal reference remains unchanged.")
     parser.add_argument("--production-frozen-horizon-policy", choices=[FROZEN_PRODUCTION_POLICY],
         default=None, help="Opt-in persistent production commitments: launch/quantity frozen 28 days at M-1810 and 56 at M-1430.")
+    parser.add_argument("--engaged-lot-work-days", action="append", default=[], metavar="ORDER_ID,DAYS",
+        help="Experimental physical work duration for one frozen UN batch under the unmodeled-capacity calendar.")
     parser.add_argument("--production-frozen-opening-policy", choices=[J0_NET_PLAN_HYPOTHESIS_POLICY],
         default=None, help="Explicit hypothetical opening commitments from the first net known forecast plan; requires frozen production. Never observed initial orders.")
     parser.add_argument("--production-frozen-reduction-policy", choices=[FROZEN_REDUCTION_POLICY],
@@ -13300,6 +13303,14 @@ def main() -> None:
     cumulative_component_issues = args.production_component_issue_policy == BATCH_CUMULATIVE_ISSUE_POLICY
     if cumulative_component_issues and not args.lot_trace:
         raise ValueError("Cumulative component issues require the native batch and material genealogy")
+    engaged_lot_work = None
+    if args.engaged_lot_work_days:
+        if len(args.engaged_lot_work_days) != 1:
+            raise ValueError("Engaged lot work supports exactly one order")
+        if (production_capacity_planning_policy != UNCONSTRAINED_PRODUCTION_POLICY
+                or not cumulative_component_issues):
+            raise ValueError("Engaged lot work requires unmodeled PF capacity and cumulative batch component issues")
+        engaged_lot_work = EngagedLotWork.parse(args.engaged_lot_work_days[0])
     active_batch_material_protection = args.active_batch_material_protection_policy is not None
     if active_batch_material_protection and not cumulative_component_issues:
         raise ValueError("Active batch material protection requires cumulative batch component issues")
@@ -19019,6 +19030,11 @@ def main() -> None:
                 material_launch_deferred = False
                 material_launch_applicable = False
                 new_launch_support = None
+                frozen_campaign_order_id = frozen_order_by_campaign.get(campaign_id, "")
+                applies_engaged_lot_work = engaged_lot_work is not None and (
+                    frozen_campaign_order_id == engaged_lot_work.order_id
+                    or (campaign_remaining_start_qty <= LOT_TRACE_EPS and frozen_launch_order is not None
+                        and frozen_launch_order["order_id"] == engaged_lot_work.order_id))
                 if lot_policy["enabled"]:
                     if campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
                         campaign_requested_qty = launch_campaign_qty(desired_qty, lot_policy)
@@ -19089,6 +19105,18 @@ def main() -> None:
                                 campaign_qty=campaign_started_qty, lot_policy=lot_policy,
                                 output_uom=item_unit_map.get(out_item, ""), capacity_qty=cap,
                                 component_feasible_qty=max_from_inputs, integer_input_limits=integer_input_limits)
+                            if applies_engaged_lot_work and campaign_started_qty > LOT_TRACE_EPS:
+                                batch_target = canonical_production_batch_target_qty(
+                                    campaign_started_qty, lot_policy, item_unit_map.get(out_item, ""))
+                                if (out_pair not in unconstrained_lot_scope
+                                        or out_pair not in manufacturing_weekly_closed_days
+                                        or normalize_unit(item_unit_map.get(out_item, "")) != "UN"
+                                        or batch_target != campaign_started_qty):
+                                    raise ValueError(
+                                        "Engaged lot work requires one integer PF batch and a declared work calendar"
+                                    )
+                                first_execution = min(math.floor(first_execution),
+                                    engaged_lot_work.daily_work(target=batch_target, executed=0))
                             if campaign_started_qty > LOT_TRACE_EPS and first_execution <= LOT_TRACE_EPS:
                                 # No component has moved: no physical campaign
                                 # identity or weekly slot is created. A frozen
@@ -19138,7 +19166,8 @@ def main() -> None:
                                 production_programme_book.engage(out_pair,output_day,campaign_id)
                             if frozen_launch_order is not None:
                                 frozen_production_book.bind(frozen_launch_order["order_id"],day=day,campaign_id=campaign_id)
-                                frozen_order_by_campaign[campaign_id] = frozen_launch_order["order_id"]
+                                frozen_campaign_order_id = frozen_launch_order["order_id"]
+                                frozen_order_by_campaign[campaign_id] = frozen_campaign_order_id
                         elif frozen_launch_order is not None:
                             frozen_production_book.blocked(frozen_launch_order["order_id"],day=day,
                                 reason="dated_material_continuity" if material_launch_deferred else
@@ -19179,10 +19208,21 @@ def main() -> None:
 
                 execution_plan_qty = batch_remaining_start_qty if batch_wip is not None else lot_planned_qty
                 executable_work = max(0.0, min(cap, max_from_inputs, execution_plan_qty))
+                engaged_daily_work = None
+                if applies_engaged_lot_work and batch_wip is not None:
+                    engaged_daily_work = engaged_lot_work.daily_work(
+                        target=batch_wip.target_qty, executed=batch_executed_start_qty)
+                    executable_work = min(executable_work, engaged_daily_work)
                 qty = production_wip_execution_quantity(
                     feasible_cumulative_work(executable_work, issue_work_before, cumulative_input_limits)
                     if cumulative_component_issues else
                     production_input_feasible_execution_quantity(executable_work, component_limits=integer_input_limits))
+                if engaged_daily_work is not None:
+                    qty = math.floor(qty)
+                if (engaged_lot_work is not None and out_pair in unconstrained_lot_scope
+                        and campaign_remaining_start_qty - qty > LOT_TRACE_EPS):
+                    engaged_lot_work.check_overlap(orders=frozen_production_book.orders.values(),
+                        pair=out_pair, day=day, current_order_id=frozen_campaign_order_id)
                 if new_launch_support is not None and qty <= LOT_TRACE_EPS:
                     raise ArithmeticError("A campaign authorization cannot become firm without its first physical work")
                 if not lot_policy["enabled"] and qty > 1e-9:
@@ -19230,7 +19270,10 @@ def main() -> None:
                     if lot_weekly_limit_blocked and campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
                         binding_cause = "weekly_lot_limit"
                     elif qty + 1e-9 < binding_reference_qty:
-                        if max_from_inputs <= cap + 1e-9 and max_from_inputs <= binding_reference_qty + 1e-9:
+                        if (engaged_daily_work is not None and qty == engaged_daily_work
+                                and engaged_daily_work < binding_reference_qty):
+                            binding_cause = "engaged_lot_work_timing"
+                        elif max_from_inputs <= cap + 1e-9 and max_from_inputs <= binding_reference_qty + 1e-9:
                             binding_cause = "input_shortage"
                             binding_item = input_binding_item
                         elif has_capacity_limit and cap <= max_from_inputs + 1e-9 and cap <= binding_reference_qty + 1e-9:
@@ -20290,6 +20333,10 @@ def main() -> None:
                         chain_planning_policy is not None
                         and process_capacity_by_output_pair.get(output_pair, 0.0) <= 0) else
                     math.ceil(remaining / max(process_capacity_by_output_pair.get(output_pair, 0.0), 1e-9)))
+                if (engaged_lot_work is not None and wip is not None
+                        and frozen_order_by_campaign.get(wip.campaign_id) == engaged_lot_work.order_id):
+                    work_days = engaged_lot_work.remaining_days(
+                        target=wip.target_qty, executed=executed_wip)
                 finish_day = day + max(1, work_days, network_leads.get(output_pair, 1))
                 if output_pair in production_calendar_scope:
                     finish_day = engaged_production_available_day(decision_day=day,
@@ -26959,6 +27006,23 @@ def main() -> None:
             writer = csv.DictWriter(handle, fieldnames=fields)
             writer.writeheader(); writer.writerows(production_component_issue_rows)
     if frozen_production_book is not None:
+        if engaged_lot_work is not None:
+            selected_order = frozen_production_book.orders.get(engaged_lot_work.order_id)
+            if selected_order is None:
+                raise ValueError(f"Engaged lot work order was not found: {engaged_lot_work.order_id}")
+            selected_pair = selected_order["node_id"], selected_order["item_id"]
+            if selected_pair not in unconstrained_lot_scope:
+                raise ValueError(f"Engaged lot work order is outside the unmodeled PF scope: {selected_pair}")
+            summary["policy"]["engaged_lot_work"] = dict(
+                order_id=engaged_lot_work.order_id,
+                work_days=engaged_lot_work.work_days,
+                state=selected_order["state"],
+                campaign_id=selected_order["campaign_id"],
+                distribution="whole_UN_cumulative_tranches_one_native_batch",
+                calendar="declared_open_factory_days_and_daily_operational_stops",
+                planning_credit="frozen_date_preserved_until_work_then_one_native_campaign_receipt",
+                capacity="no_machine_rate_added",
+                basis="explicit_duration_hypothesis_not_an_industrial_observation")
         summary["policy"]["production_programme_policy"].update(
             overridden_authorization_nodes=sorted(frozen_production_book.horizons_by_node),
             override_policy=FROZEN_PRODUCTION_POLICY,
