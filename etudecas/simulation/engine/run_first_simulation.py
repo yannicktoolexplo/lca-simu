@@ -52,7 +52,7 @@ from etudecas.simulation.engine.finite_production_schedule import (
     ProductionLotRequest, schedule_production_lots,
 )
 from etudecas.simulation.engine.frozen_production import (
-    FrozenProductionBook, FROZEN_PRODUCTION_POLICY, J0_NET_PLAN_HYPOTHESIS_POLICY,
+    FrozenLotAuthorization, FrozenProductionBook, FROZEN_PRODUCTION_POLICY, J0_NET_PLAN_HYPOTHESIS_POLICY,
 )
 from etudecas.simulation.engine.frozen_reduction import (
     FROZEN_REDUCTION_POLICY, reduce_unstarted_frozen_orders,
@@ -8155,6 +8155,8 @@ def parse_args() -> argparse.Namespace:
         default=None, help="Opt-in persistent production commitments: launch/quantity frozen 28 days at M-1810 and 56 at M-1430.")
     parser.add_argument("--engaged-lot-work-days", action="append", default=[], metavar="ORDER_ID,DAYS",
         help="Experimental physical work duration for one frozen UN batch under the unmodeled-capacity calendar.")
+    parser.add_argument("--frozen-lot-not-before", action="append", default=[], metavar="ORDER_ID,DAY",
+        help="Experimental earliest workshop authorization day for one simulated frozen order.")
     parser.add_argument("--production-frozen-opening-policy", choices=[J0_NET_PLAN_HYPOTHESIS_POLICY],
         default=None, help="Explicit hypothetical opening commitments from the first net known forecast plan; requires frozen production. Never observed initial orders.")
     parser.add_argument("--production-frozen-reduction-policy", choices=[FROZEN_REDUCTION_POLICY],
@@ -13311,6 +13313,12 @@ def main() -> None:
                 or not cumulative_component_issues):
             raise ValueError("Engaged lot work requires unmodeled PF capacity and cumulative batch component issues")
         engaged_lot_work = EngagedLotWork.parse(args.engaged_lot_work_days[0])
+    frozen_work_authorization = None
+    if args.frozen_lot_not_before:
+        if (len(args.frozen_lot_not_before) != 1 or args.production_frozen_horizon_policy is None
+                or production_capacity_planning_policy != UNCONSTRAINED_PRODUCTION_POLICY):
+            raise ValueError("Workshop authorization requires one order, a persistent frozen book and unmodeled PF capacity")
+        frozen_work_authorization = FrozenLotAuthorization.parse(args.frozen_lot_not_before[0])
     active_batch_material_protection = args.active_batch_material_protection_policy is not None
     if active_batch_material_protection and not cumulative_component_issues:
         raise ValueError("Active batch material protection requires cumulative batch component issues")
@@ -14993,7 +15001,8 @@ def main() -> None:
             raise ValueError("Frozen production requires the source-year weekly-publication finite multi-day programme and physical launch commitment")
         frozen_production_book = FrozenProductionBook({"M-1810":28,"M-1430":56},
             bom_by_pair=process_input_requirements_by_output_pair,
-            initial_book_policy=args.production_frozen_opening_policy)
+            initial_book_policy=args.production_frozen_opening_policy,
+            work_authorization=frozen_work_authorization)
     internal_transfer_commitment_pairs = internal_transfer_commitment_scope(
         internal_transfer_commitment_policy, lanes_by_dest_item=lanes_by_dest_item,
         produced_pairs=produced_pairs, production_input_pairs=production_input_pairs,
@@ -16643,6 +16652,8 @@ def main() -> None:
         raise ValueError("Production planning has no output with a supported rate or unconstrained PF calendar")
     if production_capacity_planning_policy == UNCONSTRAINED_PRODUCTION_POLICY and not unconstrained_lot_scope:
         raise ValueError("Unconstrained PF policy requires an explicitly unmodeled PF machine rate")
+    if frozen_work_authorization is not None and frozen_work_authorization.pair not in unconstrained_lot_scope:
+        raise ValueError("Workshop authorization applies to an output pair in the unmodeled PF scope")
 
     def finite_capacity_context(pair, *, decision_day, first_work_day, current_capacity_qty=None):
         if pair not in production_calendar_scope:
@@ -18594,7 +18605,7 @@ def main() -> None:
                     due_ids_by_pair.setdefault((nid, out_item), frozenset(row["order_id"]
                         for row in frozen_production_book.orders.values()
                         if (row["node_id"],row["item_id"]) == (nid,out_item)
-                        and row["state"] == "frozen" and row["planned_release_day"] <= day))
+                        and row["state"] == "frozen" and frozen_production_book.launch_is_authorized(row, day)))
                 if continuing_campaign_id and (
                         open_production_campaign_id_by_pair.get((nid, out_item)) != continuing_campaign_id
                         or open_production_campaign_qty_by_pair.get((nid, out_item), 0.0) <= LOT_TRACE_EPS):
@@ -19221,7 +19232,8 @@ def main() -> None:
                     qty = math.floor(qty)
                 if (engaged_lot_work is not None and out_pair in unconstrained_lot_scope
                         and campaign_remaining_start_qty - qty > LOT_TRACE_EPS):
-                    engaged_lot_work.check_overlap(orders=frozen_production_book.orders.values(),
+                    engaged_lot_work.check_overlap(orders=(row for row in frozen_production_book.orders.values()
+                        if frozen_production_book.launch_is_authorized(row, day)),
                         pair=out_pair, day=day, current_order_id=frozen_campaign_order_id)
                 if new_launch_support is not None and qty <= LOT_TRACE_EPS:
                     raise ArithmeticError("A campaign authorization cannot become firm without its first physical work")
@@ -19812,7 +19824,8 @@ def main() -> None:
                         and qty > LOT_TRACE_EPS and released_qty > LOT_TRACE_EPS
                         and open_production_campaign_qty_by_pair.get(out_pair, 0.0) <= LOT_TRACE_EPS
                         and out_pair not in production_batch_wip_by_pair
-                        and next_due_frozen_order(orders=frozen_production_book.orders.values(),
+                        and next_due_frozen_order(orders=(row for row in frozen_production_book.orders.values()
+                            if frozen_production_book.launch_is_authorized(row, day)),
                             pair=out_pair, day=day, eligible_ids=due_ids_by_pair[out_pair],
                             attempted_ids=attempted_due_ids_by_pair[out_pair]) is not None):
                     # A completed lot frees the native single-WIP controller.
@@ -27023,6 +27036,17 @@ def main() -> None:
                 planning_credit="frozen_date_preserved_until_work_then_one_native_campaign_receipt",
                 capacity="no_machine_rate_added",
                 basis="explicit_duration_hypothesis_not_an_industrial_observation")
+        if frozen_work_authorization is not None:
+            if frozen_work_authorization.order_id not in frozen_production_book.orders:
+                raise ValueError(f"Workshop authorization order was not found: {frozen_work_authorization.order_id}")
+            summary["policy"]["frozen_lot_work_authorization"] = dict(
+                order_id=frozen_work_authorization.order_id,
+                not_before_day=frozen_work_authorization.not_before_day,
+                disclosure="first_frozen_planned_launch_day",
+                purchase_date_basis="unchanged_original_frozen_launch",
+                availability="estimated_shift_of_original_planning_span_after_disclosure",
+                audit="data/frozen_production_events.csv",
+                status="experimental_operational_earliest_work_date")
         summary["policy"]["production_programme_policy"].update(
             overridden_authorization_nodes=sorted(frozen_production_book.horizons_by_node),
             override_policy=FROZEN_PRODUCTION_POLICY,
@@ -27060,7 +27084,7 @@ def main() -> None:
         with data_path(output_dir,"frozen_production_orders.json").open("w",encoding="utf-8") as handle:
             json.dump(dict(policy=FROZEN_PRODUCTION_POLICY,orders=[dict(row,
                 **(dict(estimated_available_day=frozen_production_book.estimated_available_day(row,total_timeline_days-1),
-                        availability_status="estimated_original_calendar_span_shift_not_material_guarantee")
+                        availability_status=frozen_production_book.availability_status(row,total_timeline_days-1))
                    if row["state"] == "frozen" else {})) for row in frozen_production_book.orders.values()]),
                 handle,ensure_ascii=False,indent=2)
         if args.production_frozen_reduction_policy is not None:

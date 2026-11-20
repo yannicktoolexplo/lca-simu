@@ -112,6 +112,18 @@ qualité suivent leurs règles propres. La durée est une hypothèse de scénari
 Ce mode utilise l'unique encours du couple usine–produit et refuse le
 chevauchement si un autre ordre dû de ce couple doit attendre derrière lui.
 
+#### Report de l’autorisation de travail
+
+`--frozen-lot-not-before "IDENTIFIANT_ORDRE,JOUR"` teste une date minimale
+d’autorisation pour un seul ordre figé simulé dans le mode sans débit
+machine modélisé. `JOUR` est l’indice entier du jour dans le calcul.
+Le report devient connu le jour de lancement inscrit au carnet.
+Il conserve les dates du carnet, la quantité, les besoins matière et les
+règles de protection. La réception ferme projetée se décale à partir de
+l’annonce, avec la marge calendaire du carnet. Le calendrier et la
+disponibilité des composants s’appliquent à la nouvelle autorisation.
+Le journal des ordres figés indique les journées et le motif de report.
+
 ## 1. Contrat du parseur Python/JSON
 
 `request_from_dict` exige exactement une source : `input_graph` ou `input_path`.
