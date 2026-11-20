@@ -1,4 +1,4 @@
-"""Pure in-memory contracts for the single existing order experiment."""
+"""Pure in-memory contracts for the existing-order experiments."""
 from copy import deepcopy
 from dataclasses import replace
 
@@ -13,6 +13,7 @@ PAIR = ("factory", "item:product")
 COMPONENT = ("factory", "item:component")
 FIRST = "FROZEN|factory|item:product|1"
 SECOND = "FROZEN|factory|item:product|2"
+THIRD = "FROZEN|factory|item:product|3"
 
 
 def proposal(identity, release, qty=100):
@@ -126,3 +127,66 @@ def test_option_preserves_only_the_advanced_commitment(preserve):
         protection = [entry for entry in audit if entry["event"] == "advanced_commitment_preserved_from_reduction"]
         assert [entry["day"] for entry in protection] == ([5, 7] if preserve else [])
     assert FrozenProductionBook.reducible_unstarted_orders is original_reducible
+
+
+def test_two_advances_freeze_independently_and_preserve_only_selected_orders():
+    first = replace(scenario(), preserve_frozen_commitment=True)
+    second = replace(scenario(SECOND, known=3, target=11), preserve_frozen_commitment=True)
+    book = new_book()
+    other = proposal("third", 24, 75)
+    with programme_advance_trial((second, first)) as audit:
+        book.reconcile(PAIR, 0, [proposal("first", 12), proposal("second", 17), other])
+        third = book.orders[THIRD].copy()
+        book.reconcile(PAIR, 2, [proposal("first", 13), proposal("second", 18), other])
+        assert (book.orders[FIRST]["planned_release_day"], book.orders[SECOND]["planned_release_day"]) == (8, 18)
+        book.reconcile(PAIR, 3, [proposal("first", 14), proposal("second", 19), other])
+        book.reconcile(PAIR, 4, [proposal("first", 12), proposal("second", 18), other])
+        assert (book.orders[FIRST]["planned_release_day"], book.orders[SECOND]["planned_release_day"]) == (8, 11)
+        assert not book.firm_receipts(PAIR, 4)
+
+        book.begin_day(5)
+        assert not book.reducible_unstarted_orders()
+        book.reconcile(PAIR, 5, [proposal("second", 16), other])
+        assert [(r.receipt_id, r.available_day, r.qty) for r in book.firm_receipts(PAIR, 5)] == [(FIRST, 11, 100)]
+        for day in range(6, 8):
+            book.reconcile(PAIR, day, [proposal("second", 18), other])
+        book.begin_day(8)
+        assert not book.reducible_unstarted_orders()
+        book.reconcile(PAIR, 8, [other])
+        assert book.orders[THIRD] == third
+        credits = [(r.receipt_id, r.available_day, r.qty) for r in book.firm_receipts(PAIR, 8)]
+        assert credits == [(FIRST, 11, 100), (SECOND, 14, 100)]
+        materials = [(r.due_day, r.qty) for r in book.material_requirements(8)[COMPONENT]]
+        assert materials == [(8, 125), (11, 125)]
+        assert book.reserved_work(PAIR, 8) == ((FIRST, 8, 100), (SECOND, 11, 100))
+        book.begin_day(21)
+        assert [row["order_id"] for row in book.reducible_unstarted_orders()] == [THIRD]
+
+    assert [(r["day"], r["order_id"]) for r in audit if r["event"] == "native_freeze_confirmed"] == [(5, FIRST), (8, SECOND)]
+    assert [(r["day"], r["order_id"], r["from_proposal_id"]) for r in audit
+            if r["event"] == "existing_lot_date_advanced" and r["day"] == 3] == [(3, FIRST, "first"), (3, SECOND, "second")]
+
+
+def test_two_advances_refuse_an_ambiguous_second_lot_without_revising_first():
+    book = new_book()
+    with programme_advance_trial((scenario(), scenario(SECOND, known=3, target=11))) as audit:
+        book.reconcile(PAIR, 0, [proposal("first", 12), proposal("second", 17)])
+        book.reconcile(PAIR, 2, [proposal("first", 13), proposal("second", 18)])
+        before_state = deepcopy((book.orders, book.events, book.day, audit))
+        with pytest.raises(ValueError, match="unambiguous equivalent lot"):
+            book.reconcile(PAIR, 3, [proposal("first", 14), proposal("second", 19), proposal("duplicate", 19)])
+        assert (book.orders, book.events, book.day, audit) == before_state
+
+
+def test_two_advances_require_distinct_identities_and_knowledge_dates():
+    native = FrozenProductionBook.reconcile
+    invalid = (
+        (scenario(), scenario(FIRST, known=3, target=11)),
+        (scenario(), scenario(SECOND, known=2, target=11)),
+        (scenario(), replace(scenario(SECOND, known=3, target=11), pair=("factory", "other"))),
+    )
+    for pair in invalid:
+        with pytest.raises(ValueError, match="two distinct existing orders"):
+            with programme_advance_trial(pair):
+                pytest.fail("invalid trial installed the adapter")
+        assert FrozenProductionBook.reconcile is native

@@ -1,4 +1,4 @@
-"""Bounded experiment with the date of one existing production order.
+"""Bounded experiment with dates of existing production orders.
 
 The adapter is installed for one synchronous simulation in a dedicated
 process. The native book still decides when the order becomes firm and
@@ -65,114 +65,157 @@ def _has_expected_freeze(book, scenario, freeze_day):
             and frozen[0]["qty"] == scenario.qty)
 
 
-@contextmanager
-def programme_advance_trial(scenario: ProgrammeAdvance):
-    """Revise the date of one order until its native freeze.
+@dataclass
+class _AdvanceState:
+    scenario: ProgrammeAdvance
+    natural_order: dict | None = None
+    freeze_checked: bool = False
+    book: FrozenProductionBook | None = None
 
-    An explicit alternative assumes that the factory keeps this one
-    commitment when it reviews surplus frozen orders.
-    """
+    def freeze_day(self, book):
+        return self.scenario.target_release_day - book.horizons_by_node[self.scenario.pair[0]] + 1
+
+
+def _validate_existing_lot(state, book, pair, day):
+    scenario = state.scenario
+    identity = scenario.order_id
+    current = book.orders.get(identity)
+    if not current or (current["node_id"], current["item_id"]) != pair:
+        raise ValueError("The designated existing manufacturing order is absent")
+    if (current["state"] != "planned" or current["qty"] != scenario.qty
+            or current["created_day"] >= scenario.known_day or current["known_day"] > day
+            or current["actual_release_day"] is not None or current["executed_qty"] != 0
+            or current["campaign_id"]):
+        raise ValueError("Only an existing, unstarted planned lot of the same quantity can advance")
+    if state.natural_order is None and (day != scenario.known_day or not any(
+            event["order_id"] == identity and event["event"] == "created_outside_zone"
+            for event in book.events)):
+        raise ValueError("The first eligible review must follow the origin of a simulated lot")
+
+
+def _matching_advance(scenario, natural, proposals):
+    matches = [proposal for proposal in proposals if
+               (proposal.release_day, proposal.available_day, proposal.requested_day, proposal.qty)
+               == _order_signature(natural)]
+    if (natural["state"] != "planned" or len(matches) != 1 or natural["qty"] != scenario.qty
+            or natural["planned_release_day"] <= scenario.target_release_day
+            or natural["planned_available_day"] - natural["planned_release_day"]
+            != scenario.target_available_day - scenario.target_release_day):
+        raise ValueError("No unambiguous equivalent lot with the original planning span to advance")
+    original = matches[0]
+    return original, replace(original, release_day=scenario.target_release_day,
+                             available_day=scenario.target_available_day)
+
+
+@contextmanager
+def programme_advance_trial(scenario: ProgrammeAdvance | tuple[ProgrammeAdvance, ...]):
+    """Revise one or two existing lots for one pair until their native freezes."""
+    scenarios = (scenario,) if isinstance(scenario, ProgrammeAdvance) else tuple(scenario)
+    if (len(scenarios) not in (1, 2) or len({row.order_id for row in scenarios}) != len(scenarios)
+            or len({row.known_day for row in scenarios}) != len(scenarios)
+            or len({row.pair for row in scenarios}) != 1):
+        raise ValueError("Expected at most two distinct existing orders with separate knowledge dates for one pair")
+    states = [_AdvanceState(row) for row in sorted(scenarios, key=lambda row: row.known_day)]
+    protected = {state.scenario.order_id: state for state in states if state.scenario.preserve_frozen_commitment}
     native_reconcile = FrozenProductionBook.reconcile
     native_reducible = FrozenProductionBook.reducible_unstarted_orders
     audit = []
-    native_order_before_advance = None
-    freeze_checked = False
-    advanced_book = None
-    preserved_days = set()
+    preserved_reviews = set()
 
     def reconcile(book, pair, day, proposals):
-        nonlocal native_order_before_advance, freeze_checked, advanced_book
-        if pair != scenario.pair or day < scenario.known_day or freeze_checked:
+        pending = [state for state in states if pair == state.scenario.pair
+                   and day >= state.scenario.known_day and not state.freeze_checked]
+        if not pending:
             return native_reconcile(book, pair, day, proposals)
 
-        horizon = book.horizons_by_node[pair[0]]
-        freeze_day = scenario.target_release_day - horizon + 1
-        identity = scenario.order_id
-        current = book.orders.get(identity)
-        if not current or (current["node_id"], current["item_id"]) != pair:
-            raise ValueError("The designated existing manufacturing order is absent")
-        if day >= freeze_day:
-            if (book is not advanced_book or day != freeze_day
-                    or not _has_expected_freeze(book, scenario, freeze_day)):
-                raise ValueError("The designated order did not enter the native freeze as expected")
-            result = native_reconcile(book, pair, day, proposals)
-            audit.append(dict(day=day, event="native_freeze_confirmed", order_id=identity,
-                              target_release_day=scenario.target_release_day,
-                              target_available_day=scenario.target_available_day,
-                              qty=scenario.qty))
-            freeze_checked = True
-            return result
-        if (current["state"] != "planned" or current["qty"] != scenario.qty
-                or current["created_day"] >= scenario.known_day or current["known_day"] > day
-                or current["actual_release_day"] is not None or current["executed_qty"] != 0
-                or current["campaign_id"]):
-            raise ValueError("Only an existing, unstarted planned lot of the same quantity can advance")
-        if native_order_before_advance is None and (day != scenario.known_day or not any(
-                event["order_id"] == identity and event["event"] == "created_outside_zone"
-                for event in book.events)):
-            raise ValueError("The first eligible review must follow the origin of a simulated lot")
+        revising, freezing = [], []
+        for state in pending:
+            freeze_day = state.freeze_day(book)
+            if day < freeze_day:
+                _validate_existing_lot(state, book, pair, day)
+                revising.append(state)
+            else:
+                if (book is not state.book or day != freeze_day
+                        or not _has_expected_freeze(book, state.scenario, freeze_day)):
+                    raise ValueError("The designated order did not enter the native freeze as expected")
+                freezing.append(state)
 
-        # Keep the unmodified dates for matching only. This mirrors the
-        # association native reconcile would make on this day's proposals.
-        proposals = tuple(proposals)
-        reference = _preview_book(book)
-        if native_order_before_advance is not None:
-            reference.orders[identity] = native_order_before_advance.copy()
-        native_reconcile(reference, pair, day, proposals)
-        natural = reference.orders[identity]
-        signature = _order_signature(natural)
-        matches = [proposal for proposal in proposals if
-                   (proposal.release_day, proposal.available_day, proposal.requested_day, proposal.qty) == signature]
-        if (natural["state"] != "planned" or len(matches) != 1 or natural["qty"] != scenario.qty
-                or natural["planned_release_day"] <= scenario.target_release_day
-                or natural["planned_available_day"] - natural["planned_release_day"]
-                != scenario.target_available_day - scenario.target_release_day):
-            raise ValueError("No unambiguous equivalent lot with the original planning span to advance")
-        original = matches[0]
-        advanced = replace(original, release_day=scenario.target_release_day,
-                           available_day=scenario.target_available_day)
-        adjusted = tuple(advanced if proposal is original else proposal for proposal in proposals)
-        preview = _preview_book(book)
-        native_reconcile(preview, pair, day, adjusted)
-        revised = preview.orders[identity]
-        expected = (advanced.release_day, advanced.available_day, advanced.requested_day, advanced.qty)
-        if (preview.orders.keys() != reference.orders.keys() or preview.sequence != reference.sequence
-                or _order_signature(revised) != expected or revised["state"] != "planned"
-                or any(row != reference.orders[key] for key, row in preview.orders.items() if key != identity)):
-            raise ValueError("Advancing this lot would alter other identities, quantities or commitments")
+        changes = []
+        adjusted = proposals
+        if revising:
+            # Restore the unmodified dates only for native proposal matching.
+            # The joint preview ensures that every unaffected identity survives.
+            proposals = tuple(proposals)
+            reference = _preview_book(book)
+            for state in revising:
+                if state.natural_order is not None:
+                    reference.orders[state.scenario.order_id] = state.natural_order.copy()
+            native_reconcile(reference, pair, day, proposals)
+            for state in revising:
+                natural = reference.orders[state.scenario.order_id]
+                original, advanced = _matching_advance(state.scenario, natural, proposals)
+                changes.append((state, natural, original, advanced))
+            replacements = {old.proposal_id: new for _, _, old, new in changes}
+            if len(replacements) != len(changes):
+                raise ValueError("Each advanced lot requires its own native proposal")
+            adjusted = tuple(replacements.get(proposal.proposal_id, proposal) for proposal in proposals)
+            preview = _preview_book(book)
+            native_reconcile(preview, pair, day, adjusted)
+            expected = {state.scenario.order_id: (new.release_day, new.available_day, new.requested_day, new.qty)
+                        for state, _, _, new in changes}
+            if (preview.orders.keys() != reference.orders.keys() or preview.sequence != reference.sequence
+                    or any(_order_signature(preview.orders[key]) != signature
+                           or preview.orders[key]["state"] != "planned" for key, signature in expected.items())
+                    or any(row != reference.orders[key] for key, row in preview.orders.items() if key not in expected)):
+                raise ValueError("Advancing this lot would alter other identities, quantities or commitments")
 
         result = native_reconcile(book, pair, day, adjusted)
-        native_order_before_advance = natural.copy()
-        advanced_book = book
-        audit.append(dict(day=day, event="existing_lot_date_advanced", order_id=identity,
-            known_day=scenario.known_day, source_evidence=list(scenario.source_evidence),
-            from_proposal_id=original.proposal_id, native_release_day=original.release_day,
-            native_available_day=original.available_day, requested_day=original.requested_day,
-            target_release_day=advanced.release_day, target_available_day=advanced.available_day,
-            qty=scenario.qty, freeze_day=freeze_day, same_day_proposal_count=len(proposals),
-            same_day_proposal_qty=sum(proposal.qty for proposal in proposals)))
+        for state in freezing:
+            selected = state.scenario
+            state.freeze_checked = True
+            audit.append(dict(day=day, event="native_freeze_confirmed", order_id=selected.order_id,
+                target_release_day=selected.target_release_day, target_available_day=selected.target_available_day,
+                qty=selected.qty))
+        for state, natural, original, advanced in changes:
+            selected = state.scenario
+            state.natural_order = natural.copy()
+            state.book = book
+            audit.append(dict(day=day, event="existing_lot_date_advanced", order_id=selected.order_id,
+                known_day=selected.known_day, source_evidence=list(selected.source_evidence),
+                from_proposal_id=original.proposal_id, native_release_day=original.release_day,
+                native_available_day=original.available_day, requested_day=original.requested_day,
+                target_release_day=advanced.release_day, target_available_day=advanced.available_day,
+                qty=selected.qty, freeze_day=state.freeze_day(book), same_day_proposal_count=len(proposals),
+                same_day_proposal_qty=sum(proposal.qty for proposal in proposals)))
         return result
 
     def reducible_unstarted_orders(book):
         candidates = native_reducible(book)
-        if book is not advanced_book or not any(row["order_id"] == scenario.order_id for row in candidates):
-            return candidates
-        freeze_day = scenario.target_release_day - book.horizons_by_node[scenario.pair[0]] + 1
-        if book.day < freeze_day or not _has_expected_freeze(book, scenario, freeze_day):
-            raise ValueError("The commitment can only be preserved after its traced native freeze")
-        if book.day not in preserved_days:
-            preserved_days.add(book.day)
-            audit.append(dict(day=book.day, event="advanced_commitment_preserved_from_reduction",
-                order_id=scenario.order_id, qty=scenario.qty, known_day=scenario.known_day,
-                freeze_day=freeze_day, reason="scenario_assumes_known_factory_programme_is_firm"))
-        return tuple(row for row in candidates if row["order_id"] != scenario.order_id)
+        retained = []
+        for row in candidates:
+            identity = row["order_id"]
+            state = protected.get(identity)
+            if state is None or book is not state.book:
+                retained.append(row)
+                continue
+            selected = state.scenario
+            freeze_day = state.freeze_day(book)
+            if book.day < freeze_day or not _has_expected_freeze(book, selected, freeze_day):
+                raise ValueError("The commitment can only be preserved after its traced native freeze")
+            review = (identity, book.day)
+            if review not in preserved_reviews:
+                preserved_reviews.add(review)
+                audit.append(dict(day=book.day, event="advanced_commitment_preserved_from_reduction",
+                    order_id=identity, qty=selected.qty, known_day=selected.known_day,
+                    freeze_day=freeze_day, reason="scenario_assumes_known_factory_programme_is_firm"))
+        return tuple(retained)
 
     FrozenProductionBook.reconcile = reconcile
-    if scenario.preserve_frozen_commitment:
+    if protected:
         FrozenProductionBook.reducible_unstarted_orders = reducible_unstarted_orders
     try:
         yield audit
     finally:
         FrozenProductionBook.reconcile = native_reconcile
-        if scenario.preserve_frozen_commitment:
+        if protected:
             FrozenProductionBook.reducible_unstarted_orders = native_reducible
