@@ -114,6 +114,22 @@ def test_engine_dispatch_preserves_quantities_firms_and_calendar_without_rate():
         and r["available_day"] == 12 and r["reserved_allocations_json"] == "{}" for r in audit)
 
 
+def test_uncapacitated_plan_with_no_new_lots_retains_late_firm_receipt():
+    from etudecas.simulation.engine.mrp_planning import FirmReceipt, Requirement, plan_dated_requirements
+    from etudecas.simulation.engine.run_first_simulation import uncapacitated_manufacturing_plan
+
+    requirements = (Requirement("need", 7, 100),)
+    receipts = (FirmReceipt("held", 10, 80, "held"),)
+    plan = plan_dated_requirements(decision_day=0, available_qty=20, requirements=requirements,
+        firm_receipts=receipts, lead_days=3)
+    assert not plan.proposals and plan.firm_late_qty == 80
+    placed, audit = uncapacitated_manufacturing_plan(plan, requirements=requirements, firm_receipts=receipts,
+        context=dict(first_work_day=1, new_order_not_before=28, known_day=0,
+                     supply_calendar=dict(physical_lead_days=3, origin_date="2025-01-01")))
+    assert placed is plan and audit == []
+    assert [(row.day, row.after_proposals_qty) for row in placed.balances] == [(0, 20), (7, -80), (10, 0)]
+
+
 def test_existing_finite_mode_still_rejects_unmodeled_rate():
     from etudecas.simulation.engine.mrp_planning import DatedPlan, OrderProposal
     from etudecas.simulation.engine.run_first_simulation import finite_manufacturing_plan

@@ -6076,6 +6076,8 @@ def finite_manufacturing_plan(plan, *, requirements, firm_receipts, context):
 
 def uncapacitated_manufacturing_plan(plan, *, requirements, firm_receipts, context):
     """Keep MRP launch dates subject only to known calendars and frozen horizon."""
+    if not plan.proposals:
+        return plan, []
     first = max(plan.decision_day, context["first_work_day"])
     first_new = max(first, context.get("new_order_not_before", first))
     through = max(first_new, *(row.release_day for row in plan.proposals),
