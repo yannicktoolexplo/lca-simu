@@ -22,10 +22,10 @@ function set(s,a,v){s.getRange(a).values=[[v]];}
 function fx(s,a,v){s.getRange(a).formulas=[[v]];}
 function text(s,a,v){set(s,a,v);s.getRange(a).format.wrapText=true;}
 function init(s,range,widths){s.showGridLines=false;s.getRange(range).format.font={name:'Arial',size:10,color:'#202A35'};s.getRange(range).format.rowHeight=24;s.getRange(range).format.verticalAlignment='center';for(const[c,w]of Object.entries(widths))s.getRange(`${c}:${c}`).format.columnWidth=w;}
-function title(s,t){set(s,'A2',t);s.getRange('A2').format.font={name:'Arial',size:14,bold:true,color:'#000000'};set(s,'A4','Analyse réalisée le 25 novembre 2026 à partir des travaux existants du dépôt.');}
+function title(s,t){set(s,'A2',t);s.getRange('A2').format.font={name:'Arial',size:14,bold:true,color:'#000000'};}
 function head(s,r,labels,last='D'){s.getRange(`A${r}:${last}${r}`).values=[labels];s.getRange(`A${r}:${last}${r}`).format={fill:'#29465B',font:{name:'Arial',size:10,bold:true,color:'#FFFFFF'},wrapText:true,rowHeight:42,horizontalAlignment:'center',verticalAlignment:'center'};}
 function sub(s,r,label){set(s,`A${r}`,label);s.getRange(`A${r}`).format.font={name:'Arial',size:11,bold:true,color:'#000000'};}
-function base(wb,name,t){const s=wb.worksheets.add(name);init(s,'A1:D100',{A:52,B:20,C:25,D:72});title(s,t);s.tabColor='#29465B';return s;}
+function base(wb,name,t){const s=wb.worksheets.add(name);init(s,'A1:D100',{A:52,B:20,C:25,D:72});title(s,t);set(s,'A4','Analyse réalisée le 25 novembre 2026 à partir des travaux existants du dépôt.');s.tabColor='#29465B';return s;}
 function rows(s,start,data){s.getRange(`A${start}:D${start+data.length-1}`).values=data;for(let i=0;i<data.length;i++){const r=start+i;s.getRange(`A${r}:D${r}`).format.wrapText=true;s.getRange(`A${r}:D${r}`).format.rowHeight=38;if(i%2)s.getRange(`A${r}:D${r}`).format.fill='#F0F4F7';}s.getRange(`B${start}:B${start+data.length-1}`).format.horizontalAlignment='right';}
 function calc(s,row,label,formula,unit,meaning,fmt='0.00'){rows(s,row,[[label,null,unit,meaning]]);fx(s,`B${row}`,formula);s.getRange(`B${row}`).setNumberFormat(fmt);}
 function conclusion(s,row,label,body){sub(s,row,label);text(s,`A${row+1}`,body);s.getRange(`A${row+1}:D${row+1}`).merge();s.getRange(`A${row+1}:D${row+1}`).format.rowHeight=46;}

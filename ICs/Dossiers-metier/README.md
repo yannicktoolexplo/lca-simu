@@ -4,7 +4,7 @@ Les 14 sujets réunissent la question d’origine et des pièces de travail supp
 
 | Sujet | Pièces complémentaires | Domaine |
 |---|---:|---|
-| [T01 · À qui consacrer cinq places en revue fournisseur ?](T01/README.md) | 2 | Achats |
+| [T01 · À qui consacrer cinq places en revue fournisseur ?](T01/README.md) | 3 | Achats |
 | [T02 · Quelle quantité acheter à la source de dépannage ?](T02/README.md) | 2 | Achats |
 | [T03 · Quel renseignement manque réellement pour décider d’un audit ?](T03/README.md) | 2 | Achats |
 | [T04 · Combien de jours le dépôt peut-il encore servir ?](T04/README.md) | 3 | Planification |
@@ -17,9 +17,9 @@ Les 14 sujets réunissent la question d’origine et des pièces de travail supp
 | [T11 · Combien de pièces doivent passer le recontrôle pour justifier une retouche ?](T11/README.md) | 2 | Qualité et environnement |
 | [T12 · Le choix de conception résiste-t-il à une autre pondération ?](T12/README.md) | 2 | Qualité et environnement |
 | [T13 · Combien vaut un plafond de facturation des urgences ?](T13/README.md) | 2 | Contrôle de gestion |
-| [T14 · Payer le transport accéléré ou combiner deux interventions ?](T14/README.md) | 2 | Contrôle de gestion |
+| [T14 · Payer le transport accéléré ou combiner deux interventions ?](T14/README.md) | 3 | Contrôle de gestion |
 
-Le lot initial comprend 14 Word, cinq Excel et cinq PowerPoint. Les 30 compléments comprennent 22 Word et huit Excel. Le dossier de chaque sujet renvoie à sa note initiale et aux ressources mutualisées de son domaine.
+Le lot initial comprend 14 Word, cinq Excel et cinq PowerPoint. Les 32 compléments comprennent 22 Word et dix Excel. Le dossier de chaque sujet renvoie à sa note initiale et aux ressources mutualisées de son domaine.
 
 [Lire les travaux avec Frascati](Lire-les-travaux-avec-Frascati.docx) · [Consigne de production](../PROMPT-INTERCONTRATS.md) · [Questions du cahier](../Cahiers-metier.md)
 

@@ -1,46 +1,76 @@
 {
-  "title": "Comparaison économique des interventions de reprise",
+  "title": "Financer une seule intervention ou en combiner deux",
   "summary": "Pour l’incident d’approvisionnement décrit dans le cahier, l’accélération seule suffit et coûte moins cher que la combinaison. Lorsque la qualité limite encore la disponibilité, la combinaison peut apporter un gain supplémentaire : son intérêt dépend alors du coût du retard évité. Une vérification séparée d’un autre POC existant confirme qu’ajouter des mesures ne garantit pas le meilleur résultat.",
   "sections": [
     {
-      "heading": "Conclusion sur les deux incidents du cahier",
+      "heading": "Deux incidents aux effets économiques différents",
       "paragraphs": [
         "Cahiers-metier.md, lignes 93 à 97, distingue deux essais simulés. Lors du retard d’approvisionnement, l’accélération du transport et la combinaison annulent le même surcroît moyen d’arriéré. Sur cet indicateur et ce cas, payer la combinaison plus chère n’apporte aucun bénéfice supplémentaire. Sous retenue qualité, la combinaison réduit encore l’arriéré : les deux options ne sont plus équivalentes.",
         "Dans ce second essai, le seuil rapporté est environ 2,49 unités monétaires simulées par unité-jour supplémentaire évitée. Le coût des actions et les arriérés détaillés de cet incident ne figurent pas dans les pièces identifiées. Le seuil est donc cité comme résultat existant ; il n’est ni recalculé ni interprété comme un tarif en euros."
       ]
     },
     {
-      "heading": "Règle de comparaison économique",
+      "heading": "Valoriser le retard supplémentaire évité",
       "paragraphs": [
         "Comparer d’abord des actions réalisables avec les informations disponibles à l’engagement : libération qualité, capacité confirmée, échéance et devis. Le coût pertinent est la dépense future supplémentaire de la combinaison. Son gain est la quantité supplémentaire de retard évitée sur les mêmes commandes et le même horizon. Avec une pénalité linéaire, le seuil se calcule en divisant ce surcoût par les unités-jours supplémentaires évitées.",
         "Si le gain supplémentaire est nul, retenir l’option moins chère à efficacité égale. Avec une franchise, un forfait par commande ou un plafond contractuel, calculer directement les pénalités commande par commande. Une moyenne linéaire ne reproduit pas ces clauses. L’ACCA éclaire les coûts différentiels ; le Green Book 2026 recommande de présenter les hypothèses qui font changer de choix."
       ]
     },
     {
-      "heading": "Vérification complémentaire sur un autre POC existant",
+      "heading": "Contrôle indépendant sur un horizon de 52 semaines",
       "paragraphs": [
         "Un contrôle séparé a été exécuté sur les fichiers publics du POC SDD-LCA. Il porte sur cinq politiques et 52 semaines, avec des paramètres explicitement illustratifs. Les 260 lignes de coûts hebdomadaires reproduisent la décomposition par politique à moins de 10⁻⁸ unité monétaire ; les totaux arrondis concordent avec la synthèse. Cet essai utilise des unités-semaines et n’est pas celui qui produit le seuil de 2,49 unités monétaires par unité-jour."
       ],
       "table": {
-        "headers": ["Politique", "Coût total UM", "Service même semaine", "Arriéré unités semaines"],
-        "rows": [
-          ["Référence", "57 053,41", "93,25 %", "621,91"],
-          ["Backup anticipé", "57 053,41", "93,25 %", "621,91"],
-          ["Stock tampon", "43 496,93", "98,42 %", "42,54"],
-          ["Service prioritaire", "45 756,57", "97,29 %", "110,59"]
+        "headers": [
+          "Politique",
+          "Coût total UM",
+          "Service même semaine",
+          "Arriéré unités semaines"
         ],
-        "widths_cm": [4.9, 3.6, 4.1, 4.4]
+        "rows": [
+          [
+            "Référence",
+            "57 053,41",
+            "93,25 %",
+            "621,91"
+          ],
+          [
+            "Backup anticipé",
+            "57 053,41",
+            "93,25 %",
+            "621,91"
+          ],
+          [
+            "Stock tampon",
+            "43 496,93",
+            "98,42 %",
+            "42,54"
+          ],
+          [
+            "Service prioritaire",
+            "45 756,57",
+            "97,29 %",
+            "110,59"
+          ]
+        ],
+        "widths_cm": [
+          4.9,
+          3.6,
+          4.1,
+          4.4
+        ]
       }
     },
     {
-      "heading": "Ce que le recalcul établit",
+      "heading": "Coût et service dans les trajectoires archivées",
       "paragraphs": [
         "L’arriéré cumulé est retrouvé en divisant la pénalité totale par le paramètre de 18 UM par unité-semaine. Le service cumulé atteint 100 % pour les quatre politiques présentées, mais leur ponctualité diffère. Le stock tampon réduit le coût de 13 556,48 UM face à la référence, soit 23,76 %, et de 2 259,64 UM face au service prioritaire, soit 4,94 %.",
         "Face au service prioritaire, le stock tampon a un coût hors pénalité inférieur, 42 731,18 contre 43 765,94 UM, et un arriéré inférieur. En conservant ces trajectoires, il reste préférable pour toute pénalité linéaire positive ou nulle. Le backup anticipé ne change aucun résultat par rapport à la référence sur cette trajectoire. Ce contrôle établit un classement dans ce POC, sans démontrer qu’une même politique gagne sur d’autres incidents."
       ]
     },
     {
-      "heading": "Veille appliquée et décision de revue",
+      "heading": "Décision à présenter en revue",
       "paragraphs": [
         "Müllerklein et Fontaine comparent en 2025 des stratégies de résilience pour un approvisionnement industriel. Leur étude modélisée rapporte des gains de coût pour certaines combinaisons et montre que la valeur d’une prévision dépend des capacités de réacheminement disponibles. La lecture utile pour la revue consiste à vérifier le délai et la capacité de chaque action avant de payer son supplément ; leurs gains ne se transfèrent pas au présent incident.",
         "La décision justifiée dans le premier cas du cahier reste l’accélération seule. Dans le cas qualité, le surcoût doit être confronté au retard supplémentaire réellement évitable et à la clause du client. La vérification du POC renforce la nécessité de conserver une option simple dans la comparaison. Des coûts et arriérés appariés par intervention sont indispensables pour confirmer le seuil de 2,49 sur les données d’origine."
@@ -51,6 +81,9 @@
     "Dépôt lca-simu, commit REV-0415, Cahiers-metier.md, lignes 93 à 97. [Résultats du cahier](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L93-L97#rev-0415).",
     "POC2026/outputs_sddlca_poc/csv : poc_policy_weekly_costs.csv, poc_policy_cost_breakdown.csv et poc_policy_decision_summary.csv. Paramètre : config/sddlca_parameters.yml, ligne 42. Calcul : final_sddlca_poc_script.py, lignes 950 à 973. [Sources du POC](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=POC2026#rev-0415).",
     "ACCA, Relevant costs, sans date affichée. [Article professionnel](https://www.accaglobal.com/uk/en/student/exam-support-resources/fundamentals-exams-study-resources/f5/technical-articles/relevant-costs.html). HM Treasury, Green Book 2026, mise à jour du 28 octobre 2026. [Guide](https://www.gov.uk/government/publications/the-green-book--2/the-green-book-2026).",
-    "D. Müllerklein et P. Fontaine, Resilient transportation network design with disruption uncertainty and lead times, EJOR, 322, 2025, 827–840, en ligne le 22 novembre 2024. [DOI](https://doi.org/10.1016/j.ejor.2024.11.021), [article complet ouvert](https://edoc.ku.de/id/eprint/34580/1/1-s2.0-S0377221724008907-main.pdf). Sources web ouvertes et consultées le 25 novembre 2026."
-  ]
+    "D. Müllerklein et P. Fontaine, Resilient transportation network design with disruption uncertainty and lead times, EJOR, 322, 2025, 827–840, en ligne le 22 novembre 2024. [DOI](https://doi.org/10.1016/j.ejor.2024.11.021), [article complet ouvert](https://edoc.ku.de/id/eprint/34580/1/1-s2.0-S0377221724008907-main.pdf)."
+  ],
+  "genre": "Étude de décision économique",
+  "layout": "étude",
+  "reference_heading": "Sources consultées"
 }

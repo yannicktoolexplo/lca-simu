@@ -1,16 +1,16 @@
 {
-  "title": "Couverture des justificatifs de transport",
-  "summary": "La méthode de collecte la plus couvrante dépend du budget. À trois demandes, les parcours complets couvrent 47,6 % des tonnes-kilomètres modélisées, contre 42,0 % pour les liaisons. À dix demandes, les liaisons prennent environ 13,6 points d’avance. La comparaison interdit donc de généraliser le classement obtenu avec seulement trois demandes.",
+  "title": "Organiser la collecte des justificatifs de transport",
+  "summary": "Le nombre de réponses que le transporteur saura documenter change la première demande à lui adresser. Avec trois demandes, les parcours complets couvrent davantage d’activité. Avec dix, les liaisons ont l’avantage. Le responsable doit aussi préciser si son objectif est de couvrir des tonnes-kilomètres ou de disposer de dossiers complets de bout en bout.",
   "sections": [
     {
-      "heading": "Périmètre et calcul effectué",
+      "heading": "Choisir l’objet à documenter",
       "paragraphs": [
-        "L’analyse porte sur le Cahier métier, section « Quels relevés demander en priorité au transporteur », lignes 53 à 57, version 1c483d76. Le dénominateur des couvertures est l’activité totale de transport modélisée, en tonnes-kilomètres. Il ne s’agit ni d’un pourcentage d’expéditions contrôlées ni d’une réduction d’émissions.",
-        "Le travail du 25 novembre 2026 rapproche les comparaisons publiées et recalcule leur écart à trois demandes. La carte précise, la sélection des parcours et les justificatifs ayant produit ces pourcentages n’ont pas été reliés à une source détaillée de cet essai. Des cartes existent dans le dépôt, mais leur présence ne suffit pas à établir cette filiation. Aucun taux de réponse ou parcours supplémentaire n’a été supposé."
+        "L’écart recalculé à trois demandes est 47,6 − 42,0 = 5,6 points de l’activité totale. Le résultat à dix demandes montre une inversion du classement. Les valeurs intermédiaires ne sont pas publiées ; elles ne permettent pas d’identifier le budget exact de bascule, ni d’affirmer que dix demandes suffisent sur un autre réseau.",
+        "Deux objets restent à distinguer. La couverture en tonnes-kilomètres additionne l’activité documentée. La complétude d’un parcours vérifie que chaque opération nécessaire à son bilan est renseignée. Une collecte peut couvrir beaucoup d’activité tout en laissant un tronçon ou une plateforme sans justificatif. Ces deux résultats répondent à des besoins différents d’un responsable transport."
       ]
     },
     {
-      "heading": "Résultats disponibles",
+      "heading": "Couverture selon le nombre de demandes",
       "table": {
         "headers": [
           "Budget",
@@ -34,17 +34,11 @@
             "Liaisons ≈ +13,6 points"
           ]
         ]
-      }
+      },
+      "paragraphs": []
     },
     {
-      "heading": "Interprétation de la couverture",
-      "paragraphs": [
-        "L’écart recalculé à trois demandes est 47,6 − 42,0 = 5,6 points de l’activité totale. Le résultat à dix demandes montre une inversion du classement. Les valeurs intermédiaires ne sont pas publiées ; elles ne permettent pas d’identifier le budget exact de bascule, ni d’affirmer que dix demandes suffisent sur un autre réseau.",
-        "Deux objets restent à distinguer. La couverture en tonnes-kilomètres additionne l’activité documentée. La complétude d’un parcours vérifie que chaque opération nécessaire à son bilan est renseignée. Une collecte peut couvrir beaucoup d’activité tout en laissant un tronçon ou une plateforme sans justificatif. Ces deux résultats répondent à des besoins différents d’un responsable transport."
-      ]
-    },
-    {
-      "heading": "Actualisation des références de calcul",
+      "heading": "Précautions pour utiliser les réponses",
       "paragraphs": [
         "Le GLEC Framework v3.3, publié par Smart Freight Centre le 27 octobre 2026, décompose les parcours en opérations de transport et de plateforme et en additionne les émissions. Ses chapitres sur le reporting explicitent aussi la qualité et l’origine des données. La conséquence métier est de rattacher le justificatif au périmètre qu’il couvre et de conserver la distinction entre donnée primaire, estimation et valeur par défaut.",
         "Le tableau des changements, édition 4 du 26 octobre 2026, confirme notamment de nouvelles valeurs aériennes et des tableaux avec ou sans supplément de distance de 95 km. La version du facteur et le traitement de cette correction font donc partie de l’explication d’un chiffre. Un résultat modifié après mise à jour du référentiel ne démontre pas à lui seul une amélioration de l’exploitation.",
@@ -53,7 +47,7 @@
       "new_page": true
     },
     {
-      "heading": "Conclusion de la comparaison",
+      "heading": "Décision sur la première vague",
       "paragraphs": [
         "À trois demandes sur ce cas, la sélection par parcours est la plus couvrante ; à dix, la sélection par liaisons l’emporte. L’écart de 5,6 points a été vérifié par calcul, tandis que les classements restent des résultats du cahier. La comparaison ne constitue ni un optimum recalculé sur la carte, ni une mesure de fiabilité des justificatifs. Une empreinte de bout en bout doit conserver les opérations restantes et les estimations visibles."
       ]
@@ -63,6 +57,9 @@
     "[1] Cahier métier, lignes 53 à 57, version 1c483d76. [Comparaison des collectes](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L53#rev-0415).",
     "[2] Smart Freight Centre. GLEC Framework v3.3. Octobre 2026, publication le 27 octobre. Sections 1 et 2. [PDF consulté](https://d1c2gz5q23tkk0.cloudfront.net/shrine_store/uploads/networks/3660/communication_news/13311209/07d62a17997083e294953d425e69d86c.pdf).",
     "[3] Smart Freight Centre. Crosswalk GLEC Framework, édition 4 du 26 octobre 2026, pages 3 à 5. [PDF consulté](https://d1c2gz5q23tkk0.cloudfront.net/shrine_store/uploads/networks/3660/communication_news/13311209/3b754d52417445123e4d321e33d4a3ab.pdf).",
-    "[4] Kallionpää E. et al. Development of logistics emissions reporting. En ligne novembre 2025 ; numéro janvier 2026. DOI 10.1016/j.trd.2025.105083. [Notice universitaire et résumé consultés](https://researchportal.tuni.fi/en/publications/development-of-logistics-emissions-reporting-shippers-and-logisti/). Sources consultées le 25 novembre 2026."
-  ]
+    "[4] Kallionpää E. et al. Development of logistics emissions reporting. En ligne novembre 2025 ; numéro janvier 2026. DOI 10.1016/j.trd.2025.105083. [Notice universitaire et résumé consultés](https://researchportal.tuni.fi/en/publications/development-of-logistics-emissions-reporting-shippers-and-logisti/)."
+  ],
+  "genre": "Note au responsable du bilan transport",
+  "layout": "revue",
+  "reference_heading": "Sources consultées"
 }

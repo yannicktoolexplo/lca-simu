@@ -1,29 +1,17 @@
-# Contrôle du volume et de la couverture des livrables
+# Relecture des 14 rapports et des supports de revue
 
-Vérification du 25 novembre 2026 à partir des pièces du dépôt et des fichiers produits. Référentiel : [PROMPT-INTERCONTRATS.md](../PROMPT-INTERCONTRATS.md), notamment « Travail demandé » et « Pièces à ouvrir », et [Cahiers-metier.md](../Cahiers-metier.md), version de départ `REV-0415`.
+Contrôle effectué le 25 novembre 2026. Le tableau final renvoie aux 14 questions dans leur version d’origine. Les [consignes de production](../PROMPT-INTERCONTRATS.md) demandent également un contrôle de charge individuel, consigné dans la remise privée.
 
-## Exigence de volume dans le dépôt
+| Pièces relues | Résultat du contrôle |
+| --- | --- |
+| Word | Les 14 rapports totalisent 25 pages. Les fiches d’approvisionnement de dépannage, de couverture du dépôt, de fermeture de quai et de disponibilité d’un jeu complet tiennent chacune sur une page. La revue des alertes de fret en occupe trois. Les neuf autres rapports en occupent deux. |
+| Construction des notes | Certains textes s’ouvrent sur un engagement à prendre envers le client, d’autres sur un contrôle physique ou une clause à négocier. Les introductions comptent de 28 à 58 mots. Parties libres, numérotées ou lettrées selon le besoin de renvoi. |
+| Présentation des rapports | Corps de 9,5 à 11 points dans les notes initiales. Trois polices courantes, des fiches en noir et blanc, des études aux titres colorés, sans en-têtes ni pieds de page. La pagination a été contrôlée sur le rendu des documents éditables. |
+| Excel | Cinq classeurs du lot initial et quatorze feuilles. Les formules de décision et les comptages ont été vérifiés sur les exports numériques disponibles. Les sources et unités sont indiquées. |
+| PowerPoint | Quinze diapositives sur cinq supports de décision. Les achats et la planification en comptent trois chacun, le transport quatre, la qualité et l’environnement trois, le contrôle de gestion deux. |
+| Périmètre des recalculs du lot initial | Les plans aléatoires fournisseurs et les matrices de fret disposent de données agrégées exploitables. Les autres recalculs utilisent les agrégats disponibles. Les essais construits, les résultats rapportés et les conditions de passage au terrain sont identifiés dans les notes. |
 
-Le prompt demande de traiter quatorze sujets et d’adapter le format au destinataire. Il cite une note Word courte, un tableur Excel avec formules ou une présentation de revue. Il indique aussi qu’une veille commentée et des questions pour le terrain peuvent former un livrable complet. Aucun quota de pages, de feuilles, de diapositives ni de jours de travail n’est fixé.
-
-La vérification porte donc sur la présence d’une analyse utilisable pour chaque question, ses sources, ses conclusions et la portée des calculs. Les libellés individuels ne sont nécessaires que pour une affectation à une personne ; ils ne conditionnent pas le contrôle des quatorze thèmes demandés.
-
-| Point de contrôle | Référentiel | Production constatée |
-| --- | --- | --- |
-| Couverture des sujets | Quatorze questions métier | Quatorze rapports Word distincts, avec le sujet exact dans le tableau de correspondance |
-| Volume des rapports | Note courte, sans nombre imposé | Deux pages par rapport, soit vingt-huit pages au total |
-| Tableurs | Format adapté avec formules | Cinq classeurs remplis, quatorze feuilles au total |
-| Restitution de revue | Présentation lorsque le format est utile | Cinq PowerPoint de quatre diapositives, soit vingt diapositives |
-| Travail réalisé | Acquis, complément, conclusions et origine | Résultats documentés, analyses rédigées, veille datée et références dans les rapports et notes des présentations |
-| Comparaisons calculables | Exploiter les deux cas et leurs CSV | Plans aléatoires fournisseurs et quinze matrices fret recalculés ; règles fournisseurs fixes vérifiées en cohérence sans reconstituer leurs listes |
-| Autres thèmes | Respecter les données disponibles | Agrégats du cahier et écarts calculables, sans inventer les ordres, expéditions ou inventaires absents |
-| Valeur historique individuelle | Éléments individuels distincts nécessaires | Aucune durée, identité ou expérience individuelle inférée des fichiers |
-
-## Lecture du résultat
-
-Le volume matériel livré est compatible avec le format court prévu par le prompt et les quatorze thèmes sont couverts. Cette conclusion n’équivaut pas à la reproduction intégrale des quatorze simulations : les deux cas disposent de tableaux directement recalculables et les autres rapports s’appuient sur les résultats rapportés, la veille effectuée et les calculs que les agrégats permettent.
-
-Les synthèses bureautiques ne doivent pas être assimilées à une quantité de jours de travail historique. Le référentiel distingue explicitement les horizons des modèles et les durées individuelles. Le présent contrôle n’introduit pas un nouveau quota arbitraire.
+Les [dossiers par sujet](../Dossiers-metier/README.md) contiennent également les lectures comparées et les essais complémentaires. Deux classeurs étudient maintenant le service client et l’exécution du programme sous perturbation, et le coût d’une décision à horizon incertain. La charge propre à la remise en forme et aux copies reste exclue du suivi des analyses.
 
 ## Correspondance avec les questions sources
 

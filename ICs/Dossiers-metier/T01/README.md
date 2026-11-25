@@ -12,6 +12,9 @@ Sur 27 fournisseurs simulés, quatre places mono-source et une autre donnent 9,0
 |---|---|
 | [Qualifier une seconde source.docx](Qualifier%20une%20seconde%20source.docx) | Montée en compétence · entretien achats |
 | [Rotation sur deux revues.xlsx](Rotation%20sur%20deux%20revues.xlsx) | Essai · rotation entre deux campagnes |
+| [Un service stable peut masquer un retard de production.xlsx](Un%20service%20stable%20peut%20masquer%20un%20retard%20de%20production.xlsx) | Essai sur une autre campagne fournisseurs |
+
+Le second classeur confronte le service client au respect du programme de production sur 203 perturbations. Le service est stable dans les 203 cas. Le respect du programme baisse dans 33 cas. Il permet de sélectionner les écarts à examiner avant la revue.
 
 ## Conditions pour transposer le résultat
 

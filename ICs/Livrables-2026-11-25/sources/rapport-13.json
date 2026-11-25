@@ -1,40 +1,56 @@
 {
-  "title": "Valeur du plafond de facturation des urgences",
-  "summary": "Le regroupement des urgences modifie sensiblement le risque comparé entre achat et fabrication. Dans l’exercice disponible, son amplitude atteint environ 25,4 points de probabilité. La conclusion de négociation est de valoriser le plafond au niveau exact où son compteur redémarre. Les agrégats établissent l’importance de cette clause, mais ne fixent pas une prime maximale en euros.",
+  "title": "Quelle prime accepter pour plafonner les urgences",
+  "summary": "Avant de négocier la prime, faire préciser à quel événement le compteur d’urgences repart de zéro. Pour un plafond par lot parent, deux frais nés du même incident peuvent se cumuler dans le même compteur. La valeur du plafond dépend alors du regroupement prévu au contrat.",
   "sections": [
     {
-      "heading": "Résultat établi dans le cahier",
-      "paragraphs": [
-        "Le thème 13 de Cahiers-metier.md, lignes 87 à 91, rapporte une série d’exercice de 240 jeux. Selon le regroupement des urgences, la probabilité calculée que l’offre d’achat coûte davantage que la fabrication interne passe d’environ 15,0 % à 40,4 %. Ces valeurs proviennent d’une simulation. Elles ne décrivent ni un taux industriel observé ni une fréquence d’urgence par pièce.",
-        "Le calcul vérifiable à partir de ces seuls agrégats est 40,4 − 15,0 = 25,4 points de pourcentage environ. Ce sont des valeurs arrondies ; on ne peut pas en déduire des nombres exacts de cas sur 240. Aucun montant de plafond ou de prime n’est donné dans cette pièce."
-      ],
-      "table": {
-        "headers": ["Mesure dans l’exercice", "Résultat rapporté ou recalculé"],
-        "rows": [
-          ["Probabilité la plus faible rapportée", "Environ 15,0 %"],
-          ["Probabilité la plus élevée rapportée", "Environ 40,4 %"],
-          ["Écart entre ces deux probabilités", "Environ 25,4 points" ]
-        ],
-        "widths_cm": [10.2, 6.8]
-      }
-    },
-    {
-      "heading": "Ce que la lecture des clauses change",
+      "heading": "Faire préciser le contrat",
       "paragraphs": [
         "L’analyse distingue trois questions contractuelles. Le compteur peut redémarrer par commande, sous-lot, lot parent ou période. Le plafond peut couvrir seulement certaines majorations, en laissant le transport ou le recontrôle hors périmètre. Enfin, plusieurs sous-lots peuvent subir le même incident. Ces différences changent les frais effectivement évités, même si le prix moyen d’une intervention reste identique.",
         "La comparaison doit donc rapprocher des offres de même service et de même couverture. Une remise affichée sur un plafond ne compense pas automatiquement une exclusion ou une remise à zéro plus fréquente. Pour comparer l’achat à la fabrication, seuls les coûts futurs modifiés et les capacités réellement libérées ou mobilisées éclairent cette décision. L’ACCA fournit ce repère de coûts pertinents ; une réallocation comptable inchangée ne constitue pas une économie."
       ]
     },
     {
-      "heading": "Méthode de valorisation retenue",
+      "heading": "Ce que montrent les 240 jeux",
+      "paragraphs": [
+        "Le thème 13 de Cahiers-metier.md, lignes 87 à 91, rapporte une série d’exercice de 240 jeux. Selon le regroupement des urgences, la probabilité calculée que l’offre d’achat coûte davantage que la fabrication interne passe d’environ 15,0 % à 40,4 %. Ces valeurs proviennent d’une simulation. Elles ne décrivent ni un taux industriel observé ni une fréquence d’urgence par pièce.",
+        "Le calcul vérifiable à partir de ces seuls agrégats est 40,4 − 15,0 = 25,4 points de pourcentage environ. Ce sont des valeurs arrondies ; on ne peut pas en déduire des nombres exacts de cas sur 240. Aucun montant de plafond ou de prime n’est donné dans cette pièce."
+      ],
+      "table": {
+        "headers": [
+          "Mesure dans l’exercice",
+          "Résultat rapporté ou recalculé"
+        ],
+        "rows": [
+          [
+            "Probabilité la plus faible rapportée",
+            "Environ 15,0 %"
+          ],
+          [
+            "Probabilité la plus élevée rapportée",
+            "Environ 40,4 %"
+          ],
+          [
+            "Écart entre ces deux probabilités",
+            "Environ 25,4 points"
+          ]
+        ],
+        "widths_cm": [
+          10.2,
+          6.8
+        ]
+      }
+    },
+    {
+      "heading": "Calculer les frais évités",
       "paragraphs": [
         "La valeur moyenne d’un plafond correspond aux frais qui dépasseraient ce plafond, calculés avant d’ajouter sa prime. Pour chaque unité contractuelle, comparer les frais sans plafond aux frais limités au plafond, puis faire la moyenne sur toutes les unités, y compris celles sans urgence. Plafonner seulement le montant moyen masquerait les épisodes coûteux.",
         "La règle de décision est précise : une prime supérieure aux frais moyens évités augmente l’espérance de coût. Si elle dépasse ces frais sous les hypothèses d’urgences indépendantes et d’urgences communes, elle alourdit l’espérance dans les deux cas. Une réduction du risque de facture extrême peut néanmoins être recherchée ; elle doit alors être présentée séparément du gain moyen.",
         "Le Green Book 2026 recommande des analyses de sensibilité et des valeurs de bascule. L’Orange Book demande d’examiner les dépendances entre risques. Leur apport concret est de comparer plusieurs regroupements et de rendre visible la prime qui annule l’économie. Ces guides britanniques servent ici de repères de méthode, sans être présentés comme une obligation applicable à l’entreprise."
-      ]
+      ],
+      "new_page": true
     },
     {
-      "heading": "Prolongement scientifique et conclusion de gestion",
+      "heading": "Conditions à inscrire dans la contre-proposition",
       "paragraphs": [
         "Ivanov étudie en 2024 les flux financiers d’un réseau anonymisé par simulation. Des ajustements coordonnés des paiements y améliorent la trésorerie, contrairement à des modifications isolées. Ce résultat publié invite à examiner les dates de paiement avec le plafond ; il ne donne aucun prix transférable pour la garantie d’urgence du cahier.",
         "La conclusion de l’étude est de maintenir la comparaison des deux offres à couverture identique et de demander une prime séparée pour le plafond. Pour chiffrer cette prime, les éléments déterminants sont le lot parent et les sous-lots, les incidents communs, les frais couverts ou exclus, les dates et règles de remise à zéro, les paiements et les lots sans urgence sur un cycle contractuel comparable. Les agrégats publics permettent de conclure sur la sensibilité au regroupement, pas de choisir un montant de prime."
@@ -46,6 +62,9 @@
     "ACCA, Relevant costs, date de publication non affichée. [Article professionnel](https://www.accaglobal.com/uk/en/student/exam-support-resources/fundamentals-exams-study-resources/f5/technical-articles/relevant-costs.html).",
     "HM Treasury, Green Book 2026, mise à jour du 28 octobre 2026, section Sensitivity analysis and switching values. [Guide](https://www.gov.uk/government/publications/the-green-book--2/the-green-book-2026).",
     "HM Treasury, Orange Book, mise à jour du 18 novembre 2026, section B2. [Guide](https://www.gov.uk/government/publications/orange-book/the-orange-book-management-of-risk-principles-and-concepts).",
-    "D. Ivanov, Cash flow dynamics in the supply chain during and after disruptions, Transportation Research Part E, 185, 2024, 103526. [DOI](https://doi.org/10.1016/j.tre.2024.103526), [texte auteur ouvert](https://www.researchgate.net/publication/379997336_Cash_flow_dynamics_in_the_supply_chain_during_and_after_disruptions). Sources web ouvertes et consultées le 25 novembre 2026."
-  ]
+    "D. Ivanov, Cash flow dynamics in the supply chain during and after disruptions, Transportation Research Part E, 185, 2024, 103526. [DOI](https://doi.org/10.1016/j.tre.2024.103526), [texte auteur ouvert](https://www.researchgate.net/publication/379997336_Cash_flow_dynamics_in_the_supply_chain_during_and_after_disruptions)."
+  ],
+  "genre": "Note de négociation pour le contrôle de gestion",
+  "layout": "revue",
+  "reference_heading": "Références de négociation"
 }

@@ -3,198 +3,344 @@ import path from 'node:path';
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
 
-// Run with the Codex bundled Node runtime from the repository root.
+// Build from the repository root with the bundled Node and Python runtimes.
 const repo = process.env.IC_REPO || process.cwd();
 const runtimeModules = process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES;
 const runtimePython = process.env.CODEX_PRIMARY_RUNTIME_PYTHON;
 if (!runtimeModules || !runtimePython) throw new Error('Codex primary runtime paths are required');
 process.env.RUNTIME_NODE_MODULES = runtimeModules;
 process.env.RUNTIME_PYTHON = runtimePython;
-const runtimeRequire = createRequire(path.join(runtimeModules, '__artifact_loader__.cjs'));
-const {Presentation, PresentationFile, FileBlob} = await import(pathToFileURL(runtimeRequire.resolve('@oai/artifact-tool')).href);
-const skill = '/home/agent/.codex/skills/builtins/presentations';
-const {finalizePresentation, resolvePresentationFont} = await import(pathToFileURL(path.join(skill,'container_tools/artifact_tool_utils.mjs')).href);
-const font = resolvePresentationFont({fontFamily:'Liberation Sans'});
-const workspaceDir = path.resolve(repo,'..');
-const qa = process.env.IC_PPT_QA || path.join(workspaceDir,'qa-ppt',new Date().toISOString().replace(/[:.]/g,'-'));
-const outputDir = path.join(repo,'ICs/Livrables-2026-11-25/PowerPoint');
-await fs.mkdir(qa,{recursive:true});
-await fs.mkdir(path.join(qa,'receipts'),{recursive:true});
-await fs.mkdir(outputDir,{recursive:true});
-const github = 'https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/#rev-0415';
-const cahier = github+'Cahiers-metier.md';
-const consult = 'Sources consultées le 25 novembre 2026. Les résultats du cahier proviennent de simulations agrégées. Étude et compléments de calcul réalisés le 25 novembre 2026 pour la supervision, sans attribution individuelle.';
-const C = {navy:'#193A58',blue:'#245A80',text:'#253342',gray:'#536474',line:'#CDD6DE',head:'#E9EFF4',alt:'#F6F8FA'};
+const requireRuntime = createRequire(path.join(runtimeModules, '__artifact_loader__.cjs'));
+const {Presentation, PresentationFile, FileBlob} = await import(pathToFileURL(requireRuntime.resolve('@oai/artifact-tool')).href);
+const skillDir = '/home/agent/.codex/skills/builtins/presentations';
+const {finalizePresentation, applyPresentationChartFont} = await import(pathToFileURL(path.join(skillDir, 'container_tools/artifact_tool_utils.mjs')).href);
+const workspaceDir = path.resolve(repo, '..');
+const qa = process.env.IC_PPT_QA || path.join(workspaceDir, 'qa-ppt', new Date().toISOString().replace(/[:.]/g, '-'));
+const outputDir = path.join(repo, 'ICs/Livrables-2026-11-25/PowerPoint');
+const noLine = {style:'solid', fill:'none', width:0};
 
-function text(slide,name,value,x,y,w,h,size=20,bold=false,color=C.text){
-  const s=slide.shapes.add({geometry:'textbox',name,position:{left:x,top:y,width:w,height:h},fill:'none',line:{style:'solid',fill:'none',width:0}});
-  s.text=value;
-  s.text.style={typeface:font,fontSize:`${size}pt`,bold,color,wrap:'square',autoFit:'none',insets:0,verticalAlignment:'top'};
-  return s;
+function label(slide, name, value, left, top, width, height, size, options = {}) {
+  const shape = slide.shapes.add({geometry:'textbox', name, position:{left, top, width, height}, fill:'none', line:noLine});
+  shape.text = value.replace(/ ([?!])/g, '\u00A0$1');
+  shape.text.style = {
+    typeface:slide.design.font, fontSize:size + 'pt', bold:options.bold || false,
+    color:options.color || slide.design.ink, wrap:'square', autoFit:'none', insets:0,
+    verticalAlignment:'top', alignment:options.align || 'left'
+  };
+  return shape;
 }
-function table(slide,values,widths,top=214,height=264){
-  const t=slide.tables.add({rows:values.length,columns:values[0].length,left:68,top,width:1144,height,columnWidths:widths,values});
-  t.borders.assign({style:'solid',fill:C.line,width:1});
-  t.styleOptions={headerRow:true,bandedRows:false};
-  for(let r=0;r<values.length;r++) for(let c=0;c<values[0].length;c++){
-    const cell=t.getCell(r,c);
-    cell.fill=r===0?C.head:(r%2===0?C.alt:'#FFFFFF');
-    cell.text.style={typeface:font,fontSize:'19pt',bold:r===0,color:r===0?C.navy:C.text,alignment:c>0&&String(values[r][c]).length<25?'center':'left',verticalAlignment:'middle',insets:{top:8,right:12,bottom:8,left:12},wrap:'square',autoFit:'none'};
+
+function page(deck, title, notes, titleSize = 34) {
+  const slide = deck.pres.slides.add();
+  slide.design = deck;
+  slide.background.fill = '#FFFFFF';
+  label(slide, 'titre', title, 64, 45, 1150, 98, titleSize, {bold:true, color:deck.accent});
+  slide.speakerNotes.text = notes.trim();
+  return slide;
+}
+
+function table(slide, name, rows, widths, left, top, height, size = 18, numericCols = []) {
+  const width = widths.reduce((sum, n) => sum + n, 0);
+  const obj = slide.tables.add({rows:rows.length, columns:widths.length, left, top, width, height, columnWidths:widths, values:rows});
+  obj.name = name;
+  obj.borders.assign({style:'solid', fill:slide.design.rule, width:1});
+  obj.styleOptions = {headerRow:true, bandedRows:false};
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < widths.length; c++) {
+      const cell = obj.getCell(r, c);
+      cell.fill = r === 0 ? slide.design.tint : '#FFFFFF';
+      cell.text.style = {
+        typeface:slide.design.font, fontSize:size + 'pt', bold:r === 0,
+        color:r === 0 ? slide.design.accent : slide.design.ink, alignment:numericCols.includes(c) ? 'center' : 'left',
+        verticalAlignment:'middle', insets:{top:7, right:10, bottom:7, left:10}, wrap:'square', autoFit:'none'
+      };
+    }
   }
-  return t;
+  slide.design.tableOwners.push(slide.design.pres.slides.items.length);
 }
-function addSlide(p,d,number){
-  const s=p.slides.add();s.background.fill='#FFFFFF';
-  text(s,'title',d.title,68,36,1144,66,32,true,C.navy);
-  text(s,'context',d.context,68,116,1144,78,21,false,C.gray);
-  table(s,d.rows,d.widths,d.top??214,d.height??264);
-  text(s,'interpretation',d.takeaway,68,d.bottom??520,1144,108,21,true,C.text);
-  text(s,'source',d.caption,68,658,1090,34,13,false,C.gray);
-  text(s,'page',String(number),1162,658,50,30,13,false,C.gray);
-  s.speakerNotes.text=`${consult}\n\n${d.notes}\n\nLecture : ${d.takeaway}`;
-  return s;
+
+function caption(slide, value, x, y, width) {
+  label(slide, 'legende', value, x, y, width, 56, 14, {color:slide.design.muted});
 }
-const decks=[
-{file:'01-Revue-achats.pptx',slides:[
- {title:'Cinq dossiers en revue fournisseurs',context:'Sur 27 fournisseurs évalués, six perturbations dégradent le service. Le budget reste fixé à cinq dossiers.',
-  rows:[['Plan de sélection','Probabilité de ne repérer aucun cas','Cas repérés en moyenne sur 6'],['Tirage uniforme','25,21 %','1,11'],['Quatre mono-source et un autre','9,09 %','1,61'],['Cinq mono-source','4,35 %','1,92']],widths:[480,350,314],
-  takeaway:'Le quota quatre plus un réduit les listes sans détection tout en gardant les deux groupes représentés. Il ne permet pas de repérer tous les cas.',
-  caption:'Sources : cas fournisseurs et CSV public. Probabilités et moyennes recalculées le 25 novembre 2026.',
-  notes:`${cahier}#L7-L11\n${github}Cas/Revue-fournisseurs.md\n${github}Cas/revues-fournisseurs.csv\nRecalcul : C(8,4)×C(13,1)/(C(13,4)×C(14,1))=910/10010. Le critère est de ne détecter aucun des six cas, pas la proportion des six cas détectés. Les deux résultats manquants parmi 29 fournisseurs restent inconnus.\nStatistique Canada, Probability sampling, mise à jour 2 septembre 2021 : https://www150.statcan.gc.ca/n1/edu/power-pouvoir/ch13/prob/5214899-eng.htm`},
- {title:'Quantité achetée en dépannage',context:'Le contrôle à réception modifie la quantité réellement utilisable à la date du besoin.',
-  rows:[['Résultat du cahier','Valeur','Portée'],['Configurations sans rupture','46 sur 60','76,67 % des configurations testées'],['Besoin court avant contrainte réception','800 kg','Cas central publié'],['Besoin court avec 90 % utilisables','900 kg','100 kg supplémentaires']],widths:[565,180,399],
-  takeaway:'La quantité de dépannage dépend du stock libéré à l’échéance. Le minimum de commande et la capacité peuvent encore modifier l’ordre réalisable.',
-  caption:'Source : Cahiers métier, thème 02. Recalculs : 46/60 et écart de 100 kg.',
-  notes:`${cahier}#L13-L17\nLes 60 configurations et les valeurs 800/900 kg sont rapportées par le cahier. Le ratio 46/60 n'est pas une probabilité de succès industriel. Recalcul : 900−800=100 kg.\nMicrosoft Default order settings, mise à jour 10 juillet 2025 : https://learn.microsoft.com/en-us/dynamics365/supply-chain/production-control/default-order-settings\nMicrosoft Quality orders, mise à jour 26 octobre 2026 : https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/quality-orders`},
- {title:'Les cotations qui changent un audit',context:'L’exercice programme trois visites à partir de 84 cotations. Il teste une cotation inconnue à la fois.',
-  rows:[['Résultat du test isolé','Nombre de cotations','Part des 84 cotations'],['Peuvent changer la sélection','16','19,05 %'],['Ne la changent pas dans ce test','68','80,95 %'],['Total des cotations examinées','84','100 %']],widths:[610,267,267],
-  takeaway:'Le résultat hiérarchise les justificatifs utiles au choix des visites. Il ne démontre pas la stabilité face à plusieurs informations incertaines simultanément.',
-  caption:'Source : Cahiers métier, thème 03. Recalculs : 16/84 et 84−16.',
-  notes:`${cahier}#L19-L23\n16 est un nombre de cotations pouvant modifier la sélection. Ce n'est ni un nombre de fournisseurs à risque ni une fréquence de panne. Les poids et bornes individuels ne sont pas publics.\nISO 19011:2026, quatrième édition publiée mai 2026, notice https://www.iso.org/standard/19011 ; communiqué du 9 juin 2026 https://committee.iso.org/sites/tc176/home/news/content-left-area/news-and-updates/iso-19011-2026-released.html\nJRC Step 8 Sensitivity analysis, mise à jour 1 décembre 2020 : https://knowledge-for-policy.ec.europa.eu/composite-indicators/toolkit_en/navigation-page/10-step-guide_en/step-8-sensitivity-analysis_en`},
- {title:'Bilan de la veille achats',context:'Les pratiques et les études consultées confortent une revue fondée sur les effets opérationnels et les preuves disponibles.',
-  rows:[['Lecture vérifiée','Apport pour les achats'],['ISO 19011:2026, mai 2026','Un cadre actuel pour préparer et conduire les audits'],['Étude automobile, Interfaces, 2015','Évaluer l’effet d’un arrêt avant sa fréquence'],['Documentation ERP, 2025 et 2026','Relier commande, réception qualité et échéance']],widths:[530,614],
-  takeaway:'Les pièces suffisent pour vérifier le quota de revue et expliquer les deux autres arbitrages. Les résultats détaillés restent propres aux cas simulés.',
-  caption:'Veille réalisée le 25 novembre 2026. Références et liens directs dans les notes.',
-  notes:`ISO 19011:2026, quatrième édition publiée mai 2026 : https://www.iso.org/standard/19011\nSimchi-Levi et al., Identifying Risks and Mitigating Disruptions in the Automotive Supply Chain, Interfaces45(5),375–390, publication en ligne20 octobre2015 : https://doi.org/10.1287/inte.2015.0804\nMicrosoft Quality orders,26 octobre2026 : https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/quality-orders\nAkkerman et al., Solving Dual Sourcing Problems with Supply Mode Dependent Failure Rates, version auteur11 avril2025 : https://arxiv.org/html/2410.03887v2 . Le cas énergie concerne la fiabilité des pièces en service et ne valide pas directement les rendements à réception du cahier.`}
-]},
-{file:'02-Revue-planification.pptx',slides:[
- {title:'La couverture dépend du lieu et de la date',context:'Le stock du dépôt et le stock de l’usine amont ne servent pas la demande au même instant.',
-  rows:[['Périmètre compté','Couverture annoncée','Condition'],['Dépôt utilisable au départ','4 jours complets','Disponible au point de livraison'],['Dépôt et stock amont','5 jours de quantité','Transfert utilisable avant le premier manque'],['Lot en attente de qualité','À sa date de libération','La réception physique ne suffit pas']],widths:[480,300,364],
-  takeaway:'La cinquième journée reste conditionnée au transfert. Une promesse fiable s’appuie sur le solde daté au point où la demande doit être servie.',
-  caption:'Source : Cahiers métier, thème 04. Les quatre et cinq jours sont des résultats rapportés.',
-  notes:`${cahier}#L27-L31\nLes flux journaliers originaux ne sont pas publics. Aucun nouveau stock ou trajet n'a été inventé.\nOracle Promise Only After You Release Holds On Lots, documentation26A2026 : https://docs.oracle.com/en/cloud/saas/supply-chain-and-manufacturing/26a/fascp/promise-only-after-you-release-holds-on-lots.html\nMicrosoft Net requirements and pegging information,21 juillet2025 : https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/net-requirements`},
- {title:'Volume repris et service quotidien',context:'Deux trajectoires de reprise sur cinq jours. Réserve disponible : deux unités avant J1, puis deux avant J3.',
-  rows:[['Trajectoire','Volume de reprise publié','Résultat avec la réserve publiée'],['Première','90 %','Encore une unité manquante à J2'],['Seconde','84 %','Plancher de neuf livraisons par jour']],widths:[285,355,504],height:240,
-  takeaway:'La seconde trajectoire satisfait ici l’engagement quotidien. Les six points de volume en faveur de la première ne garantissent pas le service chaque jour.',
-  caption:'Source : Cahiers métier, thème 05. Écart recalculé : 90−84=6 points de pourcentage.',
-  notes:`${cahier}#L33-L37\nLes taux de 90 % et 84 % décrivent les trajectoires de reprise publiées. Le résultat quotidien au plancher concerne la situation avec la réserve datée ajoutée. Ces taux ne sont pas présentés comme une couverture recalculée après réserve. L'objectif journalier et l'objectif de volume cumulé ne sont pas identiques. Les courbes journalières ne sont pas publiques et ne sont donc pas tracées ici.\nMicrosoft Calculate order promising dates,16 novembre2026 : https://learn.microsoft.com/en-us/dynamics365/business-central/sales-how-to-calculate-order-promising-dates\nIvanov, When is the supply chain resilient? Customer and operational perspectives,21 janvier2025 : https://doi.org/10.1080/00207543.2025.2454331 ; résumé primaire https://accurateproject.eu/publications/`},
- {title:'Le contrat détermine l’ordre de service',context:'Servir l’urgence améliore le plus grand retard, mais augmente le retard pondéré par les quantités.',
-  rows:[['Ordre d’affectation','Retard maximal','Quantités retardées × jours'],['Ordre témoin','7 jours','28 unités-jours'],['Urgence servie d’abord','4 jours','32 unités-jours'],['Écart de la variante','3 jours de moins','4 unités-jours de plus']],widths:[485,300,359],
-  takeaway:'Un plafond de quatre jours favorise l’urgence. Une pénalité uniforme par unité-jour favorise l’ordre témoin, si les autres clauses restent identiques.',
-  caption:'Source : Cahiers métier, thème 06. Écarts recalculés sur les résultats agrégés.',
-  notes:`${cahier}#L39-L43\nLes commandes, quantités et arrivages originaux sont absents. Les deux bilans sont rapportés, et leurs différences sont recalculées. L'affectation suppose un lot réellement libéré.\nMicrosoft Priority-based planning,17 juin2025 : https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/priority-based-planning . La priorité de réapprovisionnement documentée n'est pas une preuve d'optimalité de l'allocation client.`},
- {title:'Bilan des comparaisons de planification',context:'Les trois résultats convergent sur la promesse faite au client et la disponibilité réellement utilisable.',
-  rows:[['Décision étudiée','Ce qui départage les options'],['Couverture du dépôt','Date d’arrivée utilisable du transfert'],['Reprise de service','Engagement quotidien ou volume à échéance'],['Allocation d’un lot','Plafond de retard ou pénalité sur les unités-jours']],widths:[490,654],
-  takeaway:'Les résultats agrégés suffisent pour expliquer ces choix. Ils ne permettent pas de rejouer les ordres ni de dessiner des trajectoires quotidiennes détaillées.',
-  caption:'Étude du 25 novembre 2026. Pratiques ERP et publication de recherche citées dans les notes.',
-  notes:`Sources de résultats : ${cahier}#L27-L43\nOracle, documentation26A2026 : https://docs.oracle.com/en/cloud/saas/supply-chain-and-manufacturing/26a/fascp/promise-only-after-you-release-holds-on-lots.html\nMicrosoft Calculate order promising dates,16 novembre2026 : https://learn.microsoft.com/en-us/dynamics365/business-central/sales-how-to-calculate-order-promising-dates\nIvanov, When is the supply chain resilient? Customer and operational perspectives,21 janvier2025 : https://doi.org/10.1080/00207543.2025.2454331 . Trois réseaux simulés, plusieurs indicateurs de service. La différence des perspectives client et opérationnelle est un résultat publié, pas une validation supplémentaire de nos cas.`}
-]},
-{file:'03-Revue-transport.pptx',slides:[
- {title:'Deux tournées dépassent un chargement',context:'Chaque tournée transporte 40 unités. Le véhicule peut charger 60 unités à la fois.',
-  rows:[['Configuration','Charge','Résultat de capacité'],['Une tournée séparée','40 unités','20 unités de marge'],['Deux tournées regroupées','80 unités','20 unités de dépassement'],['21 fermetures de créneau testées','Un chargement par regroupement','Aucun regroupement faisable']],widths:[490,255,399],
-  takeaway:'Le regroupement en un chargement est exclu. Deux chargements peuvent mobiliser un ou deux véhicules selon les temps de rotation et les créneaux.',
-  caption:'Source : Cahiers métier, thème 07. Recalculs : 40+40=80 unités, dépassement de 20.',
-  notes:`${cahier}#L47-L51\nLe résultat0/21 est rapporté. Les21calendriers ne sont pas publics. La comparaison des horaires, coûts et émissions des variantes n'est pas réalisable sur ces agrégats.\nMicrosoft Set up an appointment for a load,17 février2025 : https://learn.microsoft.com/en-us/dynamics365/supply-chain/transportation/tasks/set-up-appointment-load\nHuang et al., Optimization of external container delivery and pickup scheduling based on appointment mechanism,21 février2025 : https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0318606 . Cas portuaire simulé, gain de4,89%contre leur planning manuel, non transféré à notre quai.`},
- {title:'La collecte dépend du budget de demandes',context:'La couverture mesure des tonnes-kilomètres documentées. Elle ne prouve pas que tous les tronçons d’un parcours le sont.',
-  rows:[['Budget de demandes','Parcours complets','Liaisons'],['Trois demandes','47,6 % des tonnes-kilomètres','42,0 % des tonnes-kilomètres'],['Écart à trois demandes','5,6 points en faveur des parcours','Écart recalculé'],['Dix demandes','Couverture absolue non fournie','Environ 13,6 points d’avance']],widths:[360,392,392],
-  takeaway:'Les parcours sont devant à trois demandes et les liaisons à dix. Les agrégats ne donnent ni le point de bascule intermédiaire ni une stratégie optimale.',
-  caption:'Source : Cahiers métier, thème 08. Recalcul : 47,6−42,0=5,6 points de pourcentage.',
-  notes:`${cahier}#L53-L57\nLe dénominateur est le total des tonnes-kilomètres modélisées. Les résultats portent sur le budget de demandes présenté par le cahier. Aucune probabilité de réponse nouvelle n'est ajoutée.\nSmart Freight Centre, GLEC Frameworkv3.3,publié27 octobre2026 : https://smartfreightcentre.org/news/13311209/\nCrosswalk édition4,26 octobre2026 : https://d1c2gz5q23tkk0.cloudfront.net/shrine_store/uploads/networks/3660/communication_news/13311209/3b754d52417445123e4d321e33d4a3ab.pdf\nKallionpää et al., Development of logistics emissions reporting, en ligne novembre2025,numérojanvier2026,17entretiens : https://doi.org/10.1016/j.trd.2025.105083`},
- {title:'La charge de revue dépend de l’alerte',context:'Même périmètre de 956 mois-scénarios, dont 273 mois dégradés. Le signal utilise le mois précédent.',
-  rows:[['Règle','Mois dégradés détectés sur 273','Fausses alertes','Dossiers ouverts'],['Saturation à 90 %','257','622','879'],['Saturation à 95 %','251','616','867'],['Saturation à 99 %','247','611','858'],['Persistance du service insuffisant','136','140','276']],widths:[450,270,207,217],top:206,height:290,bottom:524,
-  takeaway:'Le seuil 95 % détecte 91,94 % des mois dégradés, mais seules 28,95 % des 867 alertes sont justifiées. La relance ne prouve pas un retard évité.',
-  caption:'Source : alertes-fret.csv. Dossiers, rappel et précision recalculés le 25 novembre 2026.',
-  notes:`${github}Cas/Alertes-fret.md\n${github}Cas/alertes-fret.csv\nRappel95%=251/273, précision95%=251/(251+616), dossiers=TP+FP. Service dégradé : masse servie strictement inférieure à99%de la demande. Les quatre trajectoires sont apparentées et ne constituent pas956observations indépendantes.\nIATA ONE Record, note de version25 juillet2026 : https://iata-cargo.github.io/ONE-Record/development/General/release-note/\nCargo iQ MOP,documentationjuillet2025 : https://iata-cargo.github.io/ONE-Record/2025-07/Orchestration/orchestration-mop/`},
- {title:'La comparaison complète change le seuil fret',context:'Coût comparé : fausses alertes + r × mois manqués. r est le coût d’un manque divisé par celui d’une fausse alerte.',
-  rows:[['Rapport de coûts r','Meilleure des cinq règles publiées'],['De 0 à 1,0294','Aucune alerte'],['De 1,0294 à 3,9835','Persistance du service insuffisant'],['Au-delà de 3,9835','Saturation à 90 %']],widths:[460,684],
-  takeaway:'Le seuil 4,14 reste correct pour 95 % face à la persistance. Parmi les cinq règles publiées, 95 % et 99 % ne minimisent jamais ce coût simplifié.',
-  caption:'Recalcul sur le CSV public. Égalité aux seuils. Coût des revues justifiées fixé ici à zéro.',
-  notes:`${github}Cas/alertes-fret.csv\nComparaison95%vs persistance : (616−140)/(137−22)=476/115=4,13913. Enveloppe des5règles : aucunealerteverspersistance140/(273−137)=35/34 ; persistancevers90%(622−140)/(137−16)=482/121. Aucunealerte aTP0,FP0,FN273,TN683.\nContrôle complémentaire dérivé des totaux, non inclus dans les5règles du tableau : toujoursalerter aTP273,FP683,FN0,TN0 et devient moins coûteux que la persistance à543/137=3,96350 si lesrevuesjustifiées ne coûtent rien et la capacité est illimitée. Ce résultat souligne la nécessité de chiffrer le traitement de tous lesdossiers avant un usage opérationnel. Ce modèle compare des erreurs de détection et n'est pas une mesure causale des pertes évitées.`}
-]},
-{file:'04-Revue-qualite-environnement.pptx',slides:[
- {title:'Le stock physique ne garantit pas un jeu complet',context:'Quatre variantes d’assemblage contrôlent séparément 163 composants. La disponibilité qualité reste déterminante.',
-  rows:[['Observation de la variante modérée','Résultat rapporté','Lecture métier'],['Disponibilité reportée','Un mois','Le lot reste indisponible au besoin'],['Stock bloqué en clôture','115,12 kg','Le stock physique augmente'],['Jeux livrés','Une unité de moins','Le service diminue malgré ce stock']],widths:[475,230,439],
-  takeaway:'Le lancement dépend de chaque référence utilisable au poste requis. La somme des kilogrammes ne démontre pas la présence de tous les composants.',
-  caption:'Source : Cahiers métier, thème 10. Résultats rapportés, nomenclature détaillée non publique.',
-  notes:`${cahier}#L67-L71\nLes bilans sur163composants et115,12kg sont rapportés par le cahier, sans reconstruction de nomenclature.\nMicrosoft Inventory blocking,miseàjour14 août2025 : https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/inventory-blocking\nGS1 EPCIS2.0,juin2022,états métier associés aux événements : https://ref.gs1.org/standards/epcis/\nISO9001:2026,annonce16 septembre2026 : https://www.iso.org/news/2026/09/ISO9001-2026 . Le communiqué ne suffit pas à attribuer des exigences détaillées aux clauses.`},
- {title:'Le trajet change le seuil de retouche',context:'Le cahier étudie un lot de six pièces. La comparaison inclut le transport déclenché par la décision.',
-  rows:[['Transport associé à la retouche','Acceptations minimales sur 6','Condition de calcul'],['Navette déjà prévue','3 pièces','Effet marginal de la charge négligeable'],['Tournée dédiée de 12 kg CO₂e','4 pièces','Émissions du trajet incluses'],['Écart de seuil','Une acceptation de plus','Même comparaison de service']],widths:[500,295,349],
-  takeaway:'Une retouche favorable avec une navette existante peut changer de résultat si elle déclenche une tournée dédiée. Le périmètre explique la bascule.',
-  caption:'Source : Cahiers métier, thème 11. Seuils rapportés de trois et quatre acceptations.',
-  notes:`${cahier}#L73-L77\nAucun inventaire de retouche, remplacement ou rebut détaillé n'est public. Les seuils3et4 ne sont pas reproduits à partir d'inventaires absents. L'effet marginal de charge négligeable ne signifie pas une allocation nulle dans tout inventaire transport.\nGHG Protocol Product Life Cycle Accounting and Reporting Standard,2011 : https://ghgprotocol.org/sites/default/files/standards/Product-Life-Cycle-Accounting-Reporting-Standard_041613.pdf\nJärnefelt,Ashouri,Behm,Does repair improve environmental performance?20 septembre2026 : https://doi.org/10.1016/j.jclepro.2026.149164 ; résumé primaire https://cris.vtt.fi/en/publications/does-repair-improve-environmental-performance-integrating-tempora/ . Effets du composant,de la date de panne et de la catégorie d'impact. Pas de transfert de gain au cahier.`},
- {title:'La pondération inverse le choix de conception',context:'Deux variantes à masse identique sont comparées sur la production et la livraison, avec seize indicateurs.',
-  rows:[['Résultat de comparaison','Valeur rapportée','Interprétation'],['Indicateurs améliorés','8 sur 16','Une moitié évolue favorablement'],['Indicateurs dégradés','8 sur 16','L’autre moitié évolue défavorablement'],['Poids de bascule de l’eutrophisation','7,294 %','Autres poids ajustés proportionnellement']],widths:[515,225,404],
-  takeaway:'Aucune variante ne domine sur les seize indicateurs. Le classement dépend de la préférence retenue et du même périmètre de comparaison.',
-  caption:'Source : Cahiers métier, thème 12. Seuil rapporté, non recalculé faute des vecteurs détaillés.',
-  notes:`${cahier}#L79-L83\nLe cahier ne nomme pas la variante gagnante de chaque côté du seuil. Masse égale ne démontre pas une fonction et une durée de service identiques. Les16vecteurs et facteurs de normalisation sont absents.\nCommission européenne,recommandation Empreinte environnementale16 décembre2021 : https://environment.ec.europa.eu/publications/recommendation-use-environmental-footprint-methods_en\nJRC EF3.1,rapport8 février2023 : https://op.europa.eu/en/publication-detail/-/publication/145f8401-a82a-11ed-b508-01aa75ed71a1\nJRC transition EF,miseàjour4 novembre2026 : https://knowledge-for-policy.ec.europa.eu/environmental-footprint-transition-phase_en . La page actualisée ne signifie pas publication d'une nouvelle méthode EF.`},
- {title:'Bilan de la veille qualité et environnement',context:'Les sources distinguent la disponibilité du lot, le périmètre environnemental et les préférences de décision.',
-  rows:[['Référence consultée','Résultat utile pour la revue'],['ISO 9001:2026 et GS1 EPCIS','Un état de lot doit être relié à une date et une preuve'],['GHG Product Standard et étude réparation 2026','Le service équivalent et les étapes déclenchées comptent'],['Méthode EF et rapport JRC EF 3.1','Normalisation et pondération restent distinctes des impacts']],widths:[520,624],
-  takeaway:'Les trois cahiers documentent des bascules de décision. Les agrégats permettent leur lecture, mais ne suffisent pas à reconstruire les inventaires et les lots.',
-  caption:'Veille du 25 novembre 2026. Les références détaillées figurent dans les notes de chaque sujet.',
-  notes:`ISO9001:2026,communiqué16 septembre2026 : https://www.iso.org/news/2026/09/ISO9001-2026\nGS1 EPCIS2.0,juin2022 : https://ref.gs1.org/standards/epcis/\nGHG Protocol Product Standard,2011 et groupe conjointISOannoncé9 février2026 : https://ghgprotocol.org/product-standard . Aucune nouvelle méthode finale n'est inférée de l'annonce du groupe de travail.\nJärnefelt etal.,2026 : https://doi.org/10.1016/j.jclepro.2026.149164\nJRC EF3.1,2023 : https://op.europa.eu/en/publication-detail/-/publication/145f8401-a82a-11ed-b508-01aa75ed71a1\nLes apports du tableau sont une synthèse de la veille. Le communiqué ISO seul ne démontre pas le détail des clauses appliquées aux événements de lot.`}
-]},
-{file:'05-Revue-controle-gestion.pptx',slides:[
- {title:'Le regroupement change le risque de coût',context:'L’exercice porte sur 240 jeux et compare l’achat à la fabrication en interne.',
-  rows:[['Résultat publié','Valeur','Portée'],['Probabilité basse d’achat plus cher','Environ 15,0 %','Une hypothèse de regroupement'],['Probabilité haute d’achat plus cher','Environ 40,4 %','Une autre hypothèse de regroupement'],['Amplitude entre les deux','25,4 points','Sensibilité à la dépendance des urgences']],widths:[570,230,344],
-  takeaway:'Le prix moyen d’une intervention ne décrit pas la valeur du plafond. Son niveau de remise à zéro et les urgences communes modifient le coût du contrat.',
-  caption:'Source : Cahiers métier, thème 13. Recalcul : 40,4−15,0=25,4 points.',
-  notes:`${cahier}#L87-L91\nLes probabilités sont rapportées et dépendent d'hypothèses de regroupement dont les données détaillées ne sont pas publiques. Leur différence approximative est calculée sur les pourcentages arrondis du cahier. Le cahier ne permet pas d'attribuer chaque extrême à une loi contractuelle précise.\nHM Treasury,Orange Book,miseàjour18 novembre2026 : https://www.gov.uk/government/publications/orange-book/the-orange-book-management-of-risk-principles-and-concepts . Dépendances entre risques.\nHM Treasury,Green Book2026,miseàjour28 octobre2026 : https://www.gov.uk/government/publications/the-green-book--2/the-green-book-2026 . Référence d'évaluation publique utilisée comme repère méthodologique privé,aucune obligation normative française inférée.`},
- {title:'L’accélération seule suffit dans le premier cas',context:'Le cahier distingue un retard d’approvisionnement et une retenue qualité. Les effets des interventions diffèrent.',
-  rows:[['Incident simulé','Résultat de la comparaison','Choix économique sur cet indicateur'],['Retard d’approvisionnement','Même surcroît moyen d’arriéré annulé','Accélération seule moins chère'],['Retenue qualité','La combinaison réduit encore l’arriéré','Arbitrage selon le coût du retard'],['Seuil publié sous pénalité linéaire','Environ 2,49 unités monétaires par unité-jour','Propre au second essai']],widths:[350,410,384],
-  takeaway:'À gain de service supplémentaire nul, l’accélération seule reste moins chère. La valeur de la combinaison dépend du mécanisme de l’incident.',
-  caption:'Source : Cahiers métier, thème 14. Le seuil 2,49 est rapporté en unités monétaires simulées.',
-  notes:`${cahier}#L93-L97\nLe seuil2,49 n'est pas en euros. Les coûts et arriérés détaillés par option ne sont pas publics et ne sont pas recréés.\nACCA,Relevant costs,sansdateaffichée : https://www.accaglobal.com/uk/en/student/exam-support-resources/fundamentals-exams-study-resources/f5/technical-articles/relevant-costs.html . Flux futurs modifiés par la décision,coûts d'opportunité et exclusion des dépenses déjà engagées communes.\nMüllerklein etFontaine,Resilient transportation network design with disruption uncertainty and lead times,2025,enligne22 novembre2024 : https://doi.org/10.1016/j.ejor.2024.11.021 . La capacité et le délai du réacheminement conditionnent les gains dans leur étude.`},
- {title:'Le coût pertinent est le surcoût de la décision',context:'Les deux sujets mettent en balance une dépense supplémentaire et un risque ou un retard supplémentaire évité.',
-  rows:[['Décision étudiée','Calcul économique pertinent','Cas où l’option simple l’emporte'],['Prime de plafonnement','Frais évités selon le regroupement','Prime supérieure aux frais évités sous les deux hypothèses'],['Combinaison d’interventions','Surcoût / unités-jours supplémentaires évitées','Gain de service supplémentaire nul']],widths:[335,400,409],height:250,
-  takeaway:'Les coûts moyens et les dépenses déjà engagées ne suffisent pas à départager les options. Le résultat dépend des clauses et des effets réellement supplémentaires.',
-  caption:'Synthèse des thèmes 13 et 14 et de la veille ACCA.',
-  notes:`${cahier}#L87-L97\nPour la combinaison : seuil=surcoût/(arriéré accélération−arriéré combinaison)si la différence est positive et si la pénalité est linéaire. À différence nulle,le quotient n'est pas défini et la comparaison retient le coût le plus faible à efficacité identique sur l'indicateur.\nACCA,Relevant costs,consulté25 novembre2026 : https://www.accaglobal.com/uk/en/student/exam-support-resources/fundamentals-exams-study-resources/f5/technical-articles/relevant-costs.html\nHM Treasury,Green Book2026,28 octobre2026 : https://www.gov.uk/government/publications/the-green-book--2/the-green-book-2026 . Les valeurs de bascule sont un repère méthodologique. Les franchises,plafonds et pénalités par commande nécessitent une application de la clause avant agrégation.`},
- {title:'Bilan de la veille en contrôle de gestion',context:'Les lectures professionnelles et les cas de recherche apportent des repères différents à la même comparaison de coût et de service.',
-  rows:[['Lecture primaire','Apport établi','Limite du transfert'],['ACCA sans date, HM Treasury 2026','Coûts différentiels et valeurs de bascule','Aucun tarif industriel fourni'],['Ivanov, trésorerie supply chain, 2024','Les actions coordonnées changent les flux de trésorerie','L’étude ne chiffre pas un plafond d’urgences'],['Müllerklein et Fontaine, 2025','Capacité et délai affectent l’intérêt du réacheminement','Les gains publiés ne valent pas pour notre cas']],widths:[425,370,349],
-  takeaway:'Les agrégats établissent la sensibilité des deux décisions. Ils ne permettent pas de reproduire les probabilités détaillées ni de convertir 2,49 en un tarif contractuel.',
-  caption:'Veille et étude du 25 novembre 2026. Sources datées et liens directs dans les notes.',
-  notes:`ACCA,Relevant costs,sansdateaffichée : https://www.accaglobal.com/uk/en/student/exam-support-resources/fundamentals-exams-study-resources/f5/technical-articles/relevant-costs.html\nHM Treasury,Green Book2026,miseàjour28 octobre2026 : https://www.gov.uk/government/publications/the-green-book--2/the-green-book-2026\nHM Treasury,Orange Book,miseàjour18 novembre2026 : https://www.gov.uk/government/publications/orange-book/the-orange-book-management-of-risk-principles-and-concepts\nIvanov,Cash flow dynamics in the supply chain during and after disruptions,mai2024 : https://doi.org/10.1016/j.tre.2024.103526 ; texteauteurouvert https://www.researchgate.net/publication/379997336_Cash_flow_dynamics_in_the_supply_chain_during_and_after_disruptions\nMüllerklein etFontaine,Resilient transportation network design with disruption uncertainty and lead times,2025,enligne22 novembre2024 : https://doi.org/10.1016/j.ejor.2024.11.021 ; articleuniversitaireouvert https://edoc.ku.de/id/eprint/34580/1/1-s2.0-S0377221724008907-main.pdf`}
-]}
+
+function issue(slide, name, text, x, y, w) {
+  label(slide, name, text, x, y, w, 54, 21, {bold:true, color:slide.design.accent});
+}
+
+function intro(slide, text) {
+  label(slide, 'origine', text, 64, 133, 1140, 48, 16, {color:slide.design.muted});
+}
+
+// These are presentation notes, including the scope of the historical evidence
+// and the professional sources that informed the original decision reviews.
+const ref = {
+  sample: 'Statistique Canada, Échantillonnage probabiliste, 2 septembre 2021. https://www150.statcan.gc.ca/n1/edu/power-pouvoir/ch13/prob/5214899-eng.htm',
+  exposure: 'Simchi-Levi et al., volume 45 de Interfaces (2015), p. 375–390. Conséquences opérationnelles d’une rupture dans la chaîne automobile. https://doi.org/10.1287/inte.2015.0804',
+  order: 'Microsoft, Default order settings, 10 juillet 2025. https://learn.microsoft.com/en-us/dynamics365/supply-chain/production-control/default-order-settings',
+  quality: 'Microsoft, Quality orders, 26 octobre 2026. https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/quality-orders',
+  dual: 'Akkerman et al., Solving Dual Sourcing Problems with Supply Mode Dependent Failure Rates, version du 11 avril 2025. Les taux de défaillance en service étudiés par les auteurs ont un autre périmètre que le rendement à réception. https://arxiv.org/html/2410.03887v2',
+  audit: 'ISO 19011:2026, 4e édition, mai 2026. Lignes directrices pour l’audit des systèmes de management. https://www.iso.org/standard/19011',
+  sensitivity: 'Commission européenne, JRC, Step 8. Sensitivity analysis, décembre 2020. https://knowledge-for-policy.ec.europa.eu/composite-indicators/toolkit_en/navigation-page/10-step-guide_en/step-8-sensitivity-analysis_en',
+  release: 'Oracle, Promise Only After You Release Holds On Lots, documentation 26A. https://docs.oracle.com/en/cloud/saas/supply-chain-and-manufacturing/26a/fascp/promise-only-after-you-release-holds-on-lots.html',
+  net: 'Microsoft, Net requirements and pegging information, 21 juillet 2025. https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/net-requirements',
+  promise: 'Microsoft, Calculate order promising dates, 16 novembre 2026. https://learn.microsoft.com/en-us/dynamics365/business-central/sales-how-to-calculate-order-promising-dates',
+  service: 'Ivanov, When is the supply chain resilient? Customer and operational perspectives, 2025. Trois réseaux simulés et plusieurs mesures de service. https://doi.org/10.1080/00207543.2025.2454331',
+  priority: 'Microsoft, Priority-based planning, 17 juin 2025. Ce texte traite de la priorité au réapprovisionnement. Les deux ordres clients relèvent d’un autre arbitrage. https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/priority-based-planning',
+  milestone: 'IATA Cargo iQ, Master Operating Plan, documentation de juillet 2025. https://iata-cargo.github.io/ONE-Record/2025-07/Orchestration/orchestration-mop/',
+  record: 'IATA ONE Record, note de version du 25 juillet 2026. https://iata-cargo.github.io/ONE-Record/development/General/release-note/',
+  dock: 'Microsoft, Set up an appointment for a load, 17 février 2025. https://learn.microsoft.com/en-us/dynamics365/supply-chain/transportation/tasks/set-up-appointment-load',
+  port: 'Huang et al., PLOS ONE, 21 février 2025. Le gain de 4,89 % sur leur planning manuel concerne un cas portuaire simulé. https://doi.org/10.1371/journal.pone.0318606',
+  glec: 'Smart Freight Centre, GLEC Framework v3.3, octobre 2026. https://smartfreightcentre.org/news/13311209/',
+  crosswalk: 'Smart Freight Centre, Crosswalk, édition 4, 26 octobre 2026. https://d1c2gz5q23tkk0.cloudfront.net/shrine_store/uploads/networks/3660/communication_news/13311209/3b754d52417445123e4d321e33d4a3ab.pdf',
+  logistics: 'Kallionpää et al., Development of logistics emissions reporting, numéro de janvier 2026. Les 17 entretiens portent sur les pratiques de déclaration. https://doi.org/10.1016/j.trd.2025.105083',
+  blocking: 'Microsoft, Inventory blocking, 14 août 2025. https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/inventory-blocking',
+  epcis: 'GS1 EPCIS 2.0, juin 2022. État métier et instant de l’événement. https://ref.gs1.org/standards/epcis/',
+  iso9001: 'ISO 9001:2026. Le communiqué du 16 septembre 2026 annonce la nouvelle édition. https://www.iso.org/news/2026/09/ISO9001-2026',
+  ghg: 'GHG Protocol, Product Life Cycle Accounting and Reporting Standard, 2011. https://ghgprotocol.org/sites/default/files/standards/Product-Life-Cycle-Accounting-Reporting-Standard_041613.pdf',
+  repair: 'Järnefelt, Ashouri et Behm, Does repair improve environmental performance?, 2026. L’effet dépend du composant, de la date de panne et de la catégorie d’impact. https://doi.org/10.1016/j.jclepro.2026.149164',
+  ef: 'Commission européenne, recommandation sur les méthodes d’empreinte environnementale, 16 décembre 2021. https://environment.ec.europa.eu/publications/recommendation-use-environmental-footprint-methods_en',
+  ef31: 'JRC, méthode EF 3.1, rapport du 8 février 2023. https://op.europa.eu/en/publication-detail/-/publication/145f8401-a82a-11ed-b508-01aa75ed71a1',
+  efUpdate: 'JRC, Environmental Footprint transition phase, actualisation du 4 novembre 2026. https://knowledge-for-policy.ec.europa.eu/environmental-footprint-transition-phase_en',
+  risk: 'HM Treasury, Orange Book, actualisation du 18 novembre 2026. Dépendances entre risques. https://www.gov.uk/government/publications/orange-book/the-orange-book-management-of-risk-principles-and-concepts',
+  appraisal: 'HM Treasury, Green Book 2026, actualisation du 28 octobre 2026. Valeurs de bascule dans l’évaluation publique. https://www.gov.uk/government/publications/the-green-book--2/the-green-book-2026',
+  finance: 'ACCA, Relevant costs, sans date affichée. Coûts futurs modifiés par la décision et coûts d’opportunité. https://www.accaglobal.com/uk/en/student/exam-support-resources/fundamentals-exams-study-resources/f5/technical-articles/relevant-costs.html',
+  cash: 'Ivanov, Cash flow dynamics in the supply chain during and after disruptions, mai 2024. Étude des flux après perturbation. Le plafond d’urgence ne fait pas partie du chiffrage. https://doi.org/10.1016/j.tre.2024.103526',
+  routing: 'Müllerklein et Fontaine, Resilient transportation network design with disruption uncertainty and lead times, 2025. Les capacités et le délai conditionnent le gain de réacheminement. https://doi.org/10.1016/j.ejor.2024.11.021'
+};
+
+function notes(text, ...references) {
+  return [text, '', ...references].join('\n');
+}
+
+function achats(d) {
+  let s = page(d, 'Quels fournisseurs retenir pour les cinq places ?', notes(
+    'Cas public de sélection, 29 fournisseurs dont 27 testés. Treize fournisseurs sont mono-source, avec cinq baisses de service, et quatorze ont une autre configuration, avec une baisse. Les deux résultats manquants restent inconnus. Le tirage s’effectue sans remise dans chaque groupe. Pour le plan quatre plus un, 910 listes sur 10 010 manquent les six cas. Les probabilités concernent le tirage, sans estimer une fréquence de panne. La sélection des cinq délais les plus longs manque les six cas.',
+    ref.sample, ref.exposure));
+  intro(s, 'Dossier préparé pour les achats le 25 novembre 2026 à partir des cas simulés.');
+  table(s, 'Plans de revue', [
+    ['Composition de la liste', 'Listes sans baisse détectée', 'Baisses détectées en moyenne'],
+    ['Cinq tirés au hasard', '25,21 %', '1,11'],
+    ['Quatre mono-source et un autre', '9,09 %', '1,61'],
+    ['Cinq mono-source', '4,35 %', '1,92']
+  ], [340,227,235], 64, 224, 256, 17, [1,2]);
+  caption(s, 'Cas fournisseurs. Une revue de 5 dossiers tirés parmi 27, dont 6 avec baisse du service.', 64, 498, 802);
+  issue(s, 'choix', 'Décision de l’acheteur', 904, 231, 311);
+  label(s, 'consigne', 'Réserver une place aux autres fournisseurs si la revue doit couvrir les deux groupes. Un des six cas de baisse se trouve dans ce groupe.', 904, 305, 310, 250, 20);
+  label(s, 'action', 'Avant la réunion, vérifier que la seconde source annoncée peut fabriquer la référence et livrer à temps.', 64, 598, 1150, 95, 21, {bold:true});
+
+  s = page(d, 'La commande de dépannage passe à 900 kg', notes(
+    'Cas central de double approvisionnement. Les quantités de 800 et 900 kg et le résultat de 46 configurations sur 60 sont rapportés. La différence est de 100 kg et la fraction des configurations sans rupture vaut 76,67 %. La distribution des paramètres et le calendrier complet ne sont pas fournis.',
+    ref.order, ref.quality, ref.dual));
+  label(s, 'ecart', '+100 kg', 64, 175, 560, 112, 61, {bold:true,color:d.accent});
+  label(s, 'sens', 'de dépannage quand seule une partie du premier arrivage peut servir à l’échéance.', 69, 301, 537, 162, 24);
+  issue(s, 'temoin', 'Commande du cas central', 655, 185, 550);
+  label(s, 'besoin', '800 kg à couvrir avant de tenir compte de la contrainte de réception.', 655, 248, 550, 104, 22);
+  issue(s, 'variante', 'Après contrôle à réception', 655, 364, 550);
+  label(s, 'livraison', '900 kg à couvrir si 90 % de la première livraison sont utilisables à la date du besoin.', 655, 428, 548, 140, 22);
+  caption(s, 'Exercice de double approvisionnement, au jour du besoin. Sur les 60 configurations simulées, 46 évitent la rupture.', 64, 552, 1150);
+  label(s, 'action', 'Avant de commander, rapprocher la date de libération du lot, le minimum de commande et la capacité de réception.', 64, 610, 1150, 86, 20, {bold:true});
+
+  s = page(d, 'Quels justificatifs demander avant les trois visites ?', notes(
+    'Le test rend successivement chacune des 84 cotations incertaine. Seize peuvent modifier la liste. Les 68 restantes ne la modifient pas dans ces essais isolés. Parts recalculées de 19,05 % et 80,95 %. Les poids et bornes individuels manquent. La stabilité sous plusieurs valeurs incertaines à la fois reste à vérifier.',
+    ref.audit, ref.sensitivity));
+  label(s, 'chiffre', '16 sur 84', 68, 160, 530, 107, 58, {bold:true,color:d.accent});
+  label(s, 'lien', 'cotations peuvent faire entrer ou sortir un dossier du programme de visites.', 68, 287, 490, 180, 23);
+  issue(s, 'conduite', 'Au moment de demander une preuve', 620, 176, 584);
+  label(s, 'question', 'Pour la cotation en suspens, quelles sont les deux valeurs encore défendables ?', 620, 252, 558, 114, 22);
+  label(s, 'decision', 'Reclasser les dossiers avec chaque valeur, en gardant les ex æquo. Demander le justificatif en priorité si la liste de visites change.', 620, 397, 562, 174, 21, {bold:true});
+  caption(s, 'Exercice de programmation d’audit. Trois visites, une cotation inconnue par essai. Les incertitudes simultanées restent à tester.', 68, 597, 1130);
+}
+
+function planification(d) {
+  let s = page(d, 'Que peut-on promettre au dépôt ?', notes(
+    'L’exercice de couverture indique quatre jours complets au dépôt et cinq jours en ajoutant le stock amont. L’état du stock et le temps de transfert conditionnent sa date de disponibilité. Les flux journaliers permettant de reconstituer le solde ne sont pas publics.',
+    ref.release, ref.net));
+  intro(s, 'Étude du 25 novembre 2026 pour la planification. Trois exercices simulés.');
+  label(s, 'solde', '4 jours', 65, 218, 490, 130, 67, {bold:true,color:d.accent});
+  label(s, 'physique', 'La quantité déjà utilisable au dépôt couvre quatre jours complets de besoin.', 69, 355, 470, 155, 24);
+  issue(s, 'condition', 'Pour promettre le cinquième jour', 604, 231, 610);
+  label(s, 'transfert', 'À quelle date le transfert de l’usine sera-t-il disponible au dépôt ? Le stock des deux sites représente cinq jours si le transfert arrive avant le premier manque.', 604, 313, 596, 225, 23);
+  caption(s, 'Couverture au départ de l’exercice, en jours complets de besoin au dépôt. Un lot en attente de contrôle entre au solde à sa libération.', 64, 584, 1142);
+
+  s = page(d, 'Neuf livraisons chaque jour ou un volume sur cinq jours ?', notes(
+    'Les taux publiés de 90 % et 84 % portent sur les volumes de reprise. L’évaluation du plancher quotidien tient compte de la réserve datée qui s’ajoute aux trajectoires. Les taux ne sont pas recalculés après cette réserve. Six points de volume séparent les trajectoires. Les séries quotidiennes ne sont pas disponibles.',
+    ref.promise, ref.service), 32);
+  label(s, 'reserve', 'Pour tester la promesse quotidienne, ajouter deux unités de réserve avant J1 puis deux avant J3.', 64, 155, 1150, 93, 22);
+  table(s, 'Trajectoires de service', [
+    ['Trajectoire', 'Volume repris sur cinq jours', 'Livraisons après mobilisation de la réserve'],
+    ['Première', '90 %', 'À J2, il manque encore une unité pour atteindre le plancher.'],
+    ['Seconde', '84 %', 'Le plancher de neuf livraisons tient chaque jour.']
+  ], [243,300,605], 64, 275, 218, 20, [1]);
+  caption(s, 'Exercice de reprise. Les taux portent sur les cinq jours. Les résultats par jour incorporent la réserve disponible à cette date.', 64, 507, 1148);
+  label(s, 'engagement', 'Pour un engagement quotidien, retenir la seconde trajectoire. Pour un engagement cumulé, comparer les volumes à l’échéance convenue.', 64, 594, 1150, 100, 21, {bold:true});
+
+  s = page(d, 'Quel client reçoit le lot libéré ?', notes(
+    'Exercice d’allocation entre deux commandes. Le témoin présente un retard maximal de 7 jours et 28 unités-jours de retard. L’urgence d’abord donne 4 jours et 32 unités-jours. Les écarts recoupés sont de −3 jours et +4 unités-jours. Les ordres et arrivages d’origine manquent. Les arbitrages supposent toutes les autres clauses identiques.',
+    ref.priority));
+  label(s, 'clause', 'La clause du client détermine la mesure à regarder avant de changer l’ordre de passage.', 64, 151, 1150, 78, 23);
+  issue(s, 'priorite-delai', 'Le contrat plafonne le retard à quatre jours', 65, 252, 530);
+  label(s, 'jour', '7 jours puis 4', 65, 355, 520, 83, 36, {bold:true,color:d.accent});
+  label(s, 'règle-plafond', 'Servir l’urgence en premier ramène le plus grand retard au plafond.', 65, 466, 505, 152, 23);
+  issue(s, 'priorite-penalite', 'Le contrat pénalise chaque unité et chaque jour', 652, 252, 540);
+  label(s, 'unite-jour', '28 puis 32 unités-jours', 652, 355, 549, 83, 32, {bold:true,color:d.accent});
+  label(s, 'règle-pénalité', 'Garder l’ordre témoin si la pénalité est uniforme et que les autres clauses sont identiques.', 652, 466, 540, 152, 23);
+  caption(s, 'Cas de deux commandes pour un lot. Valeur témoin puis valeur avec priorité à l’urgence, sur le même épisode.', 64, 644, 1150);
+}
+
+function transport(d) {
+  let s = page(d, 'Combien de dossiers faudra-t-il rouvrir ?', notes(
+    'Cas des alertes de fret express, quatre trajectoires de 240 mois. Le signal du mois précédent s’applique aux mois 2 à 240. Sur 956 mois-scénarios, 273 ont un service inférieur à 99 % de la masse demandée. Pour les seuils 90, 95 et 99 %, les alertes justifiées sont respectivement 257, 251 et 247, les fausses alertes 622, 616 et 611, les dossiers ouverts 879, 867 et 858. À 95 %, le rappel est de 251/273 = 91,94 % et la précision de 251/867 = 28,95 %. Pour la persistance, ces nombres de dossiers sont de 136, 140 et 276. Les trajectoires partagent des hypothèses. Un comptage d’alertes ne mesure pas l’effet causal d’une relance sur un départ.',
+    ref.milestone, ref.record));
+  intro(s, 'Support du 25 novembre 2026 pour l’exploitation transport. Cas simulés.');
+  const axisText = {typeface:d.font, fontSize:18, fill:d.ink};
+  const chart = s.charts.add('bar', {
+    position:{left:58, top:230, width:715, height:312}, categories:['90 %', '95 %', '99 %', 'Persistance'],
+    series:[{name:'Dossiers ouverts', values:[879,867,858,276], fill:d.accent, line:noLine}],
+    barOptions:{direction:'column', grouping:'clustered', gapWidth:85}, hasLegend:false,
+    xAxis:{textStyle:axisText}, yAxis:{min:0, max:1000, majorUnit:250, textStyle:axisText, majorGridlines:{style:'solid', fill:'#D7DEE3', width:1}},
+    dataLabels:{showValue:true, position:'outEnd', textStyle:{typeface:d.font, fontSize:18, bold:true, fill:d.ink}},
+    chartFill:'#FFFFFF', chartLine:noLine, plotAreaLine:noLine
+  });
+  applyPresentationChartFont(chart, {fontFamily:d.font});
+  d.chartOwners.push(1);
+  caption(s, 'Dossiers ouverts sur 956 mois-scénarios (mois 2 à 240 de quatre trajectoires). Cas public des alertes de fret.', 64, 559, 700);
+  issue(s, 'signal', 'Au seuil de saturation de 95 %', 813, 233, 395);
+  label(s, 'comptes', '251 mois dégradés repérés sur 273, pour 616 fausses alertes.', 813, 327, 397, 132, 24, {bold:true});
+  label(s, 'sens', 'La persistance déclenche une revue quand le mois précédent était déjà sous l’objectif de service.', 813, 494, 395, 170, 20);
+
+  s = page(d, 'À quel coût une relance devient-elle préférable ?', notes(
+    'Coût simplifié = fausses alertes + r × mois dégradés manqués, avec un coût nul des revues justifiées. Les cinq règles sont aucune alerte, persistance et saturation à 90 %, 95 % et 99 %. Mois manqués respectivement 273, 137, 16, 22 et 26. Les bascules de l’enveloppe sont 140 / (273 − 137) = 35/34 et (622 − 140) / (137 − 16) = 482/121. À ces rapports exacts, les deux règles voisines sont à égalité. Les seuils 95 % et 99 % ne minimisent jamais le coût parmi ces cinq options. La bascule 476/115 ≈ 4,14 compare uniquement 95 % et persistance. Une sixième règle théorique, toujours alerter, pourrait faire mieux que la persistance au-delà de 543/137 si toutes les revues justifiées étaient gratuites et la capacité illimitée. Les coûts et la capacité réels restent à mesurer.'));
+  label(s, 'modele', 'Combien de fausses alertes coûteraient autant qu’un mois dégradé manqué ?', 64, 153, 1150, 80, 23);
+  table(s, 'Règles au coût minimal', [
+    ['Rapport de coûts', 'Règle la moins coûteuse parmi les cinq évaluées'],
+    ['Sous 1,03 environ', 'Aucune alerte'],
+    ['Entre 1,03 et 3,98 environ', 'Relancer après un mois de service insuffisant'],
+    ['Au-dessus de 3,98 environ', 'Relancer à partir de 90 % de saturation le mois précédent']
+  ], [402,746], 64, 254, 250, 18);
+  caption(s, 'Calcul sur les mêmes 956 mois-scénarios. Égalité aux seuils exacts 35/34 et 482/121. Le modèle attribue un coût nul aux revues justifiées.', 64, 521, 1148);
+  label(s, 'choix', 'Le seuil de 4,14 ne vaut que pour comparer la saturation à 95 % à la persistance. Pour dimensionner l’équipe, compter aussi le temps de traitement des dossiers justifiés.', 64, 594, 1148, 101, 20, {bold:true});
+
+  s = page(d, 'Deux tournées sur un seul créneau ?', notes(
+    'Cas de demande régulière, un départ tous les quatre jours. Chaque tournée transporte 40 unités, pour une capacité de 60. Une tournée laisse 20 unités libres. Deux tournées produisent 80 unités, soit 20 de trop. Les 21 fermetures de créneau donnent zéro regroupement faisable en un chargement. Sans horaires de rotation ni coûts détaillés, le nombre de véhicules et l’ordre des options de repli restent à examiner.',
+    ref.dock, ref.port));
+  label(s, 'charge-calculée', '40 + 40 = 80 unités', 65, 190, 674, 95, 41, {bold:true,color:d.accent});
+  label(s, 'capacité', 'Le véhicule en accepte 60. Le dépassement de 20 unités exclut le regroupement en un seul chargement.', 68, 315, 611, 192, 25);
+  issue(s, 'repli', 'Au quai, vérifier les heures', 753, 207, 455);
+  label(s, 'options', 'Un départ avancé tient-il sur un créneau libre ? Deux rotations du même véhicule respectent-elles l’heure limite ? Sinon, chiffrer le deuxième véhicule.', 753, 298, 448, 253, 22);
+  caption(s, 'Exercice de fermeture de quai, un départ tous les quatre jours. Aucun chargement groupé faisable sur les 21 fermetures testées.', 64, 605, 1130);
+
+  s = page(d, 'Quels justificatifs demander au transporteur ?', notes(
+    'Couverture mesurée en tonnes-kilomètres documentées sur le total modélisé. À trois demandes, les parcours complets couvrent 47,6 % et les liaisons 42,0 %. Écart de 5,6 points. À dix demandes, seuls l’ordre et l’écart de 13,6 points sont publiés. Ni la couverture absolue à dix ni la bascule intermédiaire ne sont connues. Les budgets ne sont pas des périodes.',
+    ref.glec, ref.crosswalk, ref.logistics));
+  issue(s, 'trois', 'Avec trois demandes', 64, 188, 549);
+  label(s, 'couverture-trois', '47,6 %', 64, 255, 527, 110, 56, {bold:true,color:d.accent});
+  label(s, 'parcours', 'des tonnes-kilomètres sont documentées en demandant des parcours complets, contre 42,0 % en demandant des liaisons.', 67, 397, 510, 170, 22);
+  issue(s, 'dix', 'Avec dix demandes', 630, 188, 549);
+  label(s, 'couverture-dix', '13,6 points', 630, 255, 575, 110, 52, {bold:true,color:d.accent});
+  label(s, 'liaisons', 'd’avance environ pour les liaisons. La couverture absolue à ce budget et le point de bascule intermédiaire restent inconnus.', 634, 397, 563, 170, 22);
+  caption(s, 'Exercice de collecte, deux budgets sur le même périmètre de transport. Pour une empreinte de bout en bout, contrôler aussi les tronçons dépourvus de justificatif.', 64, 613, 1145);
+}
+
+function qualite(d) {
+  let s = page(d, 'Peut-on libérer un jeu pour le montage ?', notes(
+    'Exercice d’assemblage, quatre variantes avec bilan séparé sur 163 composants. Dans la variante modérée, un décalage de disponibilité d’un mois laisse 115,12 kg bloqués à la clôture et réduit d’un le nombre de jeux livrés. La nomenclature et les stocks par référence ne sont pas publiés. Les identifiants et la date de libération sont nécessaires pour une décision d’atelier.',
+    ref.blocking, ref.epcis, ref.iso9001));
+  intro(s, 'Étude du 25 novembre 2026 pour la qualité et la conception, à partir de trois cas simulés.');
+  label(s, 'stock', '115,12 kg', 64, 217, 527, 99, 52, {bold:true});
+  label(s, 'stock-etat', 'restent bloqués en clôture si la disponibilité recule d’un mois dans la variante modérée.', 67, 340, 525, 173, 22);
+  label(s, 'jeu', 'Un jeu livré de moins', 635, 235, 568, 79, 33, {bold:true});
+  label(s, 'critère', 'Pour autoriser le lancement, le magasinier vérifie chaque référence, la quantité par jeu et la date de libération au poste concerné.', 637, 340, 562, 190, 23);
+  caption(s, 'Bilan de quatre variantes d’assemblage, 163 composants contrôlés séparément. Stock en kg et variation du nombre de jeux livrés sur la période simulée.', 64, 592, 1149);
+
+  s = page(d, 'Trois ou quatre pièces à accepter au recontrôle ?', notes(
+    'Seuils rapportés pour un lot de six pièces et un service comparable. Une navette déjà programmée à charge marginale négligeable demande trois acceptations au recontrôle. Une tournée dédiée qui ajoute 12 kg de CO₂e en demande quatre. Les inventaires détaillés de retouche, de rebut et de remplacement ne sont pas disponibles pour recalculer ces seuils. La charge marginale négligeable de cet essai ne constitue pas une règle d’allocation générale.',
+    ref.ghg, ref.repair), 30);
+  table(s, 'Acceptations au recontrôle', [
+    ['Trajet utilisé pour la retouche', 'Seuil pour réduire les émissions'],
+    ['Navette déjà prévue, effet de la charge ajoutée négligeable', '3 pièces acceptées sur 6'],
+    ['Tournée dédiée, 12 kg de CO₂e supplémentaires', '4 pièces acceptées sur 6']
+  ], [628,520], 64, 175, 215, 20);
+  caption(s, 'Lot d’essai de six pièces, du départ en retouche au recontrôle. Seuils rapportés pour un même service rendu.', 64, 407, 1148);
+  issue(s, 'releve', 'Sur la fiche de retouche', 64, 502, 485);
+  label(s, 'consigne', 'Inscrire le trajet réellement mobilisé, le nombre de pièces acceptées et les remplacements à prévoir parmi les pièces refusées.', 64, 563, 1130, 113, 24);
+
+  s = page(d, 'À quel poids le choix de conception change-t-il ?', notes(
+    'Deux variantes à masse identique sont comparées sur les étapes de production et de livraison. Huit indicateurs s’améliorent et huit se dégradent. La bascule concerne le poids relatif de l’eutrophisation des eaux douces. Les autres poids sont redistribués proportionnellement. Les vecteurs d’impact et les facteurs de normalisation manquent. Le cahier ne désigne pas la variante gagnante de part et d’autre du seuil. Une masse identique ne démontre pas une fonction ou une durée de vie identiques.',
+    ref.ef, ref.ef31, ref.efUpdate));
+  label(s, 'périmètre', 'La revue porte sur la production et la livraison de deux variantes de même masse.', 64, 151, 1135, 78, 23);
+  issue(s, 'indicateurs', 'Résultats sur seize indicateurs', 65, 260, 527);
+  label(s, 'opposition', 'Huit s’améliorent et huit se dégradent. Le nombre d’indicateurs favorables ne suffit pas à départager les variantes.', 65, 332, 508, 195, 23);
+  issue(s, 'hypothèse', 'Poids de l’eutrophisation des eaux douces', 631, 260, 569);
+  label(s, 'bascule', 'Le classement s’inverse quand son poids dépasse 7,294 % et que les autres poids sont ajustés proportionnellement.', 631, 360, 560, 184, 23);
+  label(s, 'choix', 'Si les poids jugés recevables encadrent le seuil, conserver les deux variantes en discussion et expliciter l’impact qui prime.', 64, 570, 1145, 116, 22, {bold:true});
+}
+
+function gestion(d) {
+  let s = page(d, 'Quelle prime accepter pour plafonner les urgences ?', notes(
+    'Cas de 240 jeux, comparaison du coût de l’achat et de la fabrication en interne. Le cahier rapporte des probabilités d’achat plus coûteux allant d’environ 15,0 % à 40,4 % selon le regroupement des urgences. L’écart sur les valeurs arrondies est de 25,4 points. Les probabilités détaillées et les frais évités ne sont pas disponibles. Le cas ne permet pas d’affecter de façon certaine chaque extrême à une loi de dépendance ou à une clause précise. Une prime dépassant les frais évités dans les deux hypothèses alourdit le coût espéré dans les deux cas.',
+    ref.risk, ref.appraisal, ref.cash), 31);
+  intro(s, 'Étude préparée le 25 novembre 2026 pour le contrôle de gestion. Cas économiques simulés.');
+  label(s, 'risque', '15,0 % à 40,4 %', 63, 209, 648, 99, 47, {bold:true,color:d.accent});
+  label(s, 'exposition', 'C’est la probabilité estimée que l’achat coûte plus cher que la fabrication en interne, selon la façon de grouper les urgences.', 65, 333, 599, 190, 23);
+  issue(s, 'prime', 'Avant de négocier la prime', 729, 222, 479);
+  label(s, 'clause', 'À quel niveau le fournisseur remet-il le compteur à zéro ? Appliquer la clause à des urgences indépendantes, puis groupées. Dans chaque cas, comparer les frais évités à la prime.', 729, 313, 470, 246, 22);
+  caption(s, 'Comparaison sur 240 jeux simulés. Écart de 25,4 points entre les deux probabilités arrondies. Le montant des frais évités reste à chiffrer sur le contrat.', 64, 604, 1144);
+
+  s = page(d, 'Dans quel incident financer le deuxième levier ?', notes(
+    'Deux incidents distincts. Dans le retard d’approvisionnement, accélération et combinaison annulent le même surcroît moyen d’arriéré. Sous retenue qualité, la combinaison évite des unités-jours supplémentaires. Si E est ce gain (positif) et ΔC le surcoût, le seuil sous pénalité linéaire vaut ΔC/E, environ 2,49 unités monétaires simulées par unité-jour dans le second essai. À l’égalité les coûts se compensent. Si E est nul, comparer directement les coûts. Une clause avec plafond, franchise ou pénalité par commande doit être appliquée aux flux avant agrégation. La valeur simulée n’est pas un tarif en euros.',
+    ref.finance, ref.routing, ref.appraisal));
+  table(s, 'Effet des interventions', [
+    ['Incident', 'Effet sur l’arriéré', 'Décision de financement'],
+    ['Retard d’approvisionnement', 'Accélération seule et combinaison annulent le même surcroît moyen.', 'Choisir l’accélération seule, moins coûteuse.'],
+    ['Retenue qualité', 'La combinaison évite davantage d’unités-jours de retard.', 'Financer le supplément si la valeur du retard évité couvre le surcoût.']
+  ], [279,424,445], 64, 171, 250, 18);
+  caption(s, 'Deux incidents simulés distincts. Effets rapportés par épisode sur le même indicateur d’arriéré, exprimé en unités-jours.', 64, 438, 1147);
+  issue(s, 'seuil', '2,49 unités monétaires simulées par unité-jour', 64, 521, 1148);
+  label(s, 'condition', 'Seuil d’équilibre de la retenue qualité avec une pénalité linéaire. Pour décider en euros, appliquer le tarif et les règles de facturation du contrat.', 64, 594, 1140, 90, 20);
+}
+
+const decks = [
+  {file:'01-Revue-achats.pptx', render:achats, font:'Arial', accent:'#284E40', ink:'#1B2822', muted:'#4A5650', tint:'#E8F0EA', rule:'#BACAC0'},
+  {file:'02-Revue-planification.pptx', render:planification, font:'Calibri', accent:'#234B74', ink:'#182C40', muted:'#4A5C6E', tint:'#E5EDF6', rule:'#BAC8D6'},
+  {file:'03-Revue-transport.pptx', render:transport, font:'Arial', accent:'#72411D', ink:'#332C27', muted:'#5F5750', tint:'#F4ECE5', rule:'#D5C6B7'},
+  {file:'04-Revue-qualite-environnement.pptx', render:qualite, font:'Arial', accent:'#171717', ink:'#202020', muted:'#4F4F4F', tint:'#EEEEEE', rule:'#BDBDBD'},
+  {file:'05-Revue-controle-gestion.pptx', render:gestion, font:'Calibri', accent:'#263849', ink:'#20272D', muted:'#4E5962', tint:'#E9EEF1', rule:'#BAC4CA'}
 ];
 
-const receipts=[];
-const selected = process.env.IC_PPT_ONLY ? process.env.IC_PPT_ONLY.split(',') : null;
-for(const deck of decks.filter(d=>!selected || selected.includes(d.file))){
-  const p=Presentation.create({slideSize:{width:1280,height:720}});
-  deck.slides.forEach((d,i)=>addSlide(p,d,i+1));
-  const dir=path.join(qa,deck.file.replace('.pptx',''));
-  await fs.mkdir(dir,{recursive:true});
-  const candidatePath=path.join(dir,'candidate.pptx');
-  const finalPath=path.join(dir,'final.pptx');
-  await (await PresentationFile.exportPptx(p)).save(candidatePath);
-  const owners=[1,2,3,4];
-  const result=await finalizePresentation({
-    workspaceDir,candidatePath,finalPath,pythonExecutable:runtimePython,
-    integrityValidatorPath:path.join(skill,'container_tools/inspect_presentation_package_integrity.py'),
-    layoutValidatorPath:path.join(skill,'container_tools/inspect_presentation_layout_geometry.py'),
-    layoutArgs:['--expected-slide-size-emu','12192000,6858000','--validate-bullet-geometry','--validate-heading-fit',...owners.flatMap(n=>['--require-native-table-slide',String(n)])],
-    explicitTotalSlideCount:4,requiredNativeTableOwnerSlides:owners,requiredNativeChartOwnerSlides:[],
-    fontPolicy:{basis:'design',families:[font]},verifyArtifactToolImport:true,
-    receiptPath:path.join(qa,'receipts',deck.file+'.validation.json')
+await fs.mkdir(path.join(qa, 'receipts'), {recursive:true});
+await fs.mkdir(outputDir, {recursive:true});
+const receipts = [];
+const selected = process.env.IC_PPT_ONLY?.split(',');
+for (const deck of decks.filter(d => !selected || selected.includes(d.file))) {
+  deck.pres = Presentation.create({slideSize:{width:1280, height:720}});
+  deck.tableOwners = [];
+  deck.chartOwners = [];
+  deck.render(deck);
+  const slideCount = deck.pres.slides.items.length;
+  const dir = path.join(qa, deck.file.replace('.pptx', ''));
+  await fs.mkdir(dir, {recursive:true});
+  const candidatePath = path.join(dir, 'candidate.pptx');
+  const finalPath = path.join(dir, 'final.pptx');
+  const receiptPath = path.join(qa, 'receipts', deck.file + '.validation.json');
+  await (await PresentationFile.exportPptx(deck.pres)).save(candidatePath);
+  await finalizePresentation({
+    workspaceDir, candidatePath, finalPath, pythonExecutable:runtimePython,
+    integrityValidatorPath:path.join(skillDir, 'container_tools/inspect_presentation_package_integrity.py'),
+    layoutValidatorPath:path.join(skillDir, 'container_tools/inspect_presentation_layout_geometry.py'),
+    layoutArgs:['--expected-slide-size-emu','12192000,6858000','--validate-bullet-geometry','--validate-heading-fit',
+      ...deck.tableOwners.flatMap(n => ['--require-native-table-slide',String(n)])],
+    explicitTotalSlideCount:slideCount, requiredNativeTableOwnerSlides:deck.tableOwners, requiredNativeChartOwnerSlides:deck.chartOwners,
+    materializeLiteralChartWorkbooks:deck.chartOwners.length > 0,
+    fontPolicy:{basis:'design', families:[deck.font]}, verifyArtifactToolImport:true, receiptPath
   });
-  const finalPresentation=await PresentationFile.importPptx(await FileBlob.load(finalPath));
-  for(let i=0;i<4;i++){
-    const blob=await finalPresentation.export({slide:finalPresentation.slides.getItem(i),format:'png',scale:1});
-    await fs.writeFile(path.join(dir,`slide-${i+1}.png`),new Uint8Array(await blob.arrayBuffer()));
+  const finalPresentation = await PresentationFile.importPptx(await FileBlob.load(finalPath));
+  for (let i = 0; i < slideCount; i++) {
+    const blob = await finalPresentation.export({slide:finalPresentation.slides.getItem(i), format:'png', scale:1});
+    await fs.writeFile(path.join(dir, 'slide-' + (i+1) + '.png'), new Uint8Array(await blob.arrayBuffer()));
   }
-  await fs.copyFile(finalPath,path.join(outputDir,deck.file));
-  receipts.push({file:deck.file,slides:4,editableTables:4,finalizationReceipt:path.join(qa,'receipts',deck.file+'.validation.json'),renderDir:dir});
-  console.log(JSON.stringify({file:deck.file,renderDir:dir,validated:true}));
+  await fs.copyFile(finalPath, path.join(outputDir, deck.file));
+  receipts.push({file:deck.file, slides:slideCount, tables:deck.tableOwners, charts:deck.chartOwners, receiptPath, renderDir:dir});
+  console.log(deck.file + ' (' + slideCount + ' slides)');
 }
-await fs.writeFile(path.join(qa,'index.json'),JSON.stringify(receipts,null,2)+'\n');
-console.log(`QA_INDEX=${path.join(qa,'index.json')}`);
+await fs.writeFile(path.join(qa,'index.json'), JSON.stringify(receipts,null,2) + '\n');
+console.log('QA_INDEX=' + path.join(qa,'index.json'));

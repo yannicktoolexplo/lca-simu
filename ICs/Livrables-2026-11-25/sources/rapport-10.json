@@ -1,83 +1,33 @@
 {
-  "title": "Disponibilité des jeux complets pour le montage",
-  "summary": "Le stock physique total ne permet pas de décider combien de jeux sont montables. L’analyse du résultat publié établit qu’un décalage de disponibilité peut simultanément augmenter le stock immobilisé et réduire les livraisons. La décision doit porter sur les quantités de chaque composant utilisables à leur date de consommation.",
+  "title": "Autoriser la préparation du jeu de montage",
+  "summary": "Avant le lancement, le magasin vérifie chaque référence de la nomenclature au poste où elle sera consommée. Dans le cas publié, un report de disponibilité d’un mois laisse 115,12 kg bloqués et fait perdre un jeu livré.",
   "sections": [
     {
-      "heading": "Périmètre et preuve du résultat",
+      "heading": "À vérifier sur l’ordre de montage",
       "paragraphs": [
-        "L’étude documentée dans les [cahiers métier, lignes 67 à 71](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L67-L71#rev-0415), examine quatre variantes d’assemblage avec un bilan séparé sur 163 composants. Les données sont issues d’un essai simulé. Dans la variante modérée, la disponibilité est reportée d’un mois : 115,12 kg restent bloqués en clôture et les jeux livrés diminuent d’une unité.",
-        "Le contrôle réalisé le 25 novembre 2026 porte sur la cohérence de ce résultat et sa traduction métier. Il distingue le stock présent du stock autorisé et disponible pour un ordre. Les valeurs ne sont pas des observations industrielles et l’essai d’assemblage original n’a pas été rejoué."
+        "Pour chacune des références, rapprocher le besoin par jeu de la quantité du lot reçue et libérée. Retirer la quantité déjà réservée. Le plus petit nombre de jeux réalisables sur une seule référence limite le nombre de jeux complets."
       ]
     },
     {
-      "heading": "Résultats disponibles",
-      "table": {
-        "headers": [
-          "Mesure publiée",
-          "Valeur",
-          "Interprétation"
-        ],
-        "widths_cm": [
-          5.1,
-          3.2,
-          8.7
-        ],
-        "rows": [
-          [
-            "Variantes examinées",
-            "4",
-            "Comparaison de situations simulées"
-          ],
-          [
-            "Composants suivis séparément",
-            "163",
-            "Contrôle par référence nécessaire"
-          ],
-          [
-            "Report de disponibilité",
-            "1 mois",
-            "La réception physique ne suffit pas"
-          ],
-          [
-            "Masse bloquée en clôture",
-            "115,12 kg",
-            "Masse présente mais indisponible"
-          ],
-          [
-            "Variation des jeux livrés",
-            "−1 jeu",
-            "Conséquence sur le produit complet"
-          ]
-        ]
-      }
-    },
-    {
-      "heading": "Méthode d’analyse",
+      "heading": "Ce que montre le cas d’assemblage",
       "paragraphs": [
-        "Un jeu n’est complet que lorsque chaque référence requise dispose de sa quantité utilisable, après réservations, au poste et à l’échéance considérés. Une surabondance d’un composant ne compense pas l’absence d’un autre. Additionner leurs kilogrammes efface cette contrainte de complémentarité. La comparaison pertinente conserve donc séparément quantité physique, quantité bloquée et quantité affectable."
+        "Les bilans couvrent quatre variantes et 163 composants. Le résultat de 115,12 kg correspond à la clôture de la variante modérée. Sans les stocks par référence, on peut expliquer pourquoi une masse supplémentaire coexiste avec un jeu livré en moins. L’identité du composant limitant reste à établir."
       ]
     },
     {
-      "heading": "Confrontation aux pratiques de référence",
-      "new_page": true,
+      "heading": "Trace à conserver",
       "paragraphs": [
-        "La documentation Microsoft Inventory blocking, actualisée le 14 août 2025, confirme que la quantité inspectée peut différer de la quantité immobilisée. Elle distingue également les réceptions attendues après inspection. Cette lecture explique pourquoi un taux de contrôle ou une entrée magasin ne peut pas être repris directement comme disponibilité d’assemblage. Elle signale aussi le risque de double comptage lorsque plusieurs mécanismes de blocage coexistent.",
-        "GS1 EPCIS 2.0, version ratifiée en juin 2022, décrit des événements datés et des états métier associés aux objets. L’apport pour ce résultat est la traçabilité réception–blocage–libération par lot et lieu. Cette structure complète le suivi de nomenclature et des réservations ; elle ne calcule pas, à elle seule, le nombre de jeux.",
-        "ISO a annoncé ISO 9001:2026 le 16 septembre 2026. L’évolution récente justifie de repérer l’édition appliquée dans le système qualité. Le communiqué n’autorise pas à attribuer à une clause non lue une règle détaillée de lancement ou de libération."
-      ]
-    },
-    {
-      "heading": "Conclusion du bilan",
-      "paragraphs": [
-        "Le résultat disponible démontre une divergence entre masse immobilisée et service rendu. L’indicateur métier à retenir est la complétude utilisable par ordre et date, accompagnée de la masse bloquée, plutôt qu’un stock total utilisé comme substitut du service. Le magasin et la qualité doivent donc partager une même date de disponibilité.",
-        "La publication ne donne ni les stocks absolus des quatre variantes ni les 163 bilans détaillés. Elle permet ce diagnostic et le constat d’un jeu perdu, mais pas l’identification du composant limitant ou un graphique de son évolution. La nomenclature, les réservations et les dates de libération constituent les pièces manquantes pour approfondir ce bilan précis."
+        "Sur l’ordre, enregistrer la référence, le lot, le poste, la quantité et l’heure de libération. Les événements GS1 EPCIS permettent de rapprocher les changements d’état du lot. Microsoft décrit le blocage qualité d’une quantité. Ces deux lectures expliquent comment distinguer le lot physiquement en magasin de celui qui peut être affecté au montage."
       ]
     }
   ],
   "references": [
-    "[Cahiers métier du dépôt, version 1c483d76, lignes 67 à 71](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L67-L71#rev-0415). Pièce de résultat simulé consultée le 25 novembre 2026.",
+    "[Cahiers métier du dépôt, version 1c483d76, lignes 67 à 71](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L67-L71#rev-0415).",
     "[Microsoft, Inventory blocking](https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/inventory-blocking), mise à jour du 14 août 2025. Quantité inspectée, blocages et réceptions attendues.",
     "[GS1, EPCIS Standard 2.0](https://ref.gs1.org/standards/epcis/), juin 2022, section 7.3.6.2. États métier et événements.",
-    "[ISO, annonce ISO 9001:2026](https://www.iso.org/news/2026/09/ISO9001-2026), 16 septembre 2026. Sources primaires ouvertes le 25 novembre 2026."
-  ]
+    "[ISO, annonce ISO 9001:2026](https://www.iso.org/news/2026/09/ISO9001-2026), 16 septembre 2026."
+  ],
+  "genre": "Instruction à destination du magasin",
+  "layout": "terrain",
+  "reference_heading": "Sources consultées"
 }

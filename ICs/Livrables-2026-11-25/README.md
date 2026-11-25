@@ -23,7 +23,7 @@ Le classement et le contrôle de couverture suivent les quatorze questions de Ca
 
 ## Volume et couverture
 
-Le [prompt de référence](../PROMPT-INTERCONTRATS.md), section « Travail demandé », prévoit une note Word courte, un tableur avec formules ou une présentation de revue. Il ne prescrit aucun nombre de pages, de feuilles, de diapositives ou de jours de travail. La production actuelle comporte quatorze rapports de deux pages, cinq classeurs totalisant quatorze feuilles et cinq présentations de quatre diapositives. Les quatorze questions disposent chacune d’un rapport et sont reliées aux classeurs et présentations du domaine concerné. Le [contrôle détaillé](Controle-couverture.md) distingue couverture des thèmes, format et portée des calculs.
+Les quatorze rapports vont de la fiche de terrain d’une page à la revue des alertes de fret de trois pages (25 pages au total). Cinq classeurs réunissent quatorze feuilles. Les cinq présentations comptent respectivement 3, 3, 4, 3 et 2 diapositives, dans l’ordre du tableau. Le [contrôle détaillé](Controle-couverture.md) donne les vérifications effectuées. Les [compléments par sujet](../Dossiers-metier/README.md) prolongent les questions couvertes dans ce lot. Le [prompt](../PROMPT-INTERCONTRATS.md) définit le contrôle de la charge à réaliser pour chaque mission dans la remise privée.
 
 ## Origine des résultats
 
@@ -35,6 +35,6 @@ Les documents sont datés de leur production et ne constituent pas une attestati
 
 ## Dossier de remise
 
-Le dossier comprend quatorze rapports Word et cinq classeurs Excel, ainsi que cinq présentations PowerPoint. Les classeurs et présentations sont regroupés par domaine pour faciliter la revue. Le [tableau de correspondance](Correspondance-documents.csv) permet de retrouver les fichiers associés à chaque thème. Les rapports contiennent leurs références cliquables et les dates de consultation.
+Le dossier comprend quatorze rapports Word et cinq classeurs Excel, ainsi que cinq présentations PowerPoint. Les classeurs et présentations sont regroupés par domaine pour faciliter la revue. Le [tableau de correspondance](Correspondance-documents.csv) permet de retrouver les fichiers associés à chaque thème. Les rapports contiennent leurs références cliquables et la date de réalisation.
 
 Le répertoire sources conserve les spécifications et scripts de création. Il est séparé des fichiers bureautiques destinés à la remise.
