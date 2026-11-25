@@ -2,7 +2,7 @@
 
 Rapports et analyses du 25 novembre 2026 fondés sur les travaux disponibles dans les cahiers et sur la veille réalisée. Les rapports présentent les résultats et conclusions de l’analyse. Les classeurs sont renseignés et calculent les écarts vérifiables. Les présentations restituent ces résultats en revue.
 
-Le classement suit les quatorze thèmes publics. Le libellé individuel de la colonne « Livrables » n’a pas été communiqué : aucune affectation à une personne ou commande individuelle n’est affirmée dans ces fichiers. La correspondance ci-dessous relie exactement les sujets aux fichiers produits.
+Le classement et le contrôle de couverture suivent les quatorze questions de Cahiers-metier.md. La correspondance ci-dessous relie chaque sujet aux fichiers produits. Le tableau CSV reprend désormais les intitulés exacts des questions et leur passage source. Le contrôle de ce périmètre thématique ne nécessite pas de rapprochement nominatif.
 
 | Thème et sujet | Rapport Word | Classeur Excel | PowerPoint |
 | --- | --- | --- | --- |
@@ -20,6 +20,10 @@ Le classement suit les quatorze thèmes publics. Le libellé individuel de la co
 | 12 Bilan de sensibilité de la pondération environnementale | [Rapport](Word/12-Ponderation-environnementale.docx) | [Analyse](Excel/04-Qualite-environnement.xlsx) | [Restitution](PowerPoint/04-Revue-qualite-environnement.pptx) |
 | 13 Valeur du plafond de facturation des urgences | [Rapport](Word/13-Plafond-urgences.docx) | [Analyse](Excel/05-Controle-gestion.xlsx) | [Restitution](PowerPoint/05-Revue-controle-gestion.pptx) |
 | 14 Comparaison économique des interventions de reprise | [Rapport](Word/14-Comparaison-interventions.docx) | [Analyse](Excel/05-Controle-gestion.xlsx) | [Restitution](PowerPoint/05-Revue-controle-gestion.pptx) |
+
+## Volume et couverture
+
+Le [prompt de référence](../PROMPT-INTERCONTRATS.md), section « Travail demandé », prévoit une note Word courte, un tableur avec formules ou une présentation de revue. Il ne prescrit aucun nombre de pages, de feuilles, de diapositives ou de jours de travail. La production actuelle comporte quatorze rapports de deux pages, cinq classeurs totalisant quatorze feuilles et cinq présentations de quatre diapositives. Les quatorze questions disposent chacune d’un rapport et sont reliées aux classeurs et présentations du domaine concerné. Le [contrôle détaillé](Controle-couverture.md) distingue couverture des thèmes, format et portée des calculs.
 
 ## Origine des résultats
 
