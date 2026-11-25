@@ -1,0 +1,16 @@
+perimetre,regle,alertes_justes,fausses_alertes,mois_manques,mois_calmes_sans_alerte,nombre_mois_scenarios
+tous_les_mois,saturation_90_pct,257,622,16,61,956
+tous_les_mois,saturation_95_pct,251,616,22,67,956
+tous_les_mois,saturation_99_pct,247,611,26,72,956
+tous_les_mois,service_precedent_insuffisant,136,140,137,543,956
+tous_les_mois,aucune_alerte,0,0,273,683,956
+mois_2_a_120,saturation_90_pct,81,343,9,43,476
+mois_2_a_120,saturation_95_pct,80,340,10,46,476
+mois_2_a_120,saturation_99_pct,79,338,11,48,476
+mois_2_a_120,service_precedent_insuffisant,26,68,64,318,476
+mois_2_a_120,aucune_alerte,0,0,90,386,476
+mois_121_a_240,saturation_90_pct,176,279,7,18,480
+mois_121_a_240,saturation_95_pct,171,276,12,21,480
+mois_121_a_240,saturation_99_pct,168,273,15,24,480
+mois_121_a_240,service_precedent_insuffisant,110,72,73,225,480
+mois_121_a_240,aucune_alerte,0,0,183,297,480
