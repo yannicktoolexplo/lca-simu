@@ -1,0 +1,15 @@
+﻿theme;sujet;rapport_word;classeur_excel;presentation;rattachement_individuel
+01;Choisir cinq fournisseurs pour la revue;Word/01-Revue-fournisseurs.docx;Excel/01-Achats.xlsx;PowerPoint/01-Revue-achats.pptx;Libellé de commande individuel non communiqué
+02;Dimensionner un approvisionnement de dépannage;Word/02-Approvisionnement-depannage.docx;Excel/01-Achats.xlsx;PowerPoint/01-Revue-achats.pptx;Libellé de commande individuel non communiqué
+03;Identifier les informations décisives pour un audit;Word/03-Information-audit.docx;Excel/01-Achats.xlsx;PowerPoint/01-Revue-achats.pptx;Libellé de commande individuel non communiqué
+04;Évaluer la couverture réellement disponible au dépôt;Word/04-Couverture-depot.docx;Excel/02-Planification.xlsx;PowerPoint/02-Revue-planification.pptx;Libellé de commande individuel non communiqué
+05;Reprise des volumes et service quotidien;Word/05-Reprise-et-service.docx;Excel/02-Planification.xlsx;PowerPoint/02-Revue-planification.pptx;Libellé de commande individuel non communiqué
+06;Allocation du lot entre deux commandes;Word/06-Allocation-commandes.docx;Excel/02-Planification.xlsx;PowerPoint/02-Revue-planification.pptx;Libellé de commande individuel non communiqué
+07;Fermeture de quai et capacité des départs;Word/07-Fermeture-quai.docx;Excel/03-Transport.xlsx;PowerPoint/03-Revue-transport.pptx;Libellé de commande individuel non communiqué
+08;Couverture des justificatifs de transport;Word/08-Collecte-transport.docx;Excel/03-Transport.xlsx;PowerPoint/03-Revue-transport.pptx;Libellé de commande individuel non communiqué
+09;Analyse des alertes de fret express;Word/09-Alertes-fret-express.docx;Excel/03-Transport.xlsx;PowerPoint/03-Revue-transport.pptx;Libellé de commande individuel non communiqué
+10;Disponibilité des jeux complets pour le montage;Word/10-Disponibilite-jeux-complets.docx;Excel/04-Qualite-environnement.xlsx;PowerPoint/04-Revue-qualite-environnement.pptx;Libellé de commande individuel non communiqué
+11;Bilan environnemental de la retouche et du recontrôle;Word/11-Bilan-retouche.docx;Excel/04-Qualite-environnement.xlsx;PowerPoint/04-Revue-qualite-environnement.pptx;Libellé de commande individuel non communiqué
+12;Bilan de sensibilité de la pondération environnementale;Word/12-Ponderation-environnementale.docx;Excel/04-Qualite-environnement.xlsx;PowerPoint/04-Revue-qualite-environnement.pptx;Libellé de commande individuel non communiqué
+13;Valeur du plafond de facturation des urgences;Word/13-Plafond-urgences.docx;Excel/05-Controle-gestion.xlsx;PowerPoint/05-Revue-controle-gestion.pptx;Libellé de commande individuel non communiqué
+14;Comparaison économique des interventions de reprise;Word/14-Comparaison-interventions.docx;Excel/05-Controle-gestion.xlsx;PowerPoint/05-Revue-controle-gestion.pptx;Libellé de commande individuel non communiqué

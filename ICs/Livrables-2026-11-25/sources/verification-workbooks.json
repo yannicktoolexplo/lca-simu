@@ -1,0 +1,2324 @@
+{
+  "date": "2026-11-25",
+  "source_commit": "REV-0415",
+  "checks": [
+    {
+      "label": "achats 46/60",
+      "actual": 0.7666666666666667,
+      "expected": 0.7666666666666667
+    },
+    {
+      "label": "achats +100 kg",
+      "actual": 100,
+      "expected": 100
+    },
+    {
+      "label": "achats +12.5%",
+      "actual": 0.125,
+      "expected": 0.125
+    },
+    {
+      "label": "audit16/84",
+      "actual": 0.19047619047619047,
+      "expected": 0.19047619047619047
+    },
+    {
+      "label": "revue13champ0",
+      "actual": 2002,
+      "expected": 2002
+    },
+    {
+      "label": "revue13champ1",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "label": "revue13champ2",
+      "actual": 715,
+      "expected": 715
+    },
+    {
+      "label": "revue13champ5",
+      "actual": 0.35714285714285715,
+      "expected": 0.35714286
+    },
+    {
+      "label": "revue14champ0",
+      "actual": 13013,
+      "expected": 13013
+    },
+    {
+      "label": "revue14champ1",
+      "actual": 5720,
+      "expected": 5720
+    },
+    {
+      "label": "revue14champ2",
+      "actual": 7293,
+      "expected": 7293
+    },
+    {
+      "label": "revue14champ5",
+      "actual": 0.6703296703296704,
+      "expected": 0.67032967
+    },
+    {
+      "label": "revue15champ0",
+      "actual": 28392,
+      "expected": 28392
+    },
+    {
+      "label": "revue15champ1",
+      "actual": 8008,
+      "expected": 8008
+    },
+    {
+      "label": "revue15champ2",
+      "actual": 20384,
+      "expected": 20384
+    },
+    {
+      "label": "revue15champ5",
+      "actual": 0.9835164835164836,
+      "expected": 0.98351648
+    },
+    {
+      "label": "revue16champ0",
+      "actual": 26026,
+      "expected": 26026
+    },
+    {
+      "label": "revue16champ1",
+      "actual": 4368,
+      "expected": 4368
+    },
+    {
+      "label": "revue16champ2",
+      "actual": 21658,
+      "expected": 21658
+    },
+    {
+      "label": "revue16champ5",
+      "actual": 1.2967032967032965,
+      "expected": 1.2967033
+    },
+    {
+      "label": "revue17champ0",
+      "actual": 10010,
+      "expected": 10010
+    },
+    {
+      "label": "revue17champ1",
+      "actual": 910,
+      "expected": 910
+    },
+    {
+      "label": "revue17champ2",
+      "actual": 9100,
+      "expected": 9100
+    },
+    {
+      "label": "revue17champ5",
+      "actual": 1.60989010989011,
+      "expected": 1.60989011
+    },
+    {
+      "label": "revue18champ0",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "label": "revue18champ1",
+      "actual": 56,
+      "expected": 56
+    },
+    {
+      "label": "revue18champ2",
+      "actual": 1231,
+      "expected": 1231
+    },
+    {
+      "label": "revue18champ5",
+      "actual": 1.9230769230769231,
+      "expected": 1.92307692
+    },
+    {
+      "label": "revue19champ0",
+      "actual": 2002,
+      "expected": 2002
+    },
+    {
+      "label": "revue19champ1",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "label": "revue19champ2",
+      "actual": 715,
+      "expected": 715
+    },
+    {
+      "label": "revue19champ5",
+      "actual": 0.35714285714285715,
+      "expected": 0.35714286
+    },
+    {
+      "label": "revue20champ0",
+      "actual": 13013,
+      "expected": 13013
+    },
+    {
+      "label": "revue20champ1",
+      "actual": 7150,
+      "expected": 7150
+    },
+    {
+      "label": "revue20champ2",
+      "actual": 5863,
+      "expected": 5863
+    },
+    {
+      "label": "revue20champ5",
+      "actual": 0.5164835164835164,
+      "expected": 0.51648352
+    },
+    {
+      "label": "revue21champ0",
+      "actual": 28392,
+      "expected": 28392
+    },
+    {
+      "label": "revue21champ1",
+      "actual": 12870,
+      "expected": 12870
+    },
+    {
+      "label": "revue21champ2",
+      "actual": 15522,
+      "expected": 15522
+    },
+    {
+      "label": "revue21champ5",
+      "actual": 0.6758241758241759,
+      "expected": 0.67582418
+    },
+    {
+      "label": "revue22champ0",
+      "actual": 26026,
+      "expected": 26026
+    },
+    {
+      "label": "revue22champ1",
+      "actual": 9360,
+      "expected": 9360
+    },
+    {
+      "label": "revue22champ2",
+      "actual": 16666,
+      "expected": 16666
+    },
+    {
+      "label": "revue22champ5",
+      "actual": 0.8351648351648351,
+      "expected": 0.83516484
+    },
+    {
+      "label": "revue23champ0",
+      "actual": 10010,
+      "expected": 10010
+    },
+    {
+      "label": "revue23champ1",
+      "actual": 2730,
+      "expected": 2730
+    },
+    {
+      "label": "revue23champ2",
+      "actual": 7280,
+      "expected": 7280
+    },
+    {
+      "label": "revue23champ5",
+      "actual": 0.9945054945054945,
+      "expected": 0.99450549
+    },
+    {
+      "label": "revue24champ0",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "label": "revue24champ1",
+      "actual": 252,
+      "expected": 252
+    },
+    {
+      "label": "revue24champ2",
+      "actual": 1035,
+      "expected": 1035
+    },
+    {
+      "label": "revue24champ5",
+      "actual": 1.1538461538461537,
+      "expected": 1.15384615
+    },
+    {
+      "label": "couverture potentielle +1",
+      "actual": 1,
+      "expected": 1
+    },
+    {
+      "label": "reprise +6points",
+      "actual": 6.000000000000005,
+      "expected": 6
+    },
+    {
+      "label": "réserve2+2",
+      "actual": 4,
+      "expected": 4
+    },
+    {
+      "label": "retardmax gain3",
+      "actual": 3,
+      "expected": 3
+    },
+    {
+      "label": "retardpondéré +4",
+      "actual": 4,
+      "expected": 4
+    },
+    {
+      "label": "transport80 unités",
+      "actual": 80,
+      "expected": 80
+    },
+    {
+      "label": "transport20 excédent",
+      "actual": 20,
+      "expected": 20
+    },
+    {
+      "label": "couverture5.6points",
+      "actual": 5.6,
+      "expected": 5.6
+    },
+    {
+      "label": "fret9total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "fret9rappel",
+      "actual": 0.9413919413919414,
+      "expected": 0.9413919413919414
+    },
+    {
+      "label": "fret9precision",
+      "actual": 0.2923777019340159,
+      "expected": 0.2923777019340159
+    },
+    {
+      "label": "fret10total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "fret10rappel",
+      "actual": 0.9194139194139194,
+      "expected": 0.9194139194139194
+    },
+    {
+      "label": "fret10precision",
+      "actual": 0.2895040369088812,
+      "expected": 0.2895040369088812
+    },
+    {
+      "label": "fret11total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "fret11rappel",
+      "actual": 0.9047619047619048,
+      "expected": 0.9047619047619048
+    },
+    {
+      "label": "fret11precision",
+      "actual": 0.2878787878787879,
+      "expected": 0.2878787878787879
+    },
+    {
+      "label": "fret12total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "fret12rappel",
+      "actual": 0.4981684981684982,
+      "expected": 0.4981684981684982
+    },
+    {
+      "label": "fret12precision",
+      "actual": 0.4927536231884058,
+      "expected": 0.4927536231884058
+    },
+    {
+      "label": "fret13total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "fret13rappel",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "label": "fret13precision",
+      "actual": "Indéfinie",
+      "expected": "Indéfinie"
+    },
+    {
+      "label": "fret16total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "label": "fret16rappel",
+      "actual": 0.9,
+      "expected": 0.9
+    },
+    {
+      "label": "fret16precision",
+      "actual": 0.19103773584905662,
+      "expected": 0.19103773584905662
+    },
+    {
+      "label": "fret17total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "label": "fret17rappel",
+      "actual": 0.8888888888888888,
+      "expected": 0.8888888888888888
+    },
+    {
+      "label": "fret17precision",
+      "actual": 0.19047619047619047,
+      "expected": 0.19047619047619047
+    },
+    {
+      "label": "fret18total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "label": "fret18rappel",
+      "actual": 0.8777777777777778,
+      "expected": 0.8777777777777778
+    },
+    {
+      "label": "fret18precision",
+      "actual": 0.18944844124700239,
+      "expected": 0.18944844124700239
+    },
+    {
+      "label": "fret19total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "label": "fret19rappel",
+      "actual": 0.28888888888888886,
+      "expected": 0.28888888888888886
+    },
+    {
+      "label": "fret19precision",
+      "actual": 0.2765957446808511,
+      "expected": 0.2765957446808511
+    },
+    {
+      "label": "fret20total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "label": "fret20rappel",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "label": "fret20precision",
+      "actual": "Indéfinie",
+      "expected": "Indéfinie"
+    },
+    {
+      "label": "fret23total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "label": "fret23rappel",
+      "actual": 0.9617486338797814,
+      "expected": 0.9617486338797814
+    },
+    {
+      "label": "fret23precision",
+      "actual": 0.3868131868131868,
+      "expected": 0.3868131868131868
+    },
+    {
+      "label": "fret24total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "label": "fret24rappel",
+      "actual": 0.9344262295081968,
+      "expected": 0.9344262295081968
+    },
+    {
+      "label": "fret24precision",
+      "actual": 0.3825503355704698,
+      "expected": 0.3825503355704698
+    },
+    {
+      "label": "fret25total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "label": "fret25rappel",
+      "actual": 0.9180327868852459,
+      "expected": 0.9180327868852459
+    },
+    {
+      "label": "fret25precision",
+      "actual": 0.38095238095238093,
+      "expected": 0.38095238095238093
+    },
+    {
+      "label": "fret26total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "label": "fret26rappel",
+      "actual": 0.6010928961748634,
+      "expected": 0.6010928961748634
+    },
+    {
+      "label": "fret26precision",
+      "actual": 0.6043956043956044,
+      "expected": 0.6043956043956044
+    },
+    {
+      "label": "fret27total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "label": "fret27rappel",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "label": "fret27precision",
+      "actual": "Indéfinie",
+      "expected": "Indéfinie"
+    },
+    {
+      "label": "somme périodes règle0champ2",
+      "actual": 257,
+      "expected": 257
+    },
+    {
+      "label": "somme périodes règle0champ3",
+      "actual": 622,
+      "expected": 622
+    },
+    {
+      "label": "somme périodes règle0champ4",
+      "actual": 16,
+      "expected": 16
+    },
+    {
+      "label": "somme périodes règle0champ5",
+      "actual": 61,
+      "expected": 61
+    },
+    {
+      "label": "somme périodes règle0champ6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "somme périodes règle1champ2",
+      "actual": 251,
+      "expected": 251
+    },
+    {
+      "label": "somme périodes règle1champ3",
+      "actual": 616,
+      "expected": 616
+    },
+    {
+      "label": "somme périodes règle1champ4",
+      "actual": 22,
+      "expected": 22
+    },
+    {
+      "label": "somme périodes règle1champ5",
+      "actual": 67,
+      "expected": 67
+    },
+    {
+      "label": "somme périodes règle1champ6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "somme périodes règle2champ2",
+      "actual": 247,
+      "expected": 247
+    },
+    {
+      "label": "somme périodes règle2champ3",
+      "actual": 611,
+      "expected": 611
+    },
+    {
+      "label": "somme périodes règle2champ4",
+      "actual": 26,
+      "expected": 26
+    },
+    {
+      "label": "somme périodes règle2champ5",
+      "actual": 72,
+      "expected": 72
+    },
+    {
+      "label": "somme périodes règle2champ6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "somme périodes règle3champ2",
+      "actual": 136,
+      "expected": 136
+    },
+    {
+      "label": "somme périodes règle3champ3",
+      "actual": 140,
+      "expected": 140
+    },
+    {
+      "label": "somme périodes règle3champ4",
+      "actual": 137,
+      "expected": 137
+    },
+    {
+      "label": "somme périodes règle3champ5",
+      "actual": 543,
+      "expected": 543
+    },
+    {
+      "label": "somme périodes règle3champ6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "somme périodes règle4champ2",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "label": "somme périodes règle4champ3",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "label": "somme périodes règle4champ4",
+      "actual": 273,
+      "expected": 273
+    },
+    {
+      "label": "somme périodes règle4champ5",
+      "actual": 683,
+      "expected": 683
+    },
+    {
+      "label": "somme périodes règle4champ6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "label": "ratio5 minimum5règles",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "label": "ratio5 minimum6règles",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "label": "ratio2 persistance",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "label": "ratio0 aucune",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "label": "ratio absent",
+      "actual": "À renseigner",
+      "expected": "À renseigner"
+    },
+    {
+      "label": "ex aequo aucune",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "label": "ex aequo persistance",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "label": "revue juste change décision",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "label": "retouche3/6",
+      "actual": 0.5,
+      "expected": 0.5
+    },
+    {
+      "label": "retouche4/6",
+      "actual": 0.6666666666666666,
+      "expected": 0.6666666666666666
+    },
+    {
+      "label": "16indicateurs",
+      "actual": 16,
+      "expected": 16
+    },
+    {
+      "label": "améliorés8/16",
+      "actual": 0.5,
+      "expected": 0.5
+    },
+    {
+      "label": "contrôle25.4points",
+      "actual": 25.4,
+      "expected": 25.4
+    },
+    {
+      "label": "POC260lignes",
+      "actual": 260,
+      "expected": 260
+    },
+    {
+      "label": "POCtotalhebdo1",
+      "actual": 712.5400000000001,
+      "expected": 712.5400000000001
+    },
+    {
+      "label": "POCtotalhebdo2",
+      "actual": 602.8000000000001,
+      "expected": 602.8000000000001
+    },
+    {
+      "label": "POCtotalhebdo3",
+      "actual": 492.65999999999997,
+      "expected": 492.65999999999997
+    },
+    {
+      "label": "POCtotalhebdo4",
+      "actual": 712.5400000000001,
+      "expected": 712.5400000000001
+    },
+    {
+      "label": "POCtotalhebdo5",
+      "actual": 607,
+      "expected": 607
+    },
+    {
+      "label": "POCtotalhebdo6",
+      "actual": 607,
+      "expected": 607
+    },
+    {
+      "label": "POCtotalhebdo7",
+      "actual": 665.07,
+      "expected": 665.07
+    },
+    {
+      "label": "POCtotalhebdo8",
+      "actual": 665.4200000000001,
+      "expected": 665.4200000000001
+    },
+    {
+      "label": "POCtotalhebdo9",
+      "actual": 665.07,
+      "expected": 665.07
+    },
+    {
+      "label": "POCtotalhebdo10",
+      "actual": 664.72,
+      "expected": 664.72
+    },
+    {
+      "label": "POCtotalhebdo11",
+      "actual": 723.49,
+      "expected": 723.49
+    },
+    {
+      "label": "POCtotalhebdo12",
+      "actual": 723.1400000000001,
+      "expected": 723.1400000000001
+    },
+    {
+      "label": "POCtotalhebdo13",
+      "actual": 725.3100000000001,
+      "expected": 725.3100000000001
+    },
+    {
+      "label": "POCtotalhebdo14",
+      "actual": 723.4970000000001,
+      "expected": 723.4970000000001
+    },
+    {
+      "label": "POCtotalhebdo15",
+      "actual": 840.76806,
+      "expected": 840.76806
+    },
+    {
+      "label": "POCtotalhebdo16",
+      "actual": 839.8062628,
+      "expected": 839.8062628
+    },
+    {
+      "label": "POCtotalhebdo17",
+      "actual": 773.1156437168,
+      "expected": 773.1156437168
+    },
+    {
+      "label": "POCtotalhebdo18",
+      "actual": 722.693754967584,
+      "expected": 722.693754967584
+    },
+    {
+      "label": "POCtotalhebdo19",
+      "actual": 791.6792268876821,
+      "expected": 791.6792268876821
+    },
+    {
+      "label": "POCtotalhebdo20",
+      "actual": 1058.9227848878738,
+      "expected": 1058.9227848878738
+    },
+    {
+      "label": "POCtotalhebdo21",
+      "actual": 955.006779864,
+      "expected": 955.006779864
+    },
+    {
+      "label": "POCtotalhebdo22",
+      "actual": 778.2187446123837,
+      "expected": 778.2187446123837
+    },
+    {
+      "label": "POCtotalhebdo23",
+      "actual": 802.5792268876822,
+      "expected": 802.5792268876822
+    },
+    {
+      "label": "POCtotalhebdo24",
+      "actual": 777.3800634356353,
+      "expected": 777.3800634356353
+    },
+    {
+      "label": "POCtotalhebdo25",
+      "actual": 670.9226938356352,
+      "expected": 670.9226938356352
+    },
+    {
+      "label": "POCtotalhebdo26",
+      "actual": 721.0056855978463,
+      "expected": 721.0056855978463
+    },
+    {
+      "label": "POCtotalhebdo27",
+      "actual": 1018.1548071675303,
+      "expected": 1018.1548071675303
+    },
+    {
+      "label": "POCtotalhebdo28",
+      "actual": 1304.1474317018806,
+      "expected": 1304.1474317018806
+    },
+    {
+      "label": "POCtotalhebdo29",
+      "actual": 1199.4591996502695,
+      "expected": 1199.4591996502695
+    },
+    {
+      "label": "POCtotalhebdo30",
+      "actual": 1336.2862885186992,
+      "expected": 1336.2862885186992
+    },
+    {
+      "label": "POCtotalhebdo31",
+      "actual": 1391.0961366991105,
+      "expected": 1391.0961366991105
+    },
+    {
+      "label": "POCtotalhebdo32",
+      "actual": 1531.1145341531333,
+      "expected": 1531.1145341531333
+    },
+    {
+      "label": "POCtotalhebdo33",
+      "actual": 1541.5138345601595,
+      "expected": 1541.5138345601595
+    },
+    {
+      "label": "POCtotalhebdo34",
+      "actual": 2160.300685841475,
+      "expected": 2160.300685841475
+    },
+    {
+      "label": "POCtotalhebdo35",
+      "actual": 1533.8283646295827,
+      "expected": 1533.8283646295827
+    },
+    {
+      "label": "POCtotalhebdo36",
+      "actual": 1577.5275231624391,
+      "expected": 1577.5275231624391
+    },
+    {
+      "label": "POCtotalhebdo37",
+      "actual": 1555.583380377021,
+      "expected": 1555.583380377021
+    },
+    {
+      "label": "POCtotalhebdo38",
+      "actual": 2113.7652711101464,
+      "expected": 2113.7652711101464
+    },
+    {
+      "label": "POCtotalhebdo39",
+      "actual": 1508.651055005994,
+      "expected": 1508.651055005994
+    },
+    {
+      "label": "POCtotalhebdo40",
+      "actual": 1487.847057764517,
+      "expected": 1487.847057764517
+    },
+    {
+      "label": "POCtotalhebdo41",
+      "actual": 1465.7212954741933,
+      "expected": 1465.7212954741933
+    },
+    {
+      "label": "POCtotalhebdo42",
+      "actual": 1547.8521513734418,
+      "expected": 1547.8521513734418
+    },
+    {
+      "label": "POCtotalhebdo43",
+      "actual": 1402.7591674784107,
+      "expected": 1402.7591674784107
+    },
+    {
+      "label": "POCtotalhebdo44",
+      "actual": 1811.5877100227476,
+      "expected": 1811.5877100227476
+    },
+    {
+      "label": "POCtotalhebdo45",
+      "actual": 1344.2102881196888,
+      "expected": 1344.2102881196888
+    },
+    {
+      "label": "POCtotalhebdo46",
+      "actual": 1429.1775866220246,
+      "expected": 1429.1775866220246
+    },
+    {
+      "label": "POCtotalhebdo47",
+      "actual": 1330.2411280897857,
+      "expected": 1330.2411280897857
+    },
+    {
+      "label": "POCtotalhebdo48",
+      "actual": 1522.4879829201777,
+      "expected": 1522.4879829201777
+    },
+    {
+      "label": "POCtotalhebdo49",
+      "actual": 1243.3392402740799,
+      "expected": 1243.3392402740799
+    },
+    {
+      "label": "POCtotalhebdo50",
+      "actual": 1509.1400943988262,
+      "expected": 1509.1400943988262
+    },
+    {
+      "label": "POCtotalhebdo51",
+      "actual": 1016.123897738074,
+      "expected": 1016.123897738074
+    },
+    {
+      "label": "POCtotalhebdo52",
+      "actual": 1149.1349996219067,
+      "expected": 1149.1349996219067
+    },
+    {
+      "label": "POCtotalhebdo53",
+      "actual": 712.5400000000001,
+      "expected": 712.5400000000001
+    },
+    {
+      "label": "POCtotalhebdo54",
+      "actual": 602.8000000000001,
+      "expected": 602.8000000000001
+    },
+    {
+      "label": "POCtotalhebdo55",
+      "actual": 492.65999999999997,
+      "expected": 492.65999999999997
+    },
+    {
+      "label": "POCtotalhebdo56",
+      "actual": 712.5400000000001,
+      "expected": 712.5400000000001
+    },
+    {
+      "label": "POCtotalhebdo57",
+      "actual": 607,
+      "expected": 607
+    },
+    {
+      "label": "POCtotalhebdo58",
+      "actual": 607,
+      "expected": 607
+    },
+    {
+      "label": "POCtotalhebdo59",
+      "actual": 665.07,
+      "expected": 665.07
+    },
+    {
+      "label": "POCtotalhebdo60",
+      "actual": 665.4200000000001,
+      "expected": 665.4200000000001
+    },
+    {
+      "label": "POCtotalhebdo61",
+      "actual": 665.07,
+      "expected": 665.07
+    },
+    {
+      "label": "POCtotalhebdo62",
+      "actual": 664.72,
+      "expected": 664.72
+    },
+    {
+      "label": "POCtotalhebdo63",
+      "actual": 723.49,
+      "expected": 723.49
+    },
+    {
+      "label": "POCtotalhebdo64",
+      "actual": 723.1400000000001,
+      "expected": 723.1400000000001
+    },
+    {
+      "label": "POCtotalhebdo65",
+      "actual": 725.3100000000001,
+      "expected": 725.3100000000001
+    },
+    {
+      "label": "POCtotalhebdo66",
+      "actual": 723.4970000000001,
+      "expected": 723.4970000000001
+    },
+    {
+      "label": "POCtotalhebdo67",
+      "actual": 840.76806,
+      "expected": 840.76806
+    },
+    {
+      "label": "POCtotalhebdo68",
+      "actual": 839.8062628,
+      "expected": 839.8062628
+    },
+    {
+      "label": "POCtotalhebdo69",
+      "actual": 773.1156437168,
+      "expected": 773.1156437168
+    },
+    {
+      "label": "POCtotalhebdo70",
+      "actual": 722.693754967584,
+      "expected": 722.693754967584
+    },
+    {
+      "label": "POCtotalhebdo71",
+      "actual": 791.6792268876821,
+      "expected": 791.6792268876821
+    },
+    {
+      "label": "POCtotalhebdo72",
+      "actual": 1058.9227848878738,
+      "expected": 1058.9227848878738
+    },
+    {
+      "label": "POCtotalhebdo73",
+      "actual": 955.006779864,
+      "expected": 955.006779864
+    },
+    {
+      "label": "POCtotalhebdo74",
+      "actual": 778.2187446123837,
+      "expected": 778.2187446123837
+    },
+    {
+      "label": "POCtotalhebdo75",
+      "actual": 802.5792268876822,
+      "expected": 802.5792268876822
+    },
+    {
+      "label": "POCtotalhebdo76",
+      "actual": 777.3800634356353,
+      "expected": 777.3800634356353
+    },
+    {
+      "label": "POCtotalhebdo77",
+      "actual": 670.9226938356352,
+      "expected": 670.9226938356352
+    },
+    {
+      "label": "POCtotalhebdo78",
+      "actual": 721.0056855978463,
+      "expected": 721.0056855978463
+    },
+    {
+      "label": "POCtotalhebdo79",
+      "actual": 1018.1548071675303,
+      "expected": 1018.1548071675303
+    },
+    {
+      "label": "POCtotalhebdo80",
+      "actual": 1304.1474317018806,
+      "expected": 1304.1474317018806
+    },
+    {
+      "label": "POCtotalhebdo81",
+      "actual": 1199.4591996502695,
+      "expected": 1199.4591996502695
+    },
+    {
+      "label": "POCtotalhebdo82",
+      "actual": 1336.2862885186992,
+      "expected": 1336.2862885186992
+    },
+    {
+      "label": "POCtotalhebdo83",
+      "actual": 1391.0961366991105,
+      "expected": 1391.0961366991105
+    },
+    {
+      "label": "POCtotalhebdo84",
+      "actual": 1531.1145341531333,
+      "expected": 1531.1145341531333
+    },
+    {
+      "label": "POCtotalhebdo85",
+      "actual": 1541.5138345601595,
+      "expected": 1541.5138345601595
+    },
+    {
+      "label": "POCtotalhebdo86",
+      "actual": 2160.300685841475,
+      "expected": 2160.300685841475
+    },
+    {
+      "label": "POCtotalhebdo87",
+      "actual": 1533.8283646295827,
+      "expected": 1533.8283646295827
+    },
+    {
+      "label": "POCtotalhebdo88",
+      "actual": 1577.5275231624391,
+      "expected": 1577.5275231624391
+    },
+    {
+      "label": "POCtotalhebdo89",
+      "actual": 1555.583380377021,
+      "expected": 1555.583380377021
+    },
+    {
+      "label": "POCtotalhebdo90",
+      "actual": 2113.7652711101464,
+      "expected": 2113.7652711101464
+    },
+    {
+      "label": "POCtotalhebdo91",
+      "actual": 1508.651055005994,
+      "expected": 1508.651055005994
+    },
+    {
+      "label": "POCtotalhebdo92",
+      "actual": 1487.847057764517,
+      "expected": 1487.847057764517
+    },
+    {
+      "label": "POCtotalhebdo93",
+      "actual": 1465.7212954741933,
+      "expected": 1465.7212954741933
+    },
+    {
+      "label": "POCtotalhebdo94",
+      "actual": 1547.8521513734418,
+      "expected": 1547.8521513734418
+    },
+    {
+      "label": "POCtotalhebdo95",
+      "actual": 1402.7591674784107,
+      "expected": 1402.7591674784107
+    },
+    {
+      "label": "POCtotalhebdo96",
+      "actual": 1811.5877100227476,
+      "expected": 1811.5877100227476
+    },
+    {
+      "label": "POCtotalhebdo97",
+      "actual": 1344.2102881196888,
+      "expected": 1344.2102881196888
+    },
+    {
+      "label": "POCtotalhebdo98",
+      "actual": 1429.1775866220246,
+      "expected": 1429.1775866220246
+    },
+    {
+      "label": "POCtotalhebdo99",
+      "actual": 1330.2411280897857,
+      "expected": 1330.2411280897857
+    },
+    {
+      "label": "POCtotalhebdo100",
+      "actual": 1522.4879829201777,
+      "expected": 1522.4879829201777
+    },
+    {
+      "label": "POCtotalhebdo101",
+      "actual": 1243.3392402740799,
+      "expected": 1243.3392402740799
+    },
+    {
+      "label": "POCtotalhebdo102",
+      "actual": 1509.1400943988262,
+      "expected": 1509.1400943988262
+    },
+    {
+      "label": "POCtotalhebdo103",
+      "actual": 1016.123897738074,
+      "expected": 1016.123897738074
+    },
+    {
+      "label": "POCtotalhebdo104",
+      "actual": 1149.1349996219067,
+      "expected": 1149.1349996219067
+    },
+    {
+      "label": "POCtotalhebdo105",
+      "actual": 1032.46,
+      "expected": 1032.46
+    },
+    {
+      "label": "POCtotalhebdo106",
+      "actual": 604,
+      "expected": 604
+    },
+    {
+      "label": "POCtotalhebdo107",
+      "actual": 804,
+      "expected": 804
+    },
+    {
+      "label": "POCtotalhebdo108",
+      "actual": 665.2,
+      "expected": 665.2
+    },
+    {
+      "label": "POCtotalhebdo109",
+      "actual": 618,
+      "expected": 618
+    },
+    {
+      "label": "POCtotalhebdo110",
+      "actual": 614.5,
+      "expected": 614.5
+    },
+    {
+      "label": "POCtotalhebdo111",
+      "actual": 673.2700000000001,
+      "expected": 673.2700000000001
+    },
+    {
+      "label": "POCtotalhebdo112",
+      "actual": 672.9200000000001,
+      "expected": 672.9200000000001
+    },
+    {
+      "label": "POCtotalhebdo113",
+      "actual": 672.57,
+      "expected": 672.57
+    },
+    {
+      "label": "POCtotalhebdo114",
+      "actual": 672.22,
+      "expected": 672.22
+    },
+    {
+      "label": "POCtotalhebdo115",
+      "actual": 730.99,
+      "expected": 730.99
+    },
+    {
+      "label": "POCtotalhebdo116",
+      "actual": 730.6400000000001,
+      "expected": 730.6400000000001
+    },
+    {
+      "label": "POCtotalhebdo117",
+      "actual": 732.8100000000001,
+      "expected": 732.8100000000001
+    },
+    {
+      "label": "POCtotalhebdo118",
+      "actual": 730.9970000000001,
+      "expected": 730.9970000000001
+    },
+    {
+      "label": "POCtotalhebdo119",
+      "actual": 848.26806,
+      "expected": 848.26806
+    },
+    {
+      "label": "POCtotalhebdo120",
+      "actual": 847.3062628,
+      "expected": 847.3062628
+    },
+    {
+      "label": "POCtotalhebdo121",
+      "actual": 843.566779864,
+      "expected": 843.566779864
+    },
+    {
+      "label": "POCtotalhebdo122",
+      "actual": 842.82897634832,
+      "expected": 842.82897634832
+    },
+    {
+      "label": "POCtotalhebdo123",
+      "actual": 842.5486110123616,
+      "expected": 842.5486110123616
+    },
+    {
+      "label": "POCtotalhebdo124",
+      "actual": 845.38,
+      "expected": 845.38
+    },
+    {
+      "label": "POCtotalhebdo125",
+      "actual": 962.92,
+      "expected": 962.92
+    },
+    {
+      "label": "POCtotalhebdo126",
+      "actual": 962.2199999999999,
+      "expected": 962.2199999999999
+    },
+    {
+      "label": "POCtotalhebdo127",
+      "actual": 961.52,
+      "expected": 961.52
+    },
+    {
+      "label": "POCtotalhebdo128",
+      "actual": 786.0980000000001,
+      "expected": 786.0980000000001
+    },
+    {
+      "label": "POCtotalhebdo129",
+      "actual": 679.6406304,
+      "expected": 679.6406304
+    },
+    {
+      "label": "POCtotalhebdo130",
+      "actual": 678.1555744,
+      "expected": 678.1555744
+    },
+    {
+      "label": "POCtotalhebdo131",
+      "actual": 679.2085183999999,
+      "expected": 679.2085183999999
+    },
+    {
+      "label": "POCtotalhebdo132",
+      "actual": 1125.624432,
+      "expected": 1125.624432
+    },
+    {
+      "label": "POCtotalhebdo133",
+      "actual": 904.9598886399999,
+      "expected": 904.9598886399999
+    },
+    {
+      "label": "POCtotalhebdo134",
+      "actual": 760.9736988671999,
+      "expected": 760.9736988671999
+    },
+    {
+      "label": "POCtotalhebdo135",
+      "actual": 1032.4801111080963,
+      "expected": 1032.4801111080963
+    },
+    {
+      "label": "POCtotalhebdo136",
+      "actual": 1259.4553618038785,
+      "expected": 1259.4553618038785
+    },
+    {
+      "label": "POCtotalhebdo137",
+      "actual": 1137.6231354835272,
+      "expected": 1137.6231354835272
+    },
+    {
+      "label": "POCtotalhebdo138",
+      "actual": 1599.6088325324802,
+      "expected": 1599.6088325324802
+    },
+    {
+      "label": "POCtotalhebdo139",
+      "actual": 1512.0610961970956,
+      "expected": 1512.0610961970956
+    },
+    {
+      "label": "POCtotalhebdo140",
+      "actual": 974.504622754195,
+      "expected": 974.504622754195
+    },
+    {
+      "label": "POCtotalhebdo141",
+      "actual": 830.1866098068647,
+      "expected": 830.1866098068647
+    },
+    {
+      "label": "POCtotalhebdo142",
+      "actual": 1200.3744211052694,
+      "expected": 1200.3744211052694
+    },
+    {
+      "label": "POCtotalhebdo143",
+      "actual": 1200.0979479704008,
+      "expected": 1200.0979479704008
+    },
+    {
+      "label": "POCtotalhebdo144",
+      "actual": 811.4007122357613,
+      "expected": 811.4007122357613
+    },
+    {
+      "label": "POCtotalhebdo145",
+      "actual": 698.3807751604987,
+      "expected": 698.3807751604987
+    },
+    {
+      "label": "POCtotalhebdo146",
+      "actual": 700.3550535174883,
+      "expected": 700.3550535174883
+    },
+    {
+      "label": "POCtotalhebdo147",
+      "actual": 689.4076055608962,
+      "expected": 689.4076055608962
+    },
+    {
+      "label": "POCtotalhebdo148",
+      "actual": 1093.9035687405228,
+      "expected": 1093.9035687405228
+    },
+    {
+      "label": "POCtotalhebdo149",
+      "actual": 776.5428957622323,
+      "expected": 776.5428957622323
+    },
+    {
+      "label": "POCtotalhebdo150",
+      "actual": 665.6507882368306,
+      "expected": 665.6507882368306
+    },
+    {
+      "label": "POCtotalhebdo151",
+      "actual": 666.2539676135121,
+      "expected": 666.2539676135121
+    },
+    {
+      "label": "POCtotalhebdo152",
+      "actual": 668.9423606506198,
+      "expected": 668.9423606506198
+    },
+    {
+      "label": "POCtotalhebdo153",
+      "actual": 611.4542609821735,
+      "expected": 611.4542609821735
+    },
+    {
+      "label": "POCtotalhebdo154",
+      "actual": 613.8000000000001,
+      "expected": 613.8000000000001
+    },
+    {
+      "label": "POCtotalhebdo155",
+      "actual": 614.1500000000001,
+      "expected": 614.1500000000001
+    },
+    {
+      "label": "POCtotalhebdo156",
+      "actual": 614.5,
+      "expected": 614.5
+    },
+    {
+      "label": "POCtotalhebdo157",
+      "actual": 712.5400000000001,
+      "expected": 712.5400000000001
+    },
+    {
+      "label": "POCtotalhebdo158",
+      "actual": 602.8000000000001,
+      "expected": 602.8000000000001
+    },
+    {
+      "label": "POCtotalhebdo159",
+      "actual": 492.65999999999997,
+      "expected": 492.65999999999997
+    },
+    {
+      "label": "POCtotalhebdo160",
+      "actual": 712.5400000000001,
+      "expected": 712.5400000000001
+    },
+    {
+      "label": "POCtotalhebdo161",
+      "actual": 607,
+      "expected": 607
+    },
+    {
+      "label": "POCtotalhebdo162",
+      "actual": 607,
+      "expected": 607
+    },
+    {
+      "label": "POCtotalhebdo163",
+      "actual": 665.07,
+      "expected": 665.07
+    },
+    {
+      "label": "POCtotalhebdo164",
+      "actual": 665.4200000000001,
+      "expected": 665.4200000000001
+    },
+    {
+      "label": "POCtotalhebdo165",
+      "actual": 665.07,
+      "expected": 665.07
+    },
+    {
+      "label": "POCtotalhebdo166",
+      "actual": 664.72,
+      "expected": 664.72
+    },
+    {
+      "label": "POCtotalhebdo167",
+      "actual": 723.49,
+      "expected": 723.49
+    },
+    {
+      "label": "POCtotalhebdo168",
+      "actual": 723.1400000000001,
+      "expected": 723.1400000000001
+    },
+    {
+      "label": "POCtotalhebdo169",
+      "actual": 626.814,
+      "expected": 626.814
+    },
+    {
+      "label": "POCtotalhebdo170",
+      "actual": 624.641,
+      "expected": 624.641
+    },
+    {
+      "label": "POCtotalhebdo171",
+      "actual": 634.4920599999999,
+      "expected": 634.4920599999999
+    },
+    {
+      "label": "POCtotalhebdo172",
+      "actual": 632.7702628,
+      "expected": 632.7702628
+    },
+    {
+      "label": "POCtotalhebdo173",
+      "actual": 886.7561798639999,
+      "expected": 886.7561798639999
+    },
+    {
+      "label": "POCtotalhebdo174",
+      "actual": 885.67934834832,
+      "expected": 885.67934834832
+    },
+    {
+      "label": "POCtotalhebdo175",
+      "actual": 805.283073784706,
+      "expected": 805.283073784706
+    },
+    {
+      "label": "POCtotalhebdo176",
+      "actual": 885.3426013556351,
+      "expected": 885.3426013556351
+    },
+    {
+      "label": "POCtotalhebdo177",
+      "actual": 896.7926013556352,
+      "expected": 896.7926013556352
+    },
+    {
+      "label": "POCtotalhebdo178",
+      "actual": 896.2426013556352,
+      "expected": 896.2426013556352
+    },
+    {
+      "label": "POCtotalhebdo179",
+      "actual": 895.1721537279967,
+      "expected": 895.1721537279967
+    },
+    {
+      "label": "POCtotalhebdo180",
+      "actual": 583.961918661888,
+      "expected": 583.961918661888
+    },
+    {
+      "label": "POCtotalhebdo181",
+      "actual": 697.1938779928321,
+      "expected": 697.1938779928321
+    },
+    {
+      "label": "POCtotalhebdo182",
+      "actual": 1014.1038779928322,
+      "expected": 1014.1038779928322
+    },
+    {
+      "label": "POCtotalhebdo183",
+      "actual": 1157.6003111448322,
+      "expected": 1157.6003111448322
+    },
+    {
+      "label": "POCtotalhebdo184",
+      "actual": 1721.523692776832,
+      "expected": 1721.523692776832
+    },
+    {
+      "label": "POCtotalhebdo185",
+      "actual": 1163.580386792832,
+      "expected": 1163.580386792832
+    },
+    {
+      "label": "POCtotalhebdo186",
+      "actual": 1492.343550440832,
+      "expected": 1492.343550440832
+    },
+    {
+      "label": "POCtotalhebdo187",
+      "actual": 1544.3639585167105,
+      "expected": 1544.3639585167105
+    },
+    {
+      "label": "POCtotalhebdo188",
+      "actual": 1797.3588344082764,
+      "expected": 1797.3588344082764
+    },
+    {
+      "label": "POCtotalhebdo189",
+      "actual": 1700.862592955968,
+      "expected": 1700.862592955968
+    },
+    {
+      "label": "POCtotalhebdo190",
+      "actual": 2341.9429963603043,
+      "expected": 2341.9429963603043
+    },
+    {
+      "label": "POCtotalhebdo191",
+      "actual": 1643.8048583794412,
+      "expected": 1643.8048583794412
+    },
+    {
+      "label": "POCtotalhebdo192",
+      "actual": 1886.8842848201953,
+      "expected": 1886.8842848201953
+    },
+    {
+      "label": "POCtotalhebdo193",
+      "actual": 1720.8665115300655,
+      "expected": 1720.8665115300655
+    },
+    {
+      "label": "POCtotalhebdo194",
+      "actual": 2362.6526744529097,
+      "expected": 2362.6526744529097
+    },
+    {
+      "label": "POCtotalhebdo195",
+      "actual": 1600.870407129425,
+      "expected": 1600.870407129425
+    },
+    {
+      "label": "POCtotalhebdo196",
+      "actual": 1691.3866355341063,
+      "expected": 1691.3866355341063
+    },
+    {
+      "label": "POCtotalhebdo197",
+      "actual": 1610.433926852002,
+      "expected": 1610.433926852002
+    },
+    {
+      "label": "POCtotalhebdo198",
+      "actual": 1658.7730327179038,
+      "expected": 1658.7730327179038
+    },
+    {
+      "label": "POCtotalhebdo199",
+      "actual": 1630.4069193816713,
+      "expected": 1630.4069193816713
+    },
+    {
+      "label": "POCtotalhebdo200",
+      "actual": 2078.5528196449554,
+      "expected": 2078.5528196449554
+    },
+    {
+      "label": "POCtotalhebdo201",
+      "actual": 1568.2319350329922,
+      "expected": 1568.2319350329922
+    },
+    {
+      "label": "POCtotalhebdo202",
+      "actual": 1578.1114872521619,
+      "expected": 1578.1114872521619
+    },
+    {
+      "label": "POCtotalhebdo203",
+      "actual": 1545.2210785236816,
+      "expected": 1545.2210785236816
+    },
+    {
+      "label": "POCtotalhebdo204",
+      "actual": 1823.0843962883766,
+      "expected": 1823.0843962883766
+    },
+    {
+      "label": "POCtotalhebdo205",
+      "actual": 1489.9182033925545,
+      "expected": 1489.9182033925545
+    },
+    {
+      "label": "POCtotalhebdo206",
+      "actual": 1672.8135808995016,
+      "expected": 1672.8135808995016
+    },
+    {
+      "label": "POCtotalhebdo207",
+      "actual": 1229.0593129532544,
+      "expected": 1229.0593129532544
+    },
+    {
+      "label": "POCtotalhebdo208",
+      "actual": 1461.0250391670709,
+      "expected": 1461.0250391670709
+    },
+    {
+      "label": "POCtotalhebdo209",
+      "actual": 925.8199999999999,
+      "expected": 925.8199999999999
+    },
+    {
+      "label": "POCtotalhebdo210",
+      "actual": 603.6,
+      "expected": 603.6
+    },
+    {
+      "label": "POCtotalhebdo211",
+      "actual": 280.18,
+      "expected": 280.18
+    },
+    {
+      "label": "POCtotalhebdo212",
+      "actual": 928.62,
+      "expected": 928.62
+    },
+    {
+      "label": "POCtotalhebdo213",
+      "actual": 612,
+      "expected": 612
+    },
+    {
+      "label": "POCtotalhebdo214",
+      "actual": 612,
+      "expected": 612
+    },
+    {
+      "label": "POCtotalhebdo215",
+      "actual": 668.6700000000001,
+      "expected": 668.6700000000001
+    },
+    {
+      "label": "POCtotalhebdo216",
+      "actual": 670.4200000000001,
+      "expected": 670.4200000000001
+    },
+    {
+      "label": "POCtotalhebdo217",
+      "actual": 670.07,
+      "expected": 670.07
+    },
+    {
+      "label": "POCtotalhebdo218",
+      "actual": 669.72,
+      "expected": 669.72
+    },
+    {
+      "label": "POCtotalhebdo219",
+      "actual": 728.49,
+      "expected": 728.49
+    },
+    {
+      "label": "POCtotalhebdo220",
+      "actual": 728.1400000000001,
+      "expected": 728.1400000000001
+    },
+    {
+      "label": "POCtotalhebdo221",
+      "actual": 730.3100000000001,
+      "expected": 730.3100000000001
+    },
+    {
+      "label": "POCtotalhebdo222",
+      "actual": 728.4970000000001,
+      "expected": 728.4970000000001
+    },
+    {
+      "label": "POCtotalhebdo223",
+      "actual": 845.76806,
+      "expected": 845.76806
+    },
+    {
+      "label": "POCtotalhebdo224",
+      "actual": 844.8062628,
+      "expected": 844.8062628
+    },
+    {
+      "label": "POCtotalhebdo225",
+      "actual": 841.066779864,
+      "expected": 841.066779864
+    },
+    {
+      "label": "POCtotalhebdo226",
+      "actual": 840.32897634832,
+      "expected": 840.32897634832
+    },
+    {
+      "label": "POCtotalhebdo227",
+      "actual": 840.0486110123616,
+      "expected": 840.0486110123616
+    },
+    {
+      "label": "POCtotalhebdo228",
+      "actual": 842.88,
+      "expected": 842.88
+    },
+    {
+      "label": "POCtotalhebdo229",
+      "actual": 960.42,
+      "expected": 960.42
+    },
+    {
+      "label": "POCtotalhebdo230",
+      "actual": 959.7199999999999,
+      "expected": 959.7199999999999
+    },
+    {
+      "label": "POCtotalhebdo231",
+      "actual": 959.02,
+      "expected": 959.02
+    },
+    {
+      "label": "POCtotalhebdo232",
+      "actual": 783.5980000000001,
+      "expected": 783.5980000000001
+    },
+    {
+      "label": "POCtotalhebdo233",
+      "actual": 677.1406304,
+      "expected": 677.1406304
+    },
+    {
+      "label": "POCtotalhebdo234",
+      "actual": 675.6555744,
+      "expected": 675.6555744
+    },
+    {
+      "label": "POCtotalhebdo235",
+      "actual": 682.5638464,
+      "expected": 682.5638464
+    },
+    {
+      "label": "POCtotalhebdo236",
+      "actual": 1115.8447360000002,
+      "expected": 1115.8447360000002
+    },
+    {
+      "label": "POCtotalhebdo237",
+      "actual": 979.11476736,
+      "expected": 979.11476736
+    },
+    {
+      "label": "POCtotalhebdo238",
+      "actual": 1066.5793769471998,
+      "expected": 1066.5793769471998
+    },
+    {
+      "label": "POCtotalhebdo239",
+      "actual": 1140.105711108096,
+      "expected": 1140.105711108096
+    },
+    {
+      "label": "POCtotalhebdo240",
+      "actual": 1367.0460178038786,
+      "expected": 1367.0460178038786
+    },
+    {
+      "label": "POCtotalhebdo241",
+      "actual": 1234.3963643850548,
+      "expected": 1234.3963643850548
+    },
+    {
+      "label": "POCtotalhebdo242",
+      "actual": 1629.6580144050392,
+      "expected": 1629.6580144050392
+    },
+    {
+      "label": "POCtotalhebdo243",
+      "actual": 1574.1965108739257,
+      "expected": 1574.1965108739257
+    },
+    {
+      "label": "POCtotalhebdo244",
+      "actual": 1417.970697696821,
+      "expected": 1417.970697696821
+    },
+    {
+      "label": "POCtotalhebdo245",
+      "actual": 1220.345945501801,
+      "expected": 1220.345945501801
+    },
+    {
+      "label": "POCtotalhebdo246",
+      "actual": 1569.1622311173699,
+      "expected": 1569.1622311173699
+    },
+    {
+      "label": "POCtotalhebdo247",
+      "actual": 1395.0350482061465,
+      "expected": 1395.0350482061465
+    },
+    {
+      "label": "POCtotalhebdo248",
+      "actual": 804.2213213381403,
+      "expected": 804.2213213381403
+    },
+    {
+      "label": "POCtotalhebdo249",
+      "actual": 691.1745698240544,
+      "expected": 691.1745698240544
+    },
+    {
+      "label": "POCtotalhebdo250",
+      "actual": 705.0860573550042,
+      "expected": 705.0860573550042
+    },
+    {
+      "label": "POCtotalhebdo251",
+      "actual": 694.4597529411055,
+      "expected": 694.4597529411055
+    },
+    {
+      "label": "POCtotalhebdo252",
+      "actual": 1095.030771748929,
+      "expected": 1095.030771748929
+    },
+    {
+      "label": "POCtotalhebdo253",
+      "actual": 944.6074493599848,
+      "expected": 944.6074493599848
+    },
+    {
+      "label": "POCtotalhebdo254",
+      "actual": 757.300687357534,
+      "expected": 757.300687357534
+    },
+    {
+      "label": "POCtotalhebdo255",
+      "actual": 750.9615160728265,
+      "expected": 750.9615160728265
+    },
+    {
+      "label": "POCtotalhebdo256",
+      "actual": 856.8313220542246,
+      "expected": 856.8313220542246
+    },
+    {
+      "label": "POCtotalhebdo257",
+      "actual": 606.0985531294363,
+      "expected": 606.0985531294363
+    },
+    {
+      "label": "POCtotalhebdo258",
+      "actual": 609.4174216293902,
+      "expected": 609.4174216293902
+    },
+    {
+      "label": "POCtotalhebdo259",
+      "actual": 610.3712962097765,
+      "expected": 610.3712962097765
+    },
+    {
+      "label": "POCtotalhebdo260",
+      "actual": 612,
+      "expected": 612
+    },
+    {
+      "label": "52semainesbaseline",
+      "actual": 52,
+      "expected": 52
+    },
+    {
+      "label": "coûtbaselinechamp0",
+      "actual": 33134.84788890814,
+      "expected": 33134.84788890814
+    },
+    {
+      "label": "coûtbaselinechamp1",
+      "actual": 1325.393915556325,
+      "expected": 1325.3939155563255
+    },
+    {
+      "label": "coûtbaselinechamp2",
+      "actual": 837.9436572631737,
+      "expected": 837.9436572631736
+    },
+    {
+      "label": "coûtbaselinechamp3",
+      "actual": 10275.613010792833,
+      "expected": 10275.613010792833
+    },
+    {
+      "label": "coûtbaselinechamp4",
+      "actual": 285.30513816248714,
+      "expected": 285.30513816248714
+    },
+    {
+      "label": "coûtbaselinechamp5",
+      "actual": 11194.303429285485,
+      "expected": 11194.303429285485
+    },
+    {
+      "label": "totalPOCbaseline",
+      "actual": 57053.40703996845,
+      "expected": 57053.407039968435
+    },
+    {
+      "label": "synthèsearrondiebaseline",
+      "actual": 57053.41,
+      "expected": 57053.41
+    },
+    {
+      "label": "52semainesbackup_early",
+      "actual": 52,
+      "expected": 52
+    },
+    {
+      "label": "coûtbackup_earlychamp0",
+      "actual": 33134.84788890814,
+      "expected": 33134.84788890814
+    },
+    {
+      "label": "coûtbackup_earlychamp1",
+      "actual": 1325.393915556325,
+      "expected": 1325.3939155563255
+    },
+    {
+      "label": "coûtbackup_earlychamp2",
+      "actual": 837.9436572631737,
+      "expected": 837.9436572631736
+    },
+    {
+      "label": "coûtbackup_earlychamp3",
+      "actual": 10275.613010792833,
+      "expected": 10275.613010792833
+    },
+    {
+      "label": "coûtbackup_earlychamp4",
+      "actual": 285.30513816248714,
+      "expected": 285.30513816248714
+    },
+    {
+      "label": "coûtbackup_earlychamp5",
+      "actual": 11194.303429285485,
+      "expected": 11194.303429285485
+    },
+    {
+      "label": "totalPOCbackup_early",
+      "actual": 57053.40703996845,
+      "expected": 57053.407039968435
+    },
+    {
+      "label": "synthèsearrondiebackup_early",
+      "actual": 57053.41,
+      "expected": 57053.41
+    },
+    {
+      "label": "52semainesinventory_buffer",
+      "actual": 52,
+      "expected": 52
+    },
+    {
+      "label": "coûtinventory_bufferchamp0",
+      "actual": 34280.000000000015,
+      "expected": 34280
+    },
+    {
+      "label": "coûtinventory_bufferchamp1",
+      "actual": 1434.0000000000002,
+      "expected": 1434
+    },
+    {
+      "label": "coûtinventory_bufferchamp2",
+      "actual": 901.3876614559346,
+      "expected": 901.3876614559342
+    },
+    {
+      "label": "coûtinventory_bufferchamp3",
+      "actual": 5412.908579694183,
+      "expected": 5412.908579694183
+    },
+    {
+      "label": "coûtinventory_bufferchamp4",
+      "actual": 702.880258455755,
+      "expected": 702.8802584557551
+    },
+    {
+      "label": "coûtinventory_bufferchamp5",
+      "actual": 765.7540603483521,
+      "expected": 765.7540603483521
+    },
+    {
+      "label": "totalPOCinventory_buffer",
+      "actual": 43496.930559954235,
+      "expected": 43496.93055995423
+    },
+    {
+      "label": "synthèsearrondieinventory_buffer",
+      "actual": 43496.93,
+      "expected": 43496.93
+    },
+    {
+      "label": "52semaineslow_carbon",
+      "actual": 52,
+      "expected": 52
+    },
+    {
+      "label": "coûtlow_carbonchamp0",
+      "actual": 32508.443758774793,
+      "expected": 32508.443758774796
+    },
+    {
+      "label": "coûtlow_carbonchamp1",
+      "actual": 1300.3377503509917,
+      "expected": 1300.3377503509919
+    },
+    {
+      "label": "coûtlow_carbonchamp2",
+      "actual": 832.2331748975462,
+      "expected": 832.233174897546
+    },
+    {
+      "label": "coûtlow_carbonchamp3",
+      "actual": 10221.218882204732,
+      "expected": 10221.218882204734
+    },
+    {
+      "label": "coûtlow_carbonchamp4",
+      "actual": 257.33261985046107,
+      "expected": 257.332619850461
+    },
+    {
+      "label": "coûtlow_carbonchamp5",
+      "actual": 16858.802798509798,
+      "expected": 16858.802798509798
+    },
+    {
+      "label": "totalPOClow_carbon",
+      "actual": 61978.36898458832,
+      "expected": 61978.368984588335
+    },
+    {
+      "label": "synthèsearrondielow_carbon",
+      "actual": 61978.37,
+      "expected": 61978.37
+    },
+    {
+      "label": "52semainesservice_first",
+      "actual": 52,
+      "expected": 52
+    },
+    {
+      "label": "coûtservice_firstchamp0",
+      "actual": 34000.00000000001,
+      "expected": 34000
+    },
+    {
+      "label": "coûtservice_firstchamp1",
+      "actual": 1360.0000000000005,
+      "expected": 1360
+    },
+    {
+      "label": "coûtservice_firstchamp2",
+      "actual": 897.076510539801,
+      "expected": 897.0765105398008
+    },
+    {
+      "label": "coûtservice_firstchamp3",
+      "actual": 6977.999999999999,
+      "expected": 6978
+    },
+    {
+      "label": "coûtservice_firstchamp4",
+      "actual": 530.8586288874995,
+      "expected": 530.8586288874995
+    },
+    {
+      "label": "coûtservice_firstchamp5",
+      "actual": 1990.63474222312,
+      "expected": 1990.6347422231197
+    },
+    {
+      "label": "totalPOCservice_first",
+      "actual": 45756.56988165043,
+      "expected": 45756.56988165042
+    },
+    {
+      "label": "synthèsearrondieservice_first",
+      "actual": 45756.57,
+      "expected": 45756.57
+    },
+    {
+      "label": "POCéconomie stock",
+      "actual": 13556.476480014215,
+      "expected": 13556.476480014207
+    },
+    {
+      "label": "POCgainservice5.17points",
+      "actual": 5.169999999999996,
+      "expected": 5.17
+    },
+    {
+      "label": "POCstockvsservice",
+      "actual": 2259.639321696195,
+      "expected": 2259.639321696195
+    }
+  ],
+  "workbooks": [
+    {
+      "filename": "01-Achats.xlsx",
+      "error_scan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}",
+      "views": [
+        "approvisionnement",
+        "audit",
+        "revues",
+        "source"
+      ]
+    },
+    {
+      "filename": "02-Planification.xlsx",
+      "error_scan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}",
+      "views": [
+        "couverture-reprise",
+        "allocation"
+      ]
+    },
+    {
+      "filename": "03-Transport.xlsx",
+      "error_scan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}",
+      "views": [
+        "quai",
+        "collecte",
+        "matrices",
+        "couts",
+        "seuils",
+        "source"
+      ]
+    },
+    {
+      "filename": "04-Qualite-environnement.xlsx",
+      "error_scan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}",
+      "views": [
+        "composants-retouche",
+        "conception"
+      ]
+    },
+    {
+      "filename": "05-Controle-gestion.xlsx",
+      "error_scan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}",
+      "views": [
+        "cahier",
+        "poc-comparaison",
+        "hebdo-debut",
+        "hebdo-fin",
+        "source-couts",
+        "source-synthese"
+      ]
+    }
+  ],
+  "limitations": [
+    "Les acquis des cahiers sont des agrégats de simulations. Les compléments de calcul datent du 25 novembre 2026.",
+    "Aucune série journalière, nomenclature de 163 composants, matrice d’impacts ni facture individuelle n’a été inventée.",
+    "Le POC de 52 semaines est indépendant des 240 jeux et du seuil rapporté de 2,49 UM par unité-jour.",
+    "Calcul et rendu vérifiés dans Artifact Tool. Ouverture dans Excel desktop non exécutée."
+  ]
+}

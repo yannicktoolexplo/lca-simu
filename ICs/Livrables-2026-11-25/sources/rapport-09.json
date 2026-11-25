@@ -1,0 +1,71 @@
+{
+  "title": "Analyse des alertes de fret express",
+  "summary": "La comparaison des cinq règles disponibles ne conduit pas à retenir systématiquement le seuil de saturation à 95 %. Le choix dépend du coût des dossiers ouverts et de celui des mois dégradés non signalés. Le recalcul effectué confirme les comptages publiés et montre que le classement change entre les deux périodes de simulation.",
+  "sections": [
+    {
+      "heading": "Périmètre de l’analyse réalisée",
+      "paragraphs": [
+        "L’étude reprend le cahier métier, lignes 59 à 63, la note Alertes-fret.md et les quinze lignes du tableau alertes-fret.csv. Les données portent sur quatre trajectoires simulées de 240 mois. Le premier mois initialise chaque règle. L’évaluation comprend donc 4 × 239 = 956 décisions mensuelles, dont 273 mois dégradés et 683 autres. Le service est dégradé lorsque la masse servie représente strictement moins de 99 % de la masse demandée.",
+        "Les règles utilisent exclusivement le mois précédent. Les quinze matrices et les sommes des deux périodes ont été contrôlées. Les résultats concernent la détection d’un mois dégradé. Ils ne mesurent ni une fréquence industrielle de retard ni l’effet causal d’une relance. Les quatre trajectoires partagent des hypothèses et ne constituent pas des observations indépendantes."
+      ]
+    },
+    {
+      "heading": "Résultats comparés sur le même périmètre",
+      "paragraphs": [
+        "Le rappel rapporte les alertes justes aux 273 mois dégradés. La précision rapporte les alertes justes à tous les dossiers ouverts. La persistance désigne une relance déclenchée après un mois déjà dégradé. Sa précision supérieure s’accompagne d’un rappel inférieur : elle ouvre moins de dossiers et manque davantage de mois."
+      ],
+      "table": {
+        "headers": ["Règle", "Justes", "Fausses", "Manqués", "Rappel", "Précision"],
+        "rows": [
+          ["Saturation ≥ 90 %",257,622,16,"94,14 %","29,24 %"],
+          ["Saturation ≥ 95 %",251,616,22,"91,94 %","28,95 %"],
+          ["Saturation ≥ 99 %",247,611,26,"90,48 %","28,79 %"],
+          ["Persistance",136,140,137,"49,82 %","49,28 %"],
+          ["Aucune alerte",0,0,273,"0 %","Indéfinie"]
+        ],
+        "widths_cm": [4.7,2.0,2.0,2.0,3.1,3.2]
+      }
+    },
+    {
+      "heading": "Arbitrage économique recalculé",
+      "paragraphs": [
+        "La note source compare saturation 95 % et persistance. La première accepte 616 − 140 = 476 fausses alertes supplémentaires pour manquer 137 − 22 = 115 mois de moins. Leur seuil de coût vaut 476/115 = 4,13913. Ce calcul est confirmé, mais il ne choisit pas parmi les cinq règles.",
+        "Avec une fausse alerte valant une unité de coût, un mois manqué valant r unités et un coût nul des revues justifiées, le coût comparé est FP + r × FN. Parmi les cinq règles, aucune alerte est minimale jusqu’à r = 140/136 = 1,02941, puis la persistance jusqu’à r = 482/121 = 3,98347, puis la saturation à 90 %. Aux bornes, les deux règles voisines sont à égalité. Les seuils 95 % et 99 % ne minimisent jamais ce coût sur cet ensemble.",
+        "À r = 4, saturation 90 % coûte 622 + 4 × 16 = 686, contre 688 pour la persistance et 704 pour saturation 95 %. L’écart entre les deux premières règles n’est que de deux unités sur tout le périmètre. Ces unités expriment un coût de classement hypothétique, pas des euros ou des pertes évitées mesurés. Le classeur Transport permet aussi de facturer les revues justifiées."
+      ]
+    },
+    {
+      "heading": "Une préférence qui change selon la période",
+      "paragraphs": [
+        "La part de mois dégradés double approximativement entre les périodes. À ratio de coûts identique, la persistance est préférable au début et la saturation à 90 % à la fin. L’avantage agrégé de cette dernière ne démontre donc pas la stabilité de son intérêt."
+      ],
+      "table": {
+        "headers": ["Période simulée", "Mois dégradés / total", "Coût 90 % à r = 4", "Coût persistance à r = 4"],
+        "rows": [
+          ["Mois 2 à 120", "90 / 476 soit 18,91 %",379,324],
+          ["Mois 121 à 240", "183 / 480 soit 38,125 %",307,364]
+        ],
+        "widths_cm": [4.0,4.8,4.1,4.1]
+      }
+    },
+    {
+      "heading": "Apport de la veille au bilan métier",
+      "paragraphs": [
+        "Le Master Operating Plan de Cargo iQ distingue le départ, l’arrivée et la remise au destinataire. Ce découpage conduit à distinguer le jalon réellement manqué et l’heure à laquelle son report était connu. La note de version ONE Record du 25 juillet 2026 décrit notamment le suivi horodaté des changements de statut des demandes d’action. Pour l’exploitation, le bénéfice identifié est la possibilité de relier une alerte à une solution encore disponible, plutôt qu’à une information reçue après l’échéance.",
+        "Mendonça et al. étudient 2 244 expéditions intercontinentales vers quatre usines. Le résumé éditeur rapporte 86 % d’exactitude en validation croisée avec une méthode d’apprentissage. La lecture montre l’intérêt de données expéditeur, prestataire et destinataire. Cette exactitude ne se compare pas directement au rappel mensuel du présent tableau. Le texte intégral n’a pas été lu et aucun modèle de prévision par expédition n’a été entraîné ici."
+      ]
+    },
+    {
+      "heading": "Conclusion de l’étude",
+      "paragraphs": [
+        "La saturation à 95 % est un signal sensible mais ouvre 867 dossiers pour 251 mois effectivement dégradés. La persistance en ouvre 276 et en détecte 136. Le choix se formule donc comme un arbitrage explicite entre charge de revue et mois non signalés. Le seuil de 4,14 est confirmé pour sa comparaison d’origine. La comparaison élargie établit une autre bascule, à 3,98347, sous les hypothèses de coût indiquées.",
+        "Les résultats disponibles justifient ce bilan comparatif et ses calculs. Ils ne suffisent pas à expliquer une urgence individuelle : il faudrait son historique horodaté de jalons, d’annonces, de solutions de repli et d’actions. Cette limite ne remet pas en cause le recalcul des comptages mensuels."
+      ]
+    }
+  ],
+  "references": [
+    "Pièces étudiées : [Cahier métier lignes 59 à 63](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L59-L63#rev-0415), [cas fret](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cas/Alertes-fret.md#rev-0415) et [comptages CSV](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cas/alertes-fret.csv#rev-0415).",
+    "IATA / Cargo iQ, [Master Operating Plan](https://iata-cargo.github.io/ONE-Record/2025-07/Orchestration/orchestration-mop/), documentation version juillet 2025. IATA, [note de version ONE Record](https://iata-cargo.github.io/ONE-Record/development/General/release-note/), version annoncée le 25 juillet 2026. Pages ouvertes le 25 novembre 2026.",
+    "Mendonça et al., [Intelligent algorithms applied to the prediction of air freight transportation delays](https://doi.org/10.1108/IJPDLM-10-2022-0328), en ligne le 19 décembre 2023, numéro du 16 janvier 2024. Résumé primaire éditeur ouvert le 25 novembre 2026."
+  ]
+}

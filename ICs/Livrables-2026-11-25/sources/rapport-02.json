@@ -1,0 +1,89 @@
+{
+  "title": "Dimensionner un approvisionnement de dépannage",
+  "summary": "Le résultat publié montre que la quantité utilisable à l’échéance change la commande de dépannage : le besoin court passe de 800 à 900 kg lorsque la première livraison n’est utilisable qu’à 90 %. Le bilan a vérifié un supplément de 100 kg, soit 12,5 % de la commande initiale, et a confronté cette lecture aux pratiques de réception et d’achat. Il ne reconstitue pas les 60 configurations absentes du jeu public.",
+  "sections": [
+    {
+      "heading": "Périmètre de l’analyse réalisée",
+      "paragraphs": [
+        "La pièce portant les résultats exacts est Cahiers métier, lignes 13 à 17, sur la branche partage/cahiers-ic-anonymes. Elle décrit un exercice simulé de double approvisionnement : une source longue et une source courte. Une répartition entre ces sources évite la rupture dans 46 des 60 configurations. Le cas central lie explicitement la commande de secours au contrôle à réception.",
+        "L’analyse du 25 novembre 2026 a vérifié les rapports et différences calculables, puis ouvert les documentations primaires sur les contraintes de commande et les blocages qualité. Le dépôt ne fournit pas, pour cet exercice, les 60 lignes de paramètres, les ordres et les dates de libération. Les chiffres ci-dessous restent donc des résultats publiés et des contrôles arithmétiques ; aucune optimisation originale n’est revendiquée."
+      ]
+    },
+    {
+      "heading": "Résultats documentés et contrôles",
+      "table": {
+        "headers": [
+          "Mesure",
+          "Valeur",
+          "Nature de la preuve"
+        ],
+        "widths_cm": [
+          7.3,
+          3.2,
+          6.5
+        ],
+        "rows": [
+          [
+            "Configurations examinées",
+            "60",
+            "Nombre publié"
+          ],
+          [
+            "Configurations sans rupture",
+            "46",
+            "Résultat publié"
+          ],
+          [
+            "Part sans rupture",
+            "76,67 %",
+            "46 / 60 recalculé"
+          ],
+          [
+            "Besoin court initial",
+            "800 kg",
+            "Valeur publiée"
+          ],
+          [
+            "Besoin court avec 90 % utilisables",
+            "900 kg",
+            "Valeur publiée"
+          ],
+          [
+            "Supplément de dépannage",
+            "100 kg",
+            "900 − 800 recalculé"
+          ],
+          [
+            "Hausse relative au besoin initial",
+            "12,5 %",
+            "100 / 800 recalculé"
+          ]
+        ]
+      },
+      "paragraphs": [
+        "Le dénominateur de 76,67 % est l’ensemble des configurations testées. Ce pourcentage n’est ni une probabilité de succès pour une urgence réelle ni une mesure de fiabilité fournisseur. Le supplément de 12,5 % a pour base les 800 kg initiaux, et non le volume total du premier arrivage, qui n’est pas publié."
+      ]
+    },
+    {
+      "heading": "Ce que la veille apporte au résultat",
+      "paragraphs": [
+        "La documentation Microsoft sur les paramètres de commande, mise à jour en juillet 2025, confirme que minimum, maximum, multiple, délai et dimensions de produit ou de site interviennent dans l’ordre. Le manque calculé et la quantité contractuellement achetable peuvent donc différer. Le cahier ne démontre pas que 900 kg sont acceptés par le fournisseur court ou compatibles avec la capacité de réception.",
+        "La documentation Quality orders, mise à jour le 26 octobre 2026, distingue la présence physique de la quantité bloquée par contrôle. Selon le paramétrage, le blocage porte sur la quantité testée ou sur toute la quantité de référence. Cela confirme la lecture métier du cas : recevoir une livraison ne suffit pas à la considérer comme disponible pour le besoin concerné.",
+        "L’article d’Akkerman et ses coauteurs, version auteur d’avril 2025, étudie un autre effet de la qualité : la fiabilité en service de pièces issues de deux modes de fabrication. Dans leur cas énergétique simulé, des politiques font mieux que leur témoin dans 91,1 % des instances, avec des économies moyennes allant jusqu’à 22,6 % selon la politique. Ces résultats appartiennent à la publication et ne sont pas transférés au cas présent. Ils montrent que la conformité à réception et les remplacements ultérieurs répondent à des questions distinctes."
+      ]
+    },
+    {
+      "heading": "Conclusion du bilan",
+      "paragraphs": [
+        "L’acquis confirmé est que le dépannage couvre un manque daté en matière utilisable. Dans le cas publié, le contrôle à réception augmente ce manque de 100 kg. La littérature et les pratiques ERP donnent un contenu opérationnel à cette disponibilité : quantité libérée, échéance utile et contraintes de l’ordre.",
+        "La plus petite commande réalisable reste indéterminée avec les seules pièces publiques. Le minimum d’achat, le conditionnement, le plafond disponible et la date de libération de la source courte ne sont pas chiffrés. Ce bilan établit l’effet annoncé et ses conditions d’interprétation ; il ne transforme pas les 900 kg publiés en une commande exécutable ni en une règle générale."
+      ]
+    }
+  ],
+  "references": [
+    "Dépôt, [Cahiers métier lignes 13 à 17](https://github.com/yannicktoolexplo/lca-simu/blob/partage/cahiers-ic-anonymes/ICs/Cahiers-metier.md#L13-L17). Exemple de simulation ; pièce consultée le 25 novembre 2026.",
+    "Microsoft, [Default order settings](https://learn.microsoft.com/en-us/dynamics365/supply-chain/production-control/default-order-settings), mise à jour du 10 juillet 2025. Quantités minimales, maximales, multiples et délais.",
+    "Microsoft, [Quality orders](https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/quality-orders), mise à jour du 26 octobre 2026. Inspection et blocage des stocks.",
+    "Akkerman et al., [Solving Dual Sourcing Problems with Supply Mode Dependent Failure Rates](https://arxiv.org/html/2410.03887v2), version auteur du 11 avril 2025, publication IJPR, DOI 10.1080/00207543.2025.2489755. Étude de fiabilité en service, différente du rendement à réception. Sources web ouvertes le 25 novembre 2026."
+  ]
+}

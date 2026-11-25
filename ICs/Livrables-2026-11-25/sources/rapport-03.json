@@ -1,0 +1,80 @@
+{
+  "title": "Identifier les informations décisives pour un audit",
+  "summary": "L’exercice publié identifie 16 cotations sur 84 susceptibles de modifier un programme de trois visites lorsque les cotations sont laissées successivement inconnues. Le contrôle réalisé confirme une proportion de 19,05 %. Le principal résultat métier est la concentration de l’incertitude utile autour de la sélection, tandis que la portée de ce constat reste limitée au test décrit dans le cahier.",
+  "sections": [
+    {
+      "heading": "Preuve existante et analyse effectuée",
+      "paragraphs": [
+        "Cahiers métier, lignes 19 à 23, porte les résultats exacts. Il mentionne une grille de 84 cotations pour programmer trois visites et un essai où chaque cotation devient inconnue à son tour. Seize peuvent alors modifier la sélection. Le cahier recommande d’éprouver les valeurs encore plausibles à poids constants et de conserver les ex æquo.",
+        "Le bilan du 25 novembre 2026 a contrôlé les quantités annoncées et confronté cette logique aux références sur les audits et la sensibilité des classements. La grille originale, les bornes des réponses, les poids et les sorties de chaque essai ne figurent pas dans les données publiques du cas. L’existence de modules de criticité apparentés dans le dépôt ne suffit pas à établir leur filiation avec ce résultat."
+      ]
+    },
+    {
+      "heading": "Comptages vérifiés",
+      "table": {
+        "headers": [
+          "Indicateur",
+          "Valeur",
+          "Lecture retenue"
+        ],
+        "widths_cm": [
+          6.6,
+          3.0,
+          7.4
+        ],
+        "rows": [
+          [
+            "Capacité du programme",
+            "3 visites",
+            "Contrainte publiée"
+          ],
+          [
+            "Cotations de la grille",
+            "84",
+            "Dénominateur publié"
+          ],
+          [
+            "Cotations pouvant modifier la sélection",
+            "16",
+            "Résultat du test publié"
+          ],
+          [
+            "Part correspondante",
+            "19,05 %",
+            "16 / 84 recalculé"
+          ],
+          [
+            "Autres cotations dans ce test",
+            "68",
+            "84 − 16 recalculé"
+          ]
+        ]
+      },
+      "paragraphs": [
+        "Ces comptages portent sur des cotations, pas sur des fournisseurs, des preuves manquantes ou des probabilités de risque. Les 68 autres cotations ne sont pas déclarées inutiles : elles ne sont simplement pas identifiées comme faisant changer la sélection dans le test décrit. Aucune précision statistique ni fréquence industrielle n’est déduite de 16 sur 84."
+      ]
+    },
+    {
+      "heading": "Lecture métier et état des références",
+      "paragraphs": [
+        "La notice ISO 19011 confirme une quatrième édition publiée en mai 2026. La communication du comité ISO TC176 du 9 juin 2026 souligne l’attention portée aux risques et aux environnements numériques. Cette évolution situe la grille dans un programme d’audit plus large, avec un objectif et des preuves à examiner. Les pages publiques ne prescrivent ni une pondération chiffrée ni une sélection automatique de trois visites.",
+        "Le guide JRC sur la sensibilité, mis à jour le 1er décembre 2020, explique que le classement dépend des données, des valeurs manquantes, des poids et du mode d’agrégation. Laisser les poids constants permet d’étudier l’effet d’une réponse documentaire sans le confondre avec un changement de politique de sélection. En revanche, cela ne mesure pas la robustesse du classement à une autre pondération.",
+        "La publication de Saisana, Saltelli et Tarantola de 2005 applique cette démarche à l’indice de réalisation technologique des Nations unies. Son apport est méthodologique : examiner la fiabilité du message produit par un classement. Elle ne donne aucun gain chiffré pour les audits fournisseurs du dépôt. L’analyse des 84 cotations relève d’une adaptation métier de cette question, et non de la reproduction de cette publication."
+      ]
+    },
+    {
+      "heading": "Conclusion de l’analyse",
+      "paragraphs": [
+        "Le résultat justifie de distinguer complétude documentaire et effet sur la décision. Une case peut être difficile à renseigner sans changer les trois visites ; une autre peut suffire à faire entrer ou sortir un dossier. Le programme ne gagne donc pas nécessairement à traiter d’abord les informations les plus faciles à obtenir.",
+        "La sélection exacte et la liste des 16 cotations décisives restent invérifiables sans la grille source. De plus, un essai cotation par cotation ne démontre pas la stabilité face à plusieurs incertitudes simultanées. Cette limite résulte du périmètre du test, sans nouveau cas inventé. La valeur économique d’une information demeure également indéterminée, faute de coût de collecte et de probabilités associées aux réponses.",
+        "Le bilan confirme ainsi le ratio de 19,05 % et la pertinence d’une lecture centrée sur la décision. Il ne permet pas de nommer les documents à obtenir en premier, de désigner les fournisseurs à visiter ou de chiffrer un retour sur investissement documentaire."
+      ]
+    }
+  ],
+  "references": [
+    "Dépôt, [Cahiers métier lignes 19 à 23](https://github.com/yannicktoolexplo/lca-simu/blob/partage/cahiers-ic-anonymes/ICs/Cahiers-metier.md#L19-L23). Résultat de simulation publié, consulté le 25 novembre 2026.",
+    "ISO, [ISO 19011 édition 2026](https://www.iso.org/standard/19011), publiée le 27 mai 2026 ; [annonce ISO TC176](https://committee.iso.org/sites/tc176/home/news/content-left-area/news-and-updates/iso-19011-2026-released.html), 9 juin 2026. Notices publiques, sans examen du texte intégral payant.",
+    "Commission européenne JRC, [Step 8 Sensitivity analysis](https://knowledge-for-policy.ec.europa.eu/composite-indicators/toolkit_en/navigation-page/10-step-guide_en/step-8-sensitivity-analysis_en), mise à jour du 1er décembre 2020. Rôle des hypothèses dans la robustesse des classements.",
+    "Saisana, Saltelli et Tarantola, [Uncertainty and Sensitivity Analysis Techniques as Tools for the Quality Assessment of Composite Indicators](https://publications.jrc.ec.europa.eu/repository/handle/JRC31318), article de 2005, notice JRC datée du 1er décembre 2005. Sources web ouvertes le 25 novembre 2026."
+  ]
+}

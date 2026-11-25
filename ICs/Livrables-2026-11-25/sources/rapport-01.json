@@ -1,0 +1,80 @@
+{
+  "title": "Choisir cinq fournisseurs pour la revue",
+  "summary": "Le plan de quatre dossiers mono source et un autre ramène à 9,09 % la proportion de listes sans aucun cas de baisse du service, contre 25,21 % avec un tirage uniforme. Parmi les quotas testés conservant les deux groupes, il obtient le meilleur résultat. Ce bilan du 25 novembre 2026 confirme les calculs de sélection publiés et précise ce que cette amélioration permet de conclure.",
+  "sections": [
+    {
+      "heading": "Périmètre et preuves disponibles",
+      "paragraphs": [
+        "Le cahier métier, lignes 7 à 11, et le cas Revue fournisseurs, lignes 11 à 29, décrivent un portefeuille simulé de 29 fournisseurs. Les résultats de 27 sont exploitables. Parmi eux, 13 sont classés mono source : cinq perturbations dégradent le service, dont trois d’au moins 20 points. Parmi les 14 autres fournisseurs, une perturbation dégrade le service d’au moins 20 points. Les deux résultats manquants restent inconnus.",
+        "Le tableau revues-fournisseurs.csv contient neuf règles, chacune évaluée sur deux seuils de baisse. Le bilan a recalculé les 14 lignes correspondant aux tirages, à partir de ces effectifs agrégés. Les quatre lignes des règles fixes sont arithmétiquement cohérentes, mais leur résultat ne peut être vérifié indépendamment sans les listes de fournisseurs et leurs effets simulés. Aucune simulation industrielle nouvelle n’a été exécutée."
+      ]
+    },
+    {
+      "heading": "Comparaison recalculée des plans",
+      "paragraphs": [
+        "Chaque plan dispose de cinq places. Le critère comparé est la proportion de listes ne contenant aucun des six cas de baisse, lorsque le tirage est aléatoire à l’intérieur des groupes. Les détections moyennes comptent des fournisseurs, sur les six cas concernés."
+      ],
+      "table": {
+        "headers": [
+          "Plan de cinq dossiers",
+          "Sans cas / listes possibles",
+          "Sans cas",
+          "Détections moyennes"
+        ],
+        "widths_cm": [
+          4.6,
+          5.2,
+          3.0,
+          4.2
+        ],
+        "rows": [
+          [
+            "Uniforme",
+            "20 349 / 80 730",
+            "25,206 %",
+            "1,111"
+          ],
+          [
+            "3 mono source et 2 autres",
+            "4 368 / 26 026",
+            "16,783 %",
+            "1,297"
+          ],
+          [
+            "4 mono source et 1 autre",
+            "910 / 10 010",
+            "9,091 %",
+            "1,610"
+          ],
+          [
+            "5 mono source",
+            "56 / 1 287",
+            "4,351 %",
+            "1,923"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "Interprétation du résultat",
+      "paragraphs": [
+        "Le calcul du plan quatre plus un repose sur huit mono source et treize autres sans baisse. Choisir quatre dossiers parmi les huit donne 70 possibilités. Les compléter par l’un des treize donne 910 listes sans cas, parmi 715 × 14 = 10 010 listes possibles. La réduction par rapport au témoin vaut 16,115 points. Pour les baisses d’au moins 20 points, la proportion sans détection passe de 41,681 % à 27,273 %.",
+        "Le plan exclusivement mono source réduit encore le risque de ne rien détecter, mais écarte systématiquement le cas situé dans l’autre groupe. La préférence pour quatre plus un dépend donc de l’objectif de représentation. Ses 90,909 % de listes contenant un cas ne signifient pas que cette proportion des fournisseurs critiques est détectée. Le nombre moyen trouvé reste 1,610 sur six, et cinq places ne permettent pas de tous les examiner."
+      ]
+    },
+    {
+      "heading": "Apport de la veille et conclusion",
+      "paragraphs": [
+        "La lecture de Statistique Canada confirme que des tirages par groupes ont des probabilités d’inclusion différentes : ici 4/13 pour un mono source, contre 1/14 pour un autre. La revue sert à rechercher des cas préoccupants ; la proportion observée dans ses cinq dossiers ne mesure pas directement celle du portefeuille.",
+        "L’étude appliquée de Simchi-Levi et ses coauteurs, publiée en 2015, décrit une évaluation des effets opérationnels des ruptures avant l’estimation de leur fréquence. Cette approche éclaire l’échec du classement par délai seul dans le cas publié. La notice ISO 28000 et son amendement de 2024 situent la continuité dans un cadre de gestion plus large, sans prescrire le quota utilisé ici.",
+        "La conclusion est conditionnelle mais établie : quatre plus un constitue le meilleur compromis testé lorsque les deux groupes doivent apparaître. Les probabilités calculées décrivent des listes parmi des résultats simulés, et non des fréquences réelles de panne. La vérification des 14 lignes ne valide ni les deux résultats absents ni le transfert de la règle à un autre portefeuille."
+      ]
+    }
+  ],
+  "references": [
+    "Pièces du dépôt : [Revue fournisseurs lignes 11 à 29](https://github.com/yannicktoolexplo/lca-simu/blob/partage/cahiers-ic-anonymes/ICs/Cas/Revue-fournisseurs.md#L11-L29) et [tableau des plans](https://github.com/yannicktoolexplo/lca-simu/blob/partage/cahiers-ic-anonymes/ICs/Cas/revues-fournisseurs.csv). Résultats agrégés de simulation consultés le 25 novembre 2026.",
+    "Statistique Canada, [Probability sampling](https://www150.statcan.gc.ca/n1/edu/power-pouvoir/ch13/prob/5214899-eng.htm), mise à jour du 2 septembre 2021. Référence pour le tirage uniforme et par groupes.",
+    "Simchi-Levi et al., [Identifying Risks and Mitigating Disruptions in the Automotive Supply Chain](https://dspace.mit.edu/entities/publication/d44ef29a-78b6-4ec5-a537-d6e4c4f3f55a), Interfaces 45(5), 2015. Étude appliquée automobile, manuscrit auteur.",
+    "ISO, [ISO 28000 édition 2022](https://www.iso.org/standard/79612.html), mars 2022, et [amendement 1](https://www.iso.org/fr/standard/88413.html), 23 février 2024. Notices publiques consultées ; aucune clause intégrale attribuée. Toutes les sources web ont été ouvertes le 25 novembre 2026."
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "title": "Allocation du lot entre deux commandes",
+  "summary": "Servir la commande urgente en premier réduit le retard maximal de sept à quatre jours, mais augmente le retard pondéré par les quantités de 28 à 32 unités-jours. Les deux options protègent donc des engagements différents. Le résultat disponible suffit à montrer ce compromis ; il ne permet pas de désigner une priorité universellement moins coûteuse.",
+  "sections": [
+    {
+      "heading": "Périmètre et méthode de vérification",
+      "paragraphs": [
+        "L’analyse reprend le Cahier métier, section « Un lot disponible, deux commandes en attente : laquelle servir », lignes 39 à 43, version 1c483d76. Le cas compare deux ordres de service d’un lot. Les dates promises, les quantités individuelles et les arrivages suivants ne sont pas détaillés dans les pièces auditées pour cet essai.",
+        "Le travail réalisé le 25 novembre 2026 vérifie la cohérence des deux objectifs et recalcule les écarts absolus et relatifs à partir des agrégats publiés. Il ne reconstruit pas de commandes fictives et ne prétend pas reproduire un ordonnancement."
+      ]
+    },
+    {
+      "heading": "Comparaison des résultats disponibles",
+      "table": {
+        "headers": [
+          "Mesure",
+          "Autre ordre",
+          "Urgence en premier",
+          "Écart de la variante"
+        ],
+        "widths_cm": [
+          5.1,
+          3.5,
+          4.6,
+          3.8
+        ],
+        "rows": [
+          [
+            "Retard maximal",
+            "7 jours",
+            "4 jours",
+            "−3 jours"
+          ],
+          [
+            "Retard pondéré",
+            "28 unités-jours",
+            "32 unités-jours",
+            "+4 unités-jours"
+          ],
+          [
+            "Écart relatif du retard maximal",
+            "Référence",
+            "−42,86 %",
+            "Par rapport à 7"
+          ],
+          [
+            "Écart relatif du retard pondéré",
+            "Référence",
+            "+14,29 %",
+            "Par rapport à 28"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "Analyse de la décision métier",
+      "paragraphs": [
+        "Les calculs sont (7 − 4)/7 = 42,86 % de réduction du retard maximal et (32 − 28)/28 = 14,29 % de hausse du retard pondéré. Le premier indicateur regarde la commande la plus retardée. Le second additionne, pour chaque quantité, la durée pendant laquelle elle reste en attente. Son unité est l’unité-jour ; un résultat de 32 ne signifie pas 32 jours de retard.",
+        "Si la clause prioritaire porte sur le retard maximal, l’ordre urgence améliore l’indicateur évalué. Si toutes les quantités supportent le même tarif linéaire par unité-jour et qu’aucune autre clause n’intervient, l’autre ordre présente le moindre coût de retard. Le cahier ne fournit aucun tarif : une économie monétaire ne peut pas être déduite des quatre unités-jours supplémentaires.",
+        "La date de libération du lot reste une condition de validité. Une quantité physiquement reçue mais retenue par la qualité ne peut pas être affectée comme une quantité disponible. Les possibilités de livraison partielle ou de réservation peuvent également changer les deux trajectoires. Le calcul présent ne suppose aucune liberté supplémentaire sur ces opérations."
+      ]
+    },
+    {
+      "heading": "Lecture des pratiques actuelles",
+      "paragraphs": [
+        "La documentation Microsoft sur la planification par priorité, mise à jour le 17 juin 2025, décrit une priorité portée par les lignes d’offre et de demande, avec possibilité de fractionner les ordres. Elle précise comment rendre une priorité explicite dans un système de planification. Cette fonctionnalité concerne le réapprovisionnement ; elle ne démontre pas l’optimalité de l’allocation client étudiée ici.",
+        "La documentation sur la promesse de commande, mise à jour le 16 novembre 2026, ajoute la vérification des quantités non réservées et de leur date utilisable. L’apport concret est d’éviter qu’une priorité administrative réserve un lot déjà engagé ou indisponible. L’étude d’Ivanov de 2025 distingue quant à elle les indicateurs vus par le client de ceux des opérations, ce qui éclaire le désaccord observé entre maximum et cumul."
+      ],
+      "new_page": true
+    },
+    {
+      "heading": "Conclusion et limite",
+      "paragraphs": [
+        "Les résultats consolident un arbitrage entre protection de la commande la plus tardive et réduction du retard total pondéré. La variante urgence améliore le premier objectif et dégrade le second. Sans règle contractuelle chiffrée ni données détaillées des commandes, la conclusion reste conditionnelle à l’engagement retenu. L’analyse achevée porte sur ce compromis mesuré, sans annoncer de gain financier ni attribuer une réalisation individuelle."
+      ]
+    }
+  ],
+  "references": [
+    "[1] Cahier métier, lignes 39 à 43, version 1c483d76. [Résultats de l’allocation](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L39#rev-0415).",
+    "[2] Microsoft Learn. Priority-based planning. Mise à jour du 17 juin 2025. [Documentation primaire](https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/priority-based-planning).",
+    "[3] Microsoft Learn. Calculate order promising dates. Mise à jour du 16 novembre 2026. [Documentation primaire](https://learn.microsoft.com/en-us/dynamics365/business-central/sales-how-to-calculate-order-promising-dates).",
+    "[4] Ivanov D. When is the supply chain resilient? Customer and operational perspectives. 21 janvier 2025, DOI 10.1080/00207543.2025.2454331. [Résumé consulté sur le site du projet auteur](https://accurateproject.eu/publications/). Sources consultées le 25 novembre 2026."
+  ]
+}

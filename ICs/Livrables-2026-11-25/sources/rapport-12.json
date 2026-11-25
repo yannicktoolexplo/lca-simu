@@ -1,0 +1,78 @@
+{
+  "title": "Bilan de sensibilité de la pondération environnementale",
+  "summary": "Les résultats disponibles ne désignent pas une variante meilleure sur tous les impacts : huit indicateurs s’améliorent et huit se dégradent. Le classement pondéré s’inverse à 7,294 % de poids pour l’eutrophisation des eaux douces, sous redistribution proportionnelle des autres poids. Le choix de conception dépend donc de la préférence d’agrégation dans le périmètre étudié.",
+  "sections": [
+    {
+      "heading": "Périmètre et preuve du résultat",
+      "paragraphs": [
+        "Les [cahiers métier, lignes 79 à 83](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L79-L83#rev-0415), comparent deux variantes à masse identique, sur la production et la livraison. Le nombre d’indicateurs et le seuil de bascule sont les résultats documentés. Les seize valeurs d’impact, la normalisation et les poids de départ ne sont pas joints au cahier.",
+        "L’analyse réalisée le 25 novembre a vérifié les conséquences logiques et les dénominateurs de ces agrégats. Huit indicateurs sur seize représentent 50 % dans chaque sens. Cette égalité de nombres ne mesure ni la gravité ni l’ampleur des effets : elle ne suffit pas à déclarer une compensation entre impacts. La masse identique ne prouve pas davantage une fonction ou une durée de service identiques."
+      ]
+    },
+    {
+      "heading": "Résultats et portée de leur lecture",
+      "table": {
+        "headers": [
+          "Mesure",
+          "Résultat disponible",
+          "Ce que le résultat établit"
+        ],
+        "widths_cm": [
+          5.4,
+          4.3,
+          7.3
+        ],
+        "rows": [
+          [
+            "Indicateurs améliorés",
+            "8 sur 16, soit 50 %",
+            "Un bénéfice sur certaines catégories"
+          ],
+          [
+            "Indicateurs dégradés",
+            "8 sur 16, soit 50 %",
+            "Une dégradation sur d’autres catégories"
+          ],
+          [
+            "Poids de bascule eau douce",
+            "7,294 %",
+            "Inversion du classement pondéré"
+          ],
+          [
+            "Poids total restant à la bascule",
+            "92,706 %",
+            "Complément arithmétique, à redistribuer proportionnellement"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "Méthode de comparaison",
+      "paragraphs": [
+        "Le raisonnement sépare trois opérations : calculer chaque impact dans son unité, le normaliser, puis appliquer la pondération. Au point d’égalité, augmenter le poids eau douce modifie également les quinze autres poids selon la règle proportionnelle annoncée. Le seuil n’est donc pas interprétable comme une variation isolée sans compensation. Le cahier ne précise pas quelle variante gagne de chaque côté."
+      ]
+    },
+    {
+      "heading": "Confrontation aux méthodes de référence",
+      "new_page": true,
+      "paragraphs": [
+        "La recommandation européenne sur l’empreinte environnementale, publiée en décembre 2021, distingue unité fonctionnelle, limites du système, caractérisation, normalisation et pondération. Son application à l’analyse montre qu’un score unique doit conserver ses résultats par catégorie pour rester interprétable. Additionner directement des unités environnementales différentes serait dépourvu de sens. Une pondération de préférence interne doit être identifiée séparément : elle ne remplace pas librement les poids prescrits d’un résultat revendiqué conforme à PEF.",
+        "Le rapport JRC sur EF 3.1, publié le 8 février 2023, décrit des évolutions de caractérisation pour six catégories et de normalisation pour huit. Il compare 2 752 jeux de données et 49 produits représentatifs. Ce résultat appliqué explique pourquoi une inversion de classement dépend aussi de la version des facteurs. Il ne démontre pas que le seuil de 7,294 % du cahier resterait identique dans une autre version.",
+        "La page JRC de transition, actualisée le 4 novembre 2026, répertorie le package EF 3.1 de juillet 2022. La date d’actualisation de la page ne signifie pas une nouvelle méthode finale. L’audit du dépôt a retrouvé [un mécanisme de normalisation et de pondération](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=POC2026/supply_geo_case/lightweight_seat.py%23L745-L789#rev-0415) sur seize indicateurs EF 3.0, mais pas les entrées et sorties reliant ce mécanisme aux deux variantes du cahier. La version du calcul original reste donc non établie."
+      ]
+    },
+    {
+      "heading": "Conclusion du bilan",
+      "paragraphs": [
+        "Le classement est conditionnel à une préférence environnementale. Si les poids jugés acceptables encadrent la bascule publiée, le résultat disponible ne justifie pas de retenir une variante unique sur le seul score. Conserver les impacts opposés visibles rend l’arbitrage explicite. Aucun nouveau jeu de poids n’a été inventé pour ce rapport.",
+        "La valeur de 7,294 % est citée comme résultat de l’étude existante, sans prétendre la recalculer. Les vecteurs d’impact, facteurs de normalisation, pondération et définition du service sont les pièces manquantes pour une courbe de sensibilité vérifiable. Le présent bilan établit le compromis et la dépendance du classement, sans produire de données par indicateur absentes du dossier."
+      ]
+    }
+  ],
+  "references": [
+    "[Cahiers métier du dépôt, version 1c483d76, lignes 79 à 83](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L79-L83#rev-0415). Comparaison à masse identique sur production et livraison.",
+    "[Commission européenne, méthode Environmental Footprint](https://environment.ec.europa.eu/publications/recommendation-use-environmental-footprint-methods_en), publication du 16 décembre 2021, annexe I, sections 3.2, 5.2 et 6.2.",
+    "[JRC, Updated characterisation and normalisation factors for EF 3.1](https://op.europa.eu/en/publication-detail/-/publication/145f8401-a82a-11ed-b508-01aa75ed71a1), publié le 8 février 2023.",
+    "[JRC, Environmental Footprint Transition Phase](https://knowledge-for-policy.ec.europa.eu/environmental-footprint-transition-phase_en), mise à jour du 4 novembre 2026. Sources primaires ouvertes le 25 novembre 2026."
+  ]
+}

@@ -11,6 +11,8 @@ Ouvrir le [prompt](PROMPT-INTERCONTRATS.md) pour reprendre le travail. Les [quat
 
 Les cahiers publics sont organisés par thème et peuvent être utilisés indépendamment. Le rapprochement avec une mission individuelle s’effectue dans l’espace de travail de la supervision.
 
-## Compléments de veille et amorces métier
+## Documents de restitution
 
-Les [compléments du 25 novembre 2026](Complements-2026-11-25/README.md) couvrent les quatorze thèmes : acquis localisés, pratiques et standards actuels, lectures scientifiques appliquées, calculs simples et données à demander. Ils comprennent une synthèse Word, un tableur de calcul et un gabarit de veille avec un repère Frascati. Les exemples ajoutés sont distingués des simulations déjà décrites dans les cahiers et ne sont attribués à aucun intervenant.
+Les [livrables du 25 novembre 2026](Livrables-2026-11-25/README.md) comprennent quatorze rapports Word, cinq classeurs Excel renseignés et cinq présentations PowerPoint. Ils restituent les résultats disponibles, les analyses effectuées et la veille réalisée, avec leurs sources et limites. Le tableau de correspondance relie chaque thème aux fichiers.
+
+Les [pièces de veille préparatoires](Complements-2026-11-25/README.md) restent disponibles séparément. Leurs nouveaux exemples pédagogiques ne sont pas repris dans le bilan des travaux existants.

@@ -1,0 +1,84 @@
+{
+  "title": "Reprise des volumes et service quotidien",
+  "summary": "La trajectoire qui livre le plus sur cinq jours ne garantit pas le meilleur service chaque jour. Dans l’essai publié, la trajectoire à 84 % du volume tient le plancher de neuf livraisons quotidiennes avec la réserve datée. Celle à 90 % conserve un manque d’une unité au deuxième jour. Le critère journalier conduit donc à préférer la seconde pour cet engagement précis.",
+  "sections": [
+    {
+      "heading": "Périmètre et méthode de vérification",
+      "paragraphs": [
+        "L’analyse porte sur les deux trajectoires décrites dans le Cahier métier, section « La reprise des volumes garantit-elle le service chaque jour », lignes 33 à 37, version 1c483d76. Il s’agit de résultats simulés sur cinq jours. Les pourcentages rapportent les volumes servis au besoin total de ce même horizon. Ils ne constituent pas des fréquences de réussite observées en exploitation.",
+        "La vérification réalisée le 25 novembre 2026 rapproche les indicateurs publiés, recalcule leurs écarts et contrôle la chronologie de la réserve. Les séries détaillées de besoins et de livraisons ne sont pas disponibles pour cet essai dans les pièces auditées. Les deux trajectoires n’ont donc pas été rejouées et aucun profil quotidien nouveau n’a été créé."
+      ]
+    },
+    {
+      "heading": "Résultats rapprochés",
+      "table": {
+        "headers": [
+          "Indicateur",
+          "Trajectoire A",
+          "Trajectoire B"
+        ],
+        "widths_cm": [
+          8.6,
+          4.2,
+          4.2
+        ],
+        "rows": [
+          [
+            "Couverture publiée de la reprise sur cinq jours",
+            "90 %",
+            "84 %"
+          ],
+          [
+            "Avantage de volume de A",
+            "6 points par rapport à B",
+            "—"
+          ],
+          [
+            "Réserve disponible avant J1",
+            "2 unités",
+            "2 unités"
+          ],
+          [
+            "Réserve supplémentaire avant J3",
+            "2 unités",
+            "2 unités"
+          ],
+          [
+            "Plancher quotidien avec réserve datée",
+            "Manque de 1 unité à J2",
+            "Plancher atteint chaque jour"
+          ]
+        ]
+      },
+      "paragraphs": [
+        "Les couvertures de 90 % et 84 % sont celles des trajectoires de reprise publiées. Le respect du plancher décrit ensuite le résultat avec la réserve datée ; ces pourcentages ne sont pas un recalcul du volume après ajout de la réserve."
+      ]
+    },
+    {
+      "heading": "Interprétation pour la planification",
+      "paragraphs": [
+        "Les calculs effectués donnent 90 − 84 = 6 points d’écart et 2 + 2 = 4 unités de réserve sur l’horizon. Seules deux unités sont disponibles avant J3. Le manque résiduel de la trajectoire A à J2 correspond à 9 − 1 = 8 livraisons ce jour-là, selon le résultat publié. Le bilan cumulé ne permet pas de déplacer rétroactivement les deux unités arrivant avant J3.",
+        "La différence de classement vient de la promesse évaluée. Une quantité totale à livrer avant une échéance autorise certaines compensations entre jours. Un minimum quotidien exige de tenir chaque date. La seconde trajectoire satisfait le plancher indiqué dans le cahier malgré un volume cumulé inférieur. Le résultat ne permet pas de conclure qu’elle minimise le coût ou sert davantage sur la semaine."
+      ]
+    },
+    {
+      "heading": "Apport des pratiques et publications",
+      "paragraphs": [
+        "La documentation Microsoft sur la promesse de commande, actualisée le 16 novembre 2026, vérifie les quantités non réservées à leur date de disponibilité, puis les délais de préparation et de transport. Appliquée à cette comparaison, elle situe la réserve au point où l’engagement est tenu : disponibilité au dépôt et réception client ne portent pas la même date.",
+        "L’étude d’Ivanov publiée en ligne le 21 janvier 2025 compare trois réseaux simulés au moyen de la livraison à l’heure, du taux de satisfaction des volumes et du temps de reprise. Son résumé publié par le projet auteur distingue les perspectives client et opérationnelle. Cette lecture soutient le suivi séparé du volume et du respect des dates ; aucun gain chiffré de cette étude n’est attribué au cas présent."
+      ],
+      "new_page": true
+    },
+    {
+      "heading": "Conclusion et portée du résultat",
+      "paragraphs": [
+        "Pour un engagement de neuf livraisons par jour, la comparaison publiée favorise B avec la réserve décrite. Pour un engagement seulement cumulé, le total livré et son échéance restent déterminants. La vérification consolide ce désaccord entre indicateurs sans reproduire les séries absentes. Elle n’établit ni le nombre exact de jours déficitaires de A, ni une performance industrielle, ni l’efficacité d’une règle sur d’autres portefeuilles."
+      ]
+    }
+  ],
+  "references": [
+    "[1] Cahier métier, lignes 33 à 37, version 1c483d76. [Résultats de simulation](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L33#rev-0415).",
+    "[2] Microsoft Learn. Calculate order promising dates. Mise à jour du 16 novembre 2026. [Documentation primaire](https://learn.microsoft.com/en-us/dynamics365/business-central/sales-how-to-calculate-order-promising-dates).",
+    "[3] Ivanov D. When is the supply chain resilient? Customer and operational perspectives. International Journal of Production Research, 2025, publication en ligne du 21 janvier. DOI 10.1080/00207543.2025.2454331. [Résumé consulté sur le site du projet auteur](https://accurateproject.eu/publications/). Sources consultées le 25 novembre 2026."
+  ]
+}

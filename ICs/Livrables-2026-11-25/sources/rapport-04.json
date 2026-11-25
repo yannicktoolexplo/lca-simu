@@ -1,0 +1,79 @@
+{
+  "title": "Évaluer la couverture réellement disponible au dépôt",
+  "summary": "La pièce publiée établit quatre jours de besoin couverts par le dépôt. Le cinquième jour obtenu en ajoutant le stock amont dépend de son arrivée utilisable avant l’échéance. L’analyse du 25 novembre 2026 confirme que cette journée supplémentaire représente une ressource conditionnelle. Le simple total des stocks ne prouve pas la continuité du service au point de livraison.",
+  "sections": [
+    {
+      "heading": "Périmètre des travaux examinés",
+      "paragraphs": [
+        "Cahiers métier, lignes 27 à 31, décrit un essai de simulation sans publier ses quantités initiales, demandes quotidiennes et mouvements détaillés. Le résultat porte sur le dépôt qui sert le besoin, et non sur l’ensemble des sites comme si leurs stocks étaient immédiatement interchangeables. La même réserve est formulée pour un composant physiquement reçu mais non libéré par la qualité.",
+        "Le bilan a distingué la couverture locale du potentiel supplémentaire amont, recalculé leur écart arithmétique et examiné les pratiques de promesse de disponibilité dans deux documentations ERP. Aucun solde journalier original n’a été reconstruit, puisque les données nécessaires ne sont pas fournies. Aucun stock, besoin ou trajet pédagogique n’a été ajouté aux résultats."
+      ]
+    },
+    {
+      "heading": "Résultats documentés",
+      "table": {
+        "headers": [
+          "Mesure",
+          "Périmètre",
+          "Valeur et statut"
+        ],
+        "widths_cm": [
+          5.5,
+          6.0,
+          5.5
+        ],
+        "rows": [
+          [
+            "Couverture utilisable initiale",
+            "Dépôt seul",
+            "4 jours publiés"
+          ],
+          [
+            "Couverture de quantité élargie",
+            "Dépôt et stock amont",
+            "5 jours publiés sous condition"
+          ],
+          [
+            "Écart de quantité exprimé en jours",
+            "5 jours moins 4 jours",
+            "1 jour recalculé"
+          ],
+          [
+            "Écart relatif au dépôt seul",
+            "1 jour / 4 jours",
+            "25 % recalculés"
+          ],
+          [
+            "Continuité du cinquième jour",
+            "Arrivée et libération avant besoin",
+            "Non démontrée par le total"
+          ]
+        ]
+      },
+      "paragraphs": [
+        "Les 25 % décrivent uniquement l’écart entre deux quantités exprimées en jours de besoin. Ils ne représentent ni une hausse du service client ni une réduction de risque. Le dénominateur est la couverture locale de quatre jours. La date de transfert et la date de disponibilité demeurent les conditions décisives du cinquième jour."
+      ]
+    },
+    {
+      "heading": "Apport de la veille opérationnelle",
+      "paragraphs": [
+        "La documentation Oracle Order Promising, version 26A de 2026, décrit une disponibilité des lots liée à la fin du blocage, aux délais de préparation et aux calendriers. Son exemple de transfert entre deux organisations combine la levée du blocage amont et le temps de transit. Cette pratique confirme que le lieu et la date d’utilisation sont des attributs de la ressource. Une quantité existante dans une autre usine ne constitue donc pas automatiquement une quantité disponible au dépôt.",
+        "La documentation Microsoft sur les besoins nets, mise à jour le 21 juillet 2025, rapproche les réceptions et consommations datées et relie les ressources aux demandes qu’elles couvrent. Elle précise aussi qu’un changement d’offre ou de demande peut ne pas apparaître tant que le calcul de planification n’a pas été relancé. La lecture métier d’un solde dépend ainsi du bon plan et de son actualité, en plus de la justesse des quantités.",
+        "L’étude appliquée de Simchi-Levi et ses coauteurs, publiée en 2015 dans Interfaces, analyse l’exposition aux ruptures d’un réseau automobile et compare des mesures de réduction de cette exposition. Elle confirme l’intérêt d’examiner ce que les protections existantes permettent réellement de maintenir. Elle ne valide ni les quatre jours du cahier ni un délai de reprise particulier dans ce cas."
+      ]
+    },
+    {
+      "heading": "Conclusion sur la promesse de service",
+      "paragraphs": [
+        "Le résultat utilisable est une distinction entre couverture acquise localement et couverture dépendante d’un transfert. Dans la simulation décrite, le dépôt possède quatre jours complets de besoin au départ. La cinquième journée n’est compatible avec une promesse continue que si la ressource amont devient utilisable avant le premier manque. Un arrivage plus tardif peut contribuer au rattrapage sans effacer le retard déjà subi.",
+        "Le total de cinq jours constitue donc un potentiel de couverture, pas une preuve que toutes les échéances seront tenues. L’absence des flux journaliers et dates de libération empêche de quantifier le manque éventuel, le retard ou l’intérêt économique d’une accélération. La conclusion porte sur la validité de l’indicateur publié : une couverture au point de livraison doit respecter la chronologie des ressources."
+      ]
+    }
+  ],
+  "references": [
+    "Dépôt, [Cahiers métier lignes 27 à 31](https://github.com/yannicktoolexplo/lca-simu/blob/partage/cahiers-ic-anonymes/ICs/Cahiers-metier.md#L27-L31). Résultat de simulation, pièce consultée le 25 novembre 2026.",
+    "Oracle, [Promise Only After You Release Holds On Lots](https://docs.oracle.com/en/cloud/saas/supply-chain-and-manufacturing/26a/fascp/promise-only-after-you-release-holds-on-lots.html), version 26A de 2026 ; page sans date propre affichée. Disponibilité des lots et transferts.",
+    "Microsoft, [Net requirements and pegging information](https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/net-requirements), mise à jour du 21 juillet 2025. Solde daté et actualisation du calcul.",
+    "Simchi-Levi et al., [Identifying Risks and Mitigating Disruptions in the Automotive Supply Chain](https://dspace.mit.edu/entities/publication/d44ef29a-78b6-4ec5-a537-d6e4c4f3f55a), Interfaces 45(5), 2015, manuscrit auteur daté d’octobre. Sources web ouvertes le 25 novembre 2026."
+  ]
+}

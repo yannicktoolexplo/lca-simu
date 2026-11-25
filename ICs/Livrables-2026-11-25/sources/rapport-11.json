@@ -1,0 +1,73 @@
+{
+  "title": "Bilan environnemental de la retouche et du recontrôle",
+  "summary": "Le transport déclenché par la décision modifie le seuil environnemental de retouche. Pour le lot simulé de six pièces, le résultat publié passe de trois acceptations avec navette déjà programmée à quatre avec une tournée dédiée de 12 kg CO₂e. L’option logistique peut donc faire changer la décision, même si le procédé de retouche reste identique.",
+  "sections": [
+    {
+      "heading": "Périmètre et résultats comparés",
+      "paragraphs": [
+        "Les [cahiers métier, lignes 73 à 77](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L73-L77#rev-0415), comparent les acceptations nécessaires après retouche sur six pièces. Le premier cas suppose une navette déjà programmée dont la charge ajoutée a un effet négligeable. Le second ajoute une tournée dédiée. Le seuil exprime le nombre minimal de pièces acceptées qui réduit les émissions dans ce périmètre.",
+        "Le complément arithmétique exécuté le 25 novembre est le passage de 3 sur 6 à 4 sur 6 : 50,00 % puis 66,67 % du lot, soit une pièce et 16,67 points supplémentaires. Ce calcul reprend les seuils documentés ; il ne reconstitue pas les inventaires de fabrication, recontrôle ou rebut."
+      ]
+    },
+    {
+      "heading": "Tableau du résultat publié",
+      "table": {
+        "headers": [
+          "Cas simulé",
+          "Transport ajouté",
+          "Acceptations minimales"
+        ],
+        "widths_cm": [
+          8,
+          4,
+          5
+        ],
+        "rows": [
+          [
+            "Navette déjà programmée, effet marginal négligeable",
+            "Négligeable par hypothèse",
+            "3 pièces sur 6, soit 50,00 %"
+          ],
+          [
+            "Tournée dédiée",
+            "12 kg CO₂e",
+            "4 pièces sur 6, soit 66,67 %"
+          ],
+          [
+            "Écart entre les cas",
+            "Changement de trajet",
+            "+1 pièce, soit +16,67 points"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "Lecture de la comparaison",
+      "paragraphs": [
+        "À trois acceptations, seule la première organisation atteint le seuil annoncé. Avec la tournée dédiée, il faut une acceptation supplémentaire. Le résultat ne permet cependant pas de connaître les kilogrammes de CO₂e gagnés à chaque niveau. Les dépenses et temps de retouche ne sont pas renseignés non plus : l’avantage carbone ne constitue donc pas un bilan économique complet."
+      ]
+    },
+    {
+      "heading": "Analyse des pratiques et de la recherche",
+      "new_page": true,
+      "paragraphs": [
+        "Le GHG Protocol Product Standard de 2011 décrit les choix de périmètre, d’unité d’analyse, de données et d’allocation. Il aide ici à maintenir un service comparable entre pièce retouchée et remplacement. Il ne constitue pas, à lui seul, une méthode d’attribution de crédits d’émissions évitées. Dans un inventaire attribué au produit, une navette existante peut conserver une part d’émissions ; l’effet marginal supposé négligeable concerne la comparaison des décisions présentée au cahier.",
+        "La page officielle du standard annonce un groupe de travail conjoint avec ISO au 9 février 2026. Cette évolution de gouvernance ne remplace pas le standard publié par une nouvelle règle finale. Le périmètre et les facteurs utilisés restent donc à identifier dans tout résultat de comparaison.",
+        "Järnefelt, Ashouri et Behm, publiés le 20 septembre 2026, étudient réparation et remplacement de composants de téléphone. Le résumé primaire des auteurs sur VTT indique une préférence dépendant du composant, du moment de panne et de la catégorie d’impact. L’application au lot analysé est qualitative : une acceptation au recontrôle doit aussi correspondre au service et à la durée attendus. Aucun gain chiffré de cette publication n’est transféré ici."
+      ]
+    },
+    {
+      "heading": "Conclusion et limite de preuve",
+      "paragraphs": [
+        "Le bilan confirme qu’une règle unique de taux d’acceptation serait insuffisante : le seuil dépend du trajet que la retouche impose. Avant le recontrôle, le nombre accepté n’est pas encore connu ; la décision repose donc sur une estimation justifiée par type de défaut, confrontée au seuil correspondant au transport réel.",
+        "L’audit du dépôt a distingué ce lot des [mécanismes continus de reprise qualité du code](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=POC2026/supply_geo_case/adapter.py%23L8985-L9001#rev-0415). Ces mécanismes utilisent des parts et intensités estimées par famille ; ils ne prouvent pas l’essai de six pièces. Les inventaires détaillés et les acceptations par défaut manquent pour chiffrer les gains absolus. Le résultat publié suffit néanmoins à établir le changement de seuil logistique."
+      ]
+    }
+  ],
+  "references": [
+    "[Cahiers métier du dépôt, version 1c483d76, lignes 73 à 77](https://github.com/yannicktoolexplo/lca-simu/blob/main/docs/provenance-revisions.md?fichier=ICs/Cahiers-metier.md%23L73-L77#rev-0415). Résultat du lot simulé et périmètre transport.",
+    "[GHG Protocol, Product Life Cycle Accounting and Reporting Standard](https://ghgprotocol.org/sites/default/files/standards/Product-Life-Cycle-Accounting-Reporting-Standard_041613.pdf), 2011, chapitres 6 à 10 et annexe A.",
+    "[GHG Protocol, suivi du Product Standard](https://ghgprotocol.org/product-standard), annonce du groupe conjoint avec ISO du 9 février 2026.",
+    "[Järnefelt et al., résumé primaire VTT](https://cris.vtt.fi/en/publications/does-repair-improve-environmental-performance-integrating-tempora/), 20 septembre 2026, DOI 10.1016/j.jclepro.2026.149164. Résumé seul lu. Sources ouvertes le 25 novembre 2026."
+  ]
+}
