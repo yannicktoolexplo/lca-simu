@@ -16,3 +16,5 @@ Les cahiers publics sont organisés par thème et peuvent être utilisés indép
 Les [livrables du 25 novembre 2026](Livrables-2026-11-25/README.md) comprennent quatorze rapports Word, cinq classeurs Excel renseignés et cinq présentations PowerPoint. Ils restituent les résultats disponibles, les analyses effectuées et la veille réalisée, avec leurs sources et limites. Le tableau de correspondance relie chaque thème aux fichiers.
 
 Les [pièces de veille préparatoires](Complements-2026-11-25/README.md) restent disponibles séparément. Leurs nouveaux exemples pédagogiques ne sont pas repris dans le bilan des travaux existants.
+
+Le [prompt de production](PROMPT-INTERCONTRATS.md) utilise désormais la cible privée de chaque dossier pour dimensionner les lots de fichiers et vérifier la charge de reproduction à ±5 %. Fournir la fiche des 14 cibles dans la conversation privée.
