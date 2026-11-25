@@ -12,6 +12,12 @@ Dans le cas central, la commande courte passe de 800 à 900 kg si 90 % de la pre
 |---|---|
 | [Conditionnement-et-liberation.docx](Conditionnement-et-liberation.docx) | Pratique de réception et contrainte de lot |
 | [Deux politiques de double approvisionnement.docx](Deux%20politiques%20de%20double%20approvisionnement.docx) | Arbitrage de deux publications |
+| [Comparer les offres du premier lot.xlsx](Comparer%20les%20offres%20du%20premier%20lot.xlsx) | Comparaison contrainte de trois offres et de leur partage |
+| [Fiche de négociation du premier lot.docx](Fiche%20de%20n%C3%A9gociation%20du%20premier%20lot.docx) | Collecte achats et arbitrage du coût de première commande |
+| [Prouver origine et composition du lot de secours.docx](Prouver%20origine%20et%20composition%20du%20lot%20de%20secours.docx) | Veille de qualification et arbitrage de preuve |
+| [Justificatifs par lot et compte de commande.xlsx](Justificatifs%20par%20lot%20et%20compte%20de%20commande.xlsx) | Contrôle documentaire sur un carnet d’ordres |
+| [Volume de secours et stabilité du choix.xlsx](Volume%20de%20secours%20et%20stabilit%C3%A9%20du%20choix.xlsx) | Campagne appariée sur le délai et la disponibilité du secours |
+| [Avant de réserver du volume de secours.docx](Avant%20de%20r%C3%A9server%20du%20volume%20de%20secours.docx) | Lecture critique de la stabilité avant négociation |
 
 ## Conditions pour transposer le résultat
 

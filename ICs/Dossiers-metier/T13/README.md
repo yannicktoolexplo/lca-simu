@@ -12,6 +12,8 @@ Le risque rapporté que l’achat dépasse la fabrication passe de 15,0 à 40,4 
 |---|---|
 | [Lire les frais sur facture.docx](Lire%20les%20frais%20sur%20facture.docx) | Montée en compétence · lecture de facture |
 | [Regroupement-et-prime.docx](Regroupement-et-prime.docx) | Arbitrage scientifique et essai du plafond |
+| [Prime maximale pour éviter un arrêt de montage.xlsx](Prime%20maximale%20pour%20%C3%A9viter%20un%20arr%C3%AAt%20de%20montage.xlsx) | Arbitrage des coûts d’urgence et d’arrêt |
+| [Transport prioritaire en assemblage aéronautique.xlsx](Transport%20prioritaire%20en%20assemblage%20a%C3%A9ronautique.xlsx) | Essai de fret prioritaire et borne de dépense en assemblage |
 
 ## Conditions pour transposer le résultat
 

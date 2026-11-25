@@ -12,6 +12,7 @@ Dans les trajectoires de fret simulées, alerte de saturation et relance après 
 |---|---|
 | [Capacité des revues de fret.xlsx](Capacit%C3%A9%20des%20revues%20de%20fret.xlsx) | Essai · capacité de traitement des alertes |
 | [Prévoir le retard ou changer le vol.docx](Pr%C3%A9voir%20le%20retard%20ou%20changer%20le%20vol.docx) | Arbitrage d’articles · délai d’intervention |
+| [Expliquer les semaines de fret aerien.xlsx](Expliquer%20les%20semaines%20de%20fret%20aerien.xlsx) | Essai factoriel sur les mécanismes de recours au fret aérien |
 
 ## Conditions pour transposer le résultat
 

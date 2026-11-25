@@ -13,6 +13,8 @@ Sur l’incident d’approvisionnement, l’accélération et la combinaison ont
 | [Amortissement du stock tampon.xlsx](Amortissement%20du%20stock%20tampon.xlsx) | Essai · coût cumulé du stock tampon |
 | [Financer le deuxième levier.docx](Financer%20le%20deuxi%C3%A8me%20levier.docx) | Arbitrage d’articles · choix du levier |
 | [Cout-du-choix-a-horizon-incertain.xlsx](Cout-du-choix-a-horizon-incertain.xlsx) | Arbitrage économique à horizon incertain |
+| [Clôturer la comparaison des politiques de stock.docx](Cl%C3%B4turer%20la%20comparaison%20des%20politiques%20de%20stock.docx) | Retour d’expérience de conduite de projet |
+| [À quelle heure agir sur une alerte.xlsx](%C3%80%20quelle%20heure%20agir%20sur%20une%20alerte.xlsx) | Valeur de l’information et coût d’une intervention |
 
 Le classeur sur l’horizon incertain compare cinq politiques sur 52 horizons et quatre tarifs d’arriéré. Le tampon de stock borne le regret maximal à 2 296,37 unités monétaires sur la grille testée. Le lecteur peut modifier les quatre tarifs et recalculer son arbitrage.
 

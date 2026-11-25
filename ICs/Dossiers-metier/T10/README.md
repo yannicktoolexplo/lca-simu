@@ -12,6 +12,8 @@ Dans l’essai d’assemblage, retarder la disponibilité d’un mois laisse 115
 |---|---|
 | [Lancement-par-poste.docx](Lancement-par-poste.docx) | Pratique d’assemblage et essai de libération |
 | [Lire un ecart de preparation.docx](Lire%20un%20ecart%20de%20preparation.docx) | Pratique de préparation et lecture comparée |
+| [Des composants reçus aux jeux montables.xlsx](Des%20composants%20re%C3%A7us%20aux%20jeux%20montables.xlsx) | Essai de disponibilité à la date de montage |
+| [Annoncer la cadence de demain.xlsx](Annoncer%20la%20cadence%20de%20demain.xlsx) | Vérification métier · prévision de cadence à la veille |
 
 ## Conditions pour transposer le résultat
 

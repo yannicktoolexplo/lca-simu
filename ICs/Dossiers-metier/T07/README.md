@@ -12,6 +12,9 @@ Deux départs de 40 unités dépassent de 20 unités la capacité de 60 en un ch
 |---|---|
 | [Deux-rotations-et-heure-limite.docx](Deux-rotations-et-heure-limite.docx) | Essai · horaire et capacité de quai |
 | [Lire un rendez-vous de quai.docx](Lire%20un%20rendez-vous%20de%20quai.docx) | Pratique de quai et arbitrage d’études |
+| [Après la fermeture quel client prévenir.xlsx](Apr%C3%A8s%20la%20fermeture%20quel%20client%20pr%C3%A9venir.xlsx) | Simulation de service par commande après report du quai |
+| [La preuve disponible avant appel au client.docx](La%20preuve%20disponible%20avant%20appel%20au%20client.docx) | Essai sur l’information disponible lors de la confirmation client |
+| [Le prix du créneau exceptionnel.xlsx](Le%20prix%20du%20cr%C3%A9neau%20exceptionnel.xlsx) | Arbitrage sous contrainte de service entre astreinte du quai et trajet direct |
 
 ## Conditions pour transposer le résultat
 
