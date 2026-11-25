@@ -1,0 +1,216 @@
+{
+  "date": "2026-11-25",
+  "origin": "Complément assistant pour supervision; aucun historique individuel",
+  "repository_head": "REV-0415",
+  "themes": [
+    5,
+    6,
+    7,
+    8
+  ],
+  "calculations": [
+    {
+      "theme": 5,
+      "status": "calcul_exécute_sur_agrégats_du_cahier",
+      "inputs": {
+        "couverture_A": 0.9,
+        "couverture_B": 0.84,
+        "reserve_avant_J1_unites": 2,
+        "reserve_avant_J3_unites": 2,
+        "plancher_journalier_unites": 9,
+        "manque_A_J2_unites": 1
+      },
+      "results": {
+        "ecart_points_couverture": 6.000000000000005,
+        "reserve_totale_unites": 4,
+        "livraison_A_J2_apres_reserve_unites": 8
+      },
+      "limit": "Les séries quotidiennes sont absentes; aucun rejeu ni nombre exact des jours défaillants A ne sont calculables."
+    },
+    {
+      "theme": 6,
+      "status": "calcul_exécute_sur_agrégats_du_cahier",
+      "inputs": {
+        "retard_max_temoin_jours": 7,
+        "retard_max_urgent_jours": 4,
+        "retard_pondere_temoin_unites_jours": 28,
+        "retard_pondere_urgent_unites_jours": 32
+      },
+      "results": {
+        "jours_max_evites": 3,
+        "unites_jours_ajoutees": 4,
+        "augmentation_relative_unites_jours": 0.14285714285714285,
+        "seuil_a_sur_b_unites": 1.3333333333333333
+      },
+      "formula": "Coût urgent − coût témoin = -3*a + 4*b; urgent préférable si a/b > 4/3 unité",
+      "limit": "Suppose coût additif a*Tmax+b*unités-jours; ne décrit pas un contrat industriel fourni."
+    },
+    {
+      "theme": 7,
+      "status": "calcul_exécute_sur_donnees_du_cahier",
+      "inputs": {
+        "tournees_unites": [
+          40,
+          40
+        ],
+        "capacite_chargement_unites": 60
+      },
+      "results": {
+        "charge_regroupee_unites": 80,
+        "taux_charge": 1.3333333333333333,
+        "depassement_unites": 20,
+        "minimum_chargements_si_fractionnables": 2
+      },
+      "limit": "Deux chargements ne prouvent pas deux véhicules; aucun horaire, coût ou émission recalculé; le bilan 0/21 est cité du cahier."
+    },
+    {
+      "theme": 8,
+      "status": "calcul_exécute_et_sensibilite_pedagogique_distincte",
+      "inputs": {
+        "couverture_parcours_3_demandes_supposees_exploitables": 0.476,
+        "couverture_liaisons_3_demandes_supposees_exploitables": 0.42,
+        "p_reponse_parcours_hypothetique": 0.8,
+        "p_reponse_liaisons_hypothetique": 0.95
+      },
+      "results": {
+        "avantage_parcours_points": 5.6,
+        "couverture_attendue_parcours": 0.3808,
+        "couverture_attendue_liaisons": 0.39899999999999997,
+        "seuil_rapport_p_parcours_sur_p_liaisons": 0.8823529411764706
+      },
+      "formula": "Couverture attendue = couverture complète * probabilité réponse exploitable; parcours meilleur si pP/pL > 42/47.6",
+      "limit": "Probabilités hypothétiques homogènes et activité comptée une seule fois. Sans carte ni coût de collecte, pas de nouveau classement observé."
+    }
+  ],
+  "sources": [
+    {
+      "id": "MS_ATP_2026",
+      "themes": [
+        5
+      ],
+      "title": "Calculate order promising dates",
+      "publisher": "Microsoft Learn",
+      "publication_date": null,
+      "updated_date": "2026-11-16",
+      "consulted_date": "2026-11-25",
+      "url": "https://learn.microsoft.com/en-us/dynamics365/business-central/sales-how-to-calculate-order-promising-dates",
+      "opened": true,
+      "location": "About order promising; Calculations; Inbound and outbound warehouse handling times",
+      "finding": "Vérifier quantités non réservées et dates au point de promesse, avec préparation et transport."
+    },
+    {
+      "id": "MS_PRIORITY_2025",
+      "themes": [
+        6
+      ],
+      "title": "Priority-based planning",
+      "publisher": "Microsoft Learn",
+      "publication_date": null,
+      "updated_date": "2025-06-17",
+      "consulted_date": "2026-11-25",
+      "url": "https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/priority-based-planning",
+      "opened": true,
+      "location": "Where and how planning priorities are assigned; View and maintain planning priority",
+      "finding": "La priorité est portée par les lignes; ceci décrit le réapprovisionnement, pas une preuve d’optimalité d’allocation client."
+    },
+    {
+      "id": "MS_DOCK_2025",
+      "themes": [
+        7
+      ],
+      "title": "Set up an appointment for a load",
+      "publisher": "Microsoft Learn",
+      "publication_date": null,
+      "updated_date": "2025-02-17",
+      "consulted_date": "2026-11-25",
+      "url": "https://learn.microsoft.com/en-us/dynamics365/supply-chain/transportation/tasks/set-up-appointment-load",
+      "opened": true,
+      "location": "Étapes 5 et 6",
+      "finding": "Le rendez-vous associe quai, heure locale et durée; vérifier aussi la rotation véhicule."
+    },
+    {
+      "id": "IVANOV_RESILIENCE_2025",
+      "themes": [
+        5,
+        6
+      ],
+      "title": "When is the supply chain resilient? Customer and operational perspectives",
+      "publisher": "International Journal of Production Research / projet auteur ACCURATE",
+      "publication_date": "2025-01-21",
+      "updated_date": null,
+      "consulted_date": "2026-11-25",
+      "url": "https://doi.org/10.1080/00207543.2025.2454331",
+      "opened_url": "https://accurateproject.eu/publications/",
+      "opened": true,
+      "access": "Résumé ouvert sur le site du projet auteur; éditeur non accessible par ouverture directe",
+      "location": "Rubrique du titre; trois réseaux simulés, OTD, fill rate et TTR",
+      "finding": "Les indicateurs utiles diffèrent selon la perspective client et opérationnelle; pas de gain chiffré repris."
+    },
+    {
+      "id": "HUANG_DOCK_2025",
+      "themes": [
+        7
+      ],
+      "title": "Optimization of external container delivery and pickup scheduling based on appointment mechanism",
+      "publisher": "PLOS ONE",
+      "publication_date": "2025-02-21",
+      "updated_date": null,
+      "consulted_date": "2026-11-25",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0318606",
+      "opened": true,
+      "location": "Assumptions; Experimental design and results",
+      "finding": "Cas simulé terminal et six dépôts sur 24 h; minimum de coût annoncé inférieur de 4,89 % à leur planning manuel; gain non transférable au quai du cahier."
+    },
+    {
+      "id": "GLEC_3_3_2026",
+      "themes": [
+        7,
+        8
+      ],
+      "title": "GLEC Framework for Logistics Emissions Accounting and Reporting v3.3",
+      "publisher": "Smart Freight Centre",
+      "publication_date": "2026-10-27",
+      "edition_date": "2026-10",
+      "updated_date": null,
+      "consulted_date": "2026-11-25",
+      "url": "https://smartfreightcentre.org/news/13311209/",
+      "pdf_url": "https://d1c2gz5q23tkk0.cloudfront.net/shrine_store/uploads/networks/3660/communication_news/13311209/07d62a17997083e294953d425e69d86c.pdf",
+      "opened": true,
+      "location": "Section 1 chapitre 1, pages imprimées 15 et 27; section 2 chapitre 1, pages 58 à 61",
+      "finding": "Couvrir les opérations et plateformes, expliciter qualité et origine des données et éviter de confondre couverture tkm et parcours complet."
+    },
+    {
+      "id": "GLEC_CROSSWALK_4_2026",
+      "themes": [
+        8
+      ],
+      "title": "Crosswalk GLEC Framework edition 4",
+      "publisher": "Smart Freight Centre",
+      "publication_date": "2026-10-26",
+      "updated_date": null,
+      "consulted_date": "2026-11-25",
+      "url": "https://d1c2gz5q23tkk0.cloudfront.net/shrine_store/uploads/networks/3660/communication_news/13311209/3b754d52417445123e4d321e33d4a3ab.pdf",
+      "opened": true,
+      "location": "Pages 3 à 5, notamment page 4 Air transport",
+      "finding": "Enregistrer version facteur et traitement de correction de distance; valeurs aériennes avec/sans +95 km dans la v3.3."
+    },
+    {
+      "id": "KALLIONPAA_REPORTING_2026",
+      "themes": [
+        8
+      ],
+      "title": "Development of logistics emissions reporting – Shippers’ and logistics service providers’ perspective",
+      "publisher": "Transportation Research Part D / Tampere University",
+      "publication_date": "2026-01",
+      "early_online_date": "2025-11",
+      "updated_date": null,
+      "consulted_date": "2026-11-25",
+      "url": "https://doi.org/10.1016/j.trd.2025.105083",
+      "opened_url": "https://researchportal.tuni.fi/en/publications/development-of-logistics-emissions-reporting-shippers-and-logisti/",
+      "opened": true,
+      "access": "Notice universitaire et résumé ouverts; PDF non ouvert",
+      "location": "Abstract et métadonnées de publication",
+      "finding": "17 entretiens; pratiques et ressources hétérogènes; justifie un format commun, sans résultat de sélection de parcours."
+    }
+  ]
+}

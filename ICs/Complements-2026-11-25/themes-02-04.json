@@ -1,0 +1,330 @@
+{
+  "date_complement": "2026-11-25",
+  "source_commit": "REV-0415",
+  "statut": "Complément exécuté par assistant ; exemples nouveaux, sans attribution individuelle",
+  "acquis_publics": {
+    "02": {
+      "piece": "ICs/Cahiers-metier.md",
+      "lignes": [
+        13,
+        17
+      ],
+      "sans_rupture": 46,
+      "configurations": 60,
+      "depan_kg_publies": [
+        800,
+        900
+      ]
+    },
+    "03": {
+      "piece": "ICs/Cahiers-metier.md",
+      "lignes": [
+        19,
+        23
+      ],
+      "cotations_sensibles": 16,
+      "cotations": 84,
+      "visites": 3
+    },
+    "04": {
+      "piece": "ICs/Cahiers-metier.md",
+      "lignes": [
+        27,
+        31
+      ],
+      "jours_depot": 4,
+      "jours_quantite_avec_amont": 5
+    }
+  },
+  "entrees_exemples_pedagogiques": {
+    "02": {
+      "besoin_J10_kg": 1850,
+      "stock_utilisable_kg": 150,
+      "arrivage_long_kg": 1000,
+      "MOQ_court_kg": 400,
+      "multiple_court_kg": 200,
+      "capacite_court_J10_kg": 800,
+      "rendement_court": 1,
+      "liberation_court": "J9"
+    },
+    "03": {
+      "places": 3,
+      "A_points": 90,
+      "B_points": 80,
+      "C_base_points": 70,
+      "x_bornes": [
+        -2,
+        0
+      ],
+      "D_base_points": 65,
+      "y_bornes": [
+        0,
+        4
+      ],
+      "regle": "scores les plus élevés ; conserver tous les ex æquo"
+    },
+    "04": {
+      "stock_libre_depot_unites": 40,
+      "demande_journaliere_unites": 10,
+      "stock_amont_transfere_unites": 10,
+      "arrivees_ouverture_jour": [
+        5,
+        6
+      ],
+      "fermetures": false
+    }
+  },
+  "calculs_executes": {
+    "ratios_recalcules_depuis_cahier": {
+      "theme_02_configurations_sans_rupture": 0.7666666666666667,
+      "theme_03_cotations_qui_modifient_selection": 0.19047619047619047
+    },
+    "theme_02_exemple_pedagogique": [
+      {
+        "fraction_longue_usable": 1,
+        "liberation_avant_J10": true,
+        "arrivage_utilisable_kg": 1000,
+        "manque_net_kg": 700,
+        "commande_minimale_kg": 800,
+        "capacite_suffisante": true,
+        "manque_apres_achat_au_plafond_kg": 0
+      },
+      {
+        "fraction_longue_usable": 0.9,
+        "liberation_avant_J10": true,
+        "arrivage_utilisable_kg": 900.0,
+        "manque_net_kg": 800.0,
+        "commande_minimale_kg": 800,
+        "capacite_suffisante": true,
+        "manque_apres_achat_au_plafond_kg": 0
+      },
+      {
+        "fraction_longue_usable": 0.7,
+        "liberation_avant_J10": true,
+        "arrivage_utilisable_kg": 700.0,
+        "manque_net_kg": 1000.0,
+        "commande_minimale_kg": 1000,
+        "capacite_suffisante": false,
+        "manque_apres_achat_au_plafond_kg": 200.0
+      },
+      {
+        "fraction_longue_usable": 1,
+        "liberation_avant_J10": false,
+        "arrivage_utilisable_kg": 0,
+        "manque_net_kg": 1700,
+        "commande_minimale_kg": 1800,
+        "capacite_suffisante": false,
+        "manque_apres_achat_au_plafond_kg": 900
+      }
+    ],
+    "theme_03_exemple_pedagogique": [
+      {
+        "x_points": 0,
+        "y_points": 0,
+        "C_points": 70,
+        "D_points": 65,
+        "troisiemes_possibles": [
+          "C"
+        ]
+      },
+      {
+        "x_points": -2,
+        "y_points": 0,
+        "C_points": 68,
+        "D_points": 65,
+        "troisiemes_possibles": [
+          "C"
+        ]
+      },
+      {
+        "x_points": 0,
+        "y_points": 4,
+        "C_points": 70,
+        "D_points": 69,
+        "troisiemes_possibles": [
+          "C"
+        ]
+      },
+      {
+        "x_points": -2,
+        "y_points": 4,
+        "C_points": 68,
+        "D_points": 69,
+        "troisiemes_possibles": [
+          "D"
+        ]
+      },
+      {
+        "x_points": -2,
+        "y_points": 3,
+        "C_points": 68,
+        "D_points": 68,
+        "troisiemes_possibles": [
+          "C",
+          "D"
+        ]
+      }
+    ],
+    "theme_04_exemple_pedagogique": [
+      {
+        "jour": 1,
+        "besoin_cumule_unites": 10,
+        "solde_arrivee_J5_unites": 30,
+        "solde_arrivee_J6_unites": 30
+      },
+      {
+        "jour": 2,
+        "besoin_cumule_unites": 20,
+        "solde_arrivee_J5_unites": 20,
+        "solde_arrivee_J6_unites": 20
+      },
+      {
+        "jour": 3,
+        "besoin_cumule_unites": 30,
+        "solde_arrivee_J5_unites": 10,
+        "solde_arrivee_J6_unites": 10
+      },
+      {
+        "jour": 4,
+        "besoin_cumule_unites": 40,
+        "solde_arrivee_J5_unites": 0,
+        "solde_arrivee_J6_unites": 0
+      },
+      {
+        "jour": 5,
+        "besoin_cumule_unites": 50,
+        "solde_arrivee_J5_unites": 0,
+        "solde_arrivee_J6_unites": -10
+      },
+      {
+        "jour": 6,
+        "besoin_cumule_unites": 60,
+        "solde_arrivee_J5_unites": -10,
+        "solde_arrivee_J6_unites": -10
+      }
+    ],
+    "theme_04_jours_de_quantite_statique": 5.0
+  },
+  "sources": [
+    {
+      "id": "MS_ORDRES",
+      "titre": "Default order settings for dimensions and product variants",
+      "auteur": "Microsoft",
+      "date": "2025-07-10",
+      "nature_date": "mise à jour",
+      "consultation": "2026-11-25",
+      "url": "https://learn.microsoft.com/en-us/dynamics365/supply-chain/production-control/default-order-settings",
+      "constat": "Minimum, maximum, multiple, délais et dimensions produit/site",
+      "reference_navigation": "turn159936305view0",
+      "ouverte": true
+    },
+    {
+      "id": "MS_QUALITE",
+      "titre": "Quality orders",
+      "auteur": "Microsoft",
+      "date": "2026-10-26",
+      "nature_date": "mise à jour",
+      "consultation": "2026-11-25",
+      "url": "https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/quality-orders",
+      "constat": "Le contrôle qualité peut bloquer une quantité ou la totalité du lot selon le paramétrage",
+      "reference_navigation": "turn159936305view2",
+      "ouverte": true
+    },
+    {
+      "id": "ISO19011",
+      "titre": "ISO 19011:2026 Guidelines for auditing management systems",
+      "auteur": "ISO",
+      "date": "2026-05-27",
+      "nature_date": "publication enregistrée dans le cycle ISO",
+      "consultation": "2026-11-25",
+      "url": "https://www.iso.org/standard/19011",
+      "constat": "La quatrième édition 2026 remplace celle de 2018 ; synthèse publique seulement",
+      "reference_navigation": "turn222859813view0",
+      "ouverte": true
+    },
+    {
+      "id": "ISO_ANNONCE",
+      "titre": "ISO 19011:2026 Released",
+      "auteur": "ISO TC176",
+      "date": "2026-06-09",
+      "nature_date": "annonce",
+      "consultation": "2026-11-25",
+      "url": "https://committee.iso.org/sites/tc176/home/news/content-left-area/news-and-updates/iso-19011-2026-released.html",
+      "constat": "Révision attentive aux risques et aux environnements numériques",
+      "reference_navigation": "turn222859813view1",
+      "ouverte": true
+    },
+    {
+      "id": "JRC_GUIDE",
+      "titre": "Step 8 Sensitivity analysis",
+      "auteur": "Commission européenne JRC",
+      "date": "2020-12-01",
+      "nature_date": "mise à jour",
+      "consultation": "2026-11-25",
+      "url": "https://knowledge-for-policy.ec.europa.eu/composite-indicators/toolkit_en/navigation-page/10-step-guide_en/step-8-sensitivity-analysis_en",
+      "constat": "La robustesse du classement dépend des données et hypothèses de construction",
+      "reference_navigation": "turn222859813view4",
+      "ouverte": true
+    },
+    {
+      "id": "ORACLE_LIBERATION",
+      "titre": "Promise Only After You Release Holds On Lots",
+      "auteur": "Oracle",
+      "date": "2026 (version 26A)",
+      "nature_date": "version documentaire ; page sans date affichée",
+      "consultation": "2026-11-25",
+      "url": "https://docs.oracle.com/en/cloud/saas/supply-chain-and-manufacturing/26a/fascp/promise-only-after-you-release-holds-on-lots.html",
+      "constat": "Dates de libération et délais de transfert pour promettre la disponibilité",
+      "reference_navigation": "turn222859813view3",
+      "ouverte": true
+    },
+    {
+      "id": "MS_BESOINS",
+      "titre": "Net requirements and pegging information",
+      "auteur": "Microsoft",
+      "date": "2025-07-21",
+      "nature_date": "mise à jour",
+      "consultation": "2026-11-25",
+      "url": "https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/planning-optimization/net-requirements",
+      "constat": "Besoins et ressources datés ; calcul à relancer pour refléter les changements",
+      "reference_navigation": "turn159936305view1",
+      "ouverte": true
+    },
+    {
+      "id": "AKKERMAN2025",
+      "titre": "Solving Dual Sourcing Problems with Supply Mode Dependent Failure Rates",
+      "auteur": "Akkerman, Knofius, van der Heijden et Mes",
+      "date": "2025-04-11",
+      "nature_date": "version auteur v2 et publication en ligne",
+      "consultation": "2026-11-25",
+      "url": "https://arxiv.org/html/2410.03887v2",
+      "constat": "Cas énergétique de pièces de rechange ; résultats des auteurs, non reproduits ; DOI 10.1080/00207543.2025.2489755",
+      "reference_navigation": "turn906674620view0",
+      "ouverte": true
+    },
+    {
+      "id": "SAISANA2005",
+      "titre": "Uncertainty and Sensitivity Analysis Techniques as Tools for the Quality Assessment of Composite Indicators",
+      "auteur": "Saisana, Saltelli et Tarantola",
+      "date": "2005-12-01",
+      "nature_date": "date de la notice JRC ; article 2005",
+      "consultation": "2026-11-25",
+      "url": "https://publications.jrc.ec.europa.eu/repository/handle/JRC31318",
+      "constat": "Application de sensibilité et incertitude à un indice technologique ; transfert de méthode proposé",
+      "reference_navigation": "turn760040110view2",
+      "ouverte": true
+    },
+    {
+      "id": "SIMCHILEVI2015",
+      "titre": "Identifying Risks and Mitigating Disruptions in the Automotive Supply Chain",
+      "auteur": "Simchi-Levi et al.",
+      "date": "2015-10",
+      "nature_date": "date affichée du dépôt auteur ; publication Interfaces 45(5)",
+      "consultation": "2026-11-25",
+      "url": "https://dspace.mit.edu/entities/publication/d44ef29a-78b6-4ec5-a537-d6e4c4f3f55a",
+      "constat": "Application automobile de cartographie des expositions et comparaison des actions, non reproduite",
+      "reference_navigation": "turn760040110view3",
+      "ouverte": true
+    }
+  ]
+}

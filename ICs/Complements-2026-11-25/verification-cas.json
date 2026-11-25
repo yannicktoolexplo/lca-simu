@@ -1,0 +1,623 @@
+{
+  "date": "2026-11-25",
+  "origine": "calcul complémentaire sur deux CSV publics simulés",
+  "formule_cout": "fausses_alertes + ratio_cout_manque_sur_fausse_alerte * mois_manques",
+  "hypothese_cout_revue_justifiee": 0,
+  "hashes_sources_sha256": {
+    "revues-fournisseurs.csv": "60f68f52e834415a34f481c41006c7ed406dab7bc6b83763bd71adf2de9a1e1c",
+    "alertes-fret.csv": "606d676c67f6c9bcf4575ad41a9d3208fa3d022eaec9812b694da7897c6c4d76"
+  },
+  "revues": [
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "tirage_uniforme",
+      "places_mono_source": "",
+      "places_autres": "",
+      "listes_possibles": "80730",
+      "listes_sans_detection": "20349",
+      "listes_avec_detection": "60381",
+      "detections_moyennes": "1.11111111",
+      "probabilite_sans_detection": 0.2520624303232999,
+      "probabilite_detection": 0.7479375696767001,
+      "detections_moyennes_recalculees": 1.1111111111111112,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "tirage_uniforme",
+      "places_mono_source": "",
+      "places_autres": "",
+      "listes_possibles": "80730",
+      "listes_sans_detection": "33649",
+      "listes_avec_detection": "47081",
+      "detections_moyennes": "0.74074074",
+      "probabilite_sans_detection": 0.4168091168091168,
+      "probabilite_detection": 0.5831908831908832,
+      "detections_moyennes_recalculees": 0.7407407407407407,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "0",
+      "places_autres": "5",
+      "listes_possibles": "2002",
+      "listes_sans_detection": "1287",
+      "listes_avec_detection": "715",
+      "detections_moyennes": "0.35714286",
+      "probabilite_sans_detection": 0.6428571428571429,
+      "probabilite_detection": 0.3571428571428571,
+      "detections_moyennes_recalculees": 0.35714285714285715,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "0",
+      "places_autres": "5",
+      "listes_possibles": "2002",
+      "listes_sans_detection": "1287",
+      "listes_avec_detection": "715",
+      "detections_moyennes": "0.35714286",
+      "probabilite_sans_detection": 0.6428571428571429,
+      "probabilite_detection": 0.3571428571428571,
+      "detections_moyennes_recalculees": 0.35714285714285715,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "1",
+      "places_autres": "4",
+      "listes_possibles": "13013",
+      "listes_sans_detection": "5720",
+      "listes_avec_detection": "7293",
+      "detections_moyennes": "0.67032967",
+      "probabilite_sans_detection": 0.43956043956043955,
+      "probabilite_detection": 0.5604395604395604,
+      "detections_moyennes_recalculees": 0.6703296703296704,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "1",
+      "places_autres": "4",
+      "listes_possibles": "13013",
+      "listes_sans_detection": "7150",
+      "listes_avec_detection": "5863",
+      "detections_moyennes": "0.51648352",
+      "probabilite_sans_detection": 0.5494505494505495,
+      "probabilite_detection": 0.4505494505494505,
+      "detections_moyennes_recalculees": 0.5164835164835164,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "2",
+      "places_autres": "3",
+      "listes_possibles": "28392",
+      "listes_sans_detection": "8008",
+      "listes_avec_detection": "20384",
+      "detections_moyennes": "0.98351648",
+      "probabilite_sans_detection": 0.28205128205128205,
+      "probabilite_detection": 0.717948717948718,
+      "detections_moyennes_recalculees": 0.9835164835164836,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "2",
+      "places_autres": "3",
+      "listes_possibles": "28392",
+      "listes_sans_detection": "12870",
+      "listes_avec_detection": "15522",
+      "detections_moyennes": "0.67582418",
+      "probabilite_sans_detection": 0.4532967032967033,
+      "probabilite_detection": 0.5467032967032968,
+      "detections_moyennes_recalculees": 0.6758241758241759,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "3",
+      "places_autres": "2",
+      "listes_possibles": "26026",
+      "listes_sans_detection": "4368",
+      "listes_avec_detection": "21658",
+      "detections_moyennes": "1.2967033",
+      "probabilite_sans_detection": 0.16783216783216784,
+      "probabilite_detection": 0.8321678321678322,
+      "detections_moyennes_recalculees": 1.2967032967032965,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "3",
+      "places_autres": "2",
+      "listes_possibles": "26026",
+      "listes_sans_detection": "9360",
+      "listes_avec_detection": "16666",
+      "detections_moyennes": "0.83516484",
+      "probabilite_sans_detection": 0.3596403596403596,
+      "probabilite_detection": 0.6403596403596403,
+      "detections_moyennes_recalculees": 0.8351648351648351,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "4",
+      "places_autres": "1",
+      "listes_possibles": "10010",
+      "listes_sans_detection": "910",
+      "listes_avec_detection": "9100",
+      "detections_moyennes": "1.60989011",
+      "probabilite_sans_detection": 0.09090909090909091,
+      "probabilite_detection": 0.9090909090909091,
+      "detections_moyennes_recalculees": 1.60989010989011,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "4",
+      "places_autres": "1",
+      "listes_possibles": "10010",
+      "listes_sans_detection": "2730",
+      "listes_avec_detection": "7280",
+      "detections_moyennes": "0.99450549",
+      "probabilite_sans_detection": 0.2727272727272727,
+      "probabilite_detection": 0.7272727272727273,
+      "detections_moyennes_recalculees": 0.9945054945054945,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "5",
+      "places_autres": "0",
+      "listes_possibles": "1287",
+      "listes_sans_detection": "56",
+      "listes_avec_detection": "1231",
+      "detections_moyennes": "1.92307692",
+      "probabilite_sans_detection": 0.04351204351204351,
+      "probabilite_detection": 0.9564879564879565,
+      "detections_moyennes_recalculees": 1.9230769230769231,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "tirage_par_groupe",
+      "places_mono_source": "5",
+      "places_autres": "0",
+      "listes_possibles": "1287",
+      "listes_sans_detection": "252",
+      "listes_avec_detection": "1035",
+      "detections_moyennes": "1.15384615",
+      "probabilite_sans_detection": 0.1958041958041958,
+      "probabilite_detection": 0.8041958041958042,
+      "detections_moyennes_recalculees": 1.1538461538461537,
+      "statut": "recalcul combinatoire"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "delais_les_plus_longs",
+      "places_mono_source": "",
+      "places_autres": "",
+      "listes_possibles": "1",
+      "listes_sans_detection": "1",
+      "listes_avec_detection": "0",
+      "detections_moyennes": "0",
+      "probabilite_sans_detection": 1.0,
+      "probabilite_detection": 0.0,
+      "detections_moyennes_recalculees": 0,
+      "statut": "cohérence seulement"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "delais_les_plus_longs",
+      "places_mono_source": "",
+      "places_autres": "",
+      "listes_possibles": "1",
+      "listes_sans_detection": "1",
+      "listes_avec_detection": "0",
+      "detections_moyennes": "0",
+      "probabilite_sans_detection": 1.0,
+      "probabilite_detection": 0.0,
+      "detections_moyennes_recalculees": 0,
+      "statut": "cohérence seulement"
+    },
+    {
+      "definition_du_cas": "baisse_positive",
+      "regle": "priorite_action",
+      "places_mono_source": "",
+      "places_autres": "",
+      "listes_possibles": "1",
+      "listes_sans_detection": "1",
+      "listes_avec_detection": "0",
+      "detections_moyennes": "0",
+      "probabilite_sans_detection": 1.0,
+      "probabilite_detection": 0.0,
+      "detections_moyennes_recalculees": 0,
+      "statut": "cohérence seulement"
+    },
+    {
+      "definition_du_cas": "baisse_au_moins_20_points",
+      "regle": "priorite_action",
+      "places_mono_source": "",
+      "places_autres": "",
+      "listes_possibles": "1",
+      "listes_sans_detection": "1",
+      "listes_avec_detection": "0",
+      "detections_moyennes": "0",
+      "probabilite_sans_detection": 1.0,
+      "probabilite_detection": 0.0,
+      "detections_moyennes_recalculees": 0,
+      "statut": "cohérence seulement"
+    }
+  ],
+  "fret": [
+    {
+      "perimetre": "tous_les_mois",
+      "regle": "saturation_90_pct",
+      "tp": 257,
+      "fp": 622,
+      "fn": 16,
+      "tn": 61,
+      "n": 956,
+      "rappel": 0.9413919413919414,
+      "precision": 0.2923777019340159,
+      "taux_fausses_alertes_sur_mois_calmes": 0.9106881405563689,
+      "taux_ouverture_revue": 0.9194560669456067,
+      "prevalence": 0.28556485355648537
+    },
+    {
+      "perimetre": "tous_les_mois",
+      "regle": "saturation_95_pct",
+      "tp": 251,
+      "fp": 616,
+      "fn": 22,
+      "tn": 67,
+      "n": 956,
+      "rappel": 0.9194139194139194,
+      "precision": 0.2895040369088812,
+      "taux_fausses_alertes_sur_mois_calmes": 0.9019033674963397,
+      "taux_ouverture_revue": 0.9069037656903766,
+      "prevalence": 0.28556485355648537
+    },
+    {
+      "perimetre": "tous_les_mois",
+      "regle": "saturation_99_pct",
+      "tp": 247,
+      "fp": 611,
+      "fn": 26,
+      "tn": 72,
+      "n": 956,
+      "rappel": 0.9047619047619048,
+      "precision": 0.2878787878787879,
+      "taux_fausses_alertes_sur_mois_calmes": 0.8945827232796486,
+      "taux_ouverture_revue": 0.897489539748954,
+      "prevalence": 0.28556485355648537
+    },
+    {
+      "perimetre": "tous_les_mois",
+      "regle": "service_precedent_insuffisant",
+      "tp": 136,
+      "fp": 140,
+      "fn": 137,
+      "tn": 543,
+      "n": 956,
+      "rappel": 0.4981684981684982,
+      "precision": 0.4927536231884058,
+      "taux_fausses_alertes_sur_mois_calmes": 0.20497803806734993,
+      "taux_ouverture_revue": 0.28870292887029286,
+      "prevalence": 0.28556485355648537
+    },
+    {
+      "perimetre": "tous_les_mois",
+      "regle": "aucune_alerte",
+      "tp": 0,
+      "fp": 0,
+      "fn": 273,
+      "tn": 683,
+      "n": 956,
+      "rappel": 0.0,
+      "precision": null,
+      "taux_fausses_alertes_sur_mois_calmes": 0.0,
+      "taux_ouverture_revue": 0.0,
+      "prevalence": 0.28556485355648537
+    },
+    {
+      "perimetre": "mois_2_a_120",
+      "regle": "saturation_90_pct",
+      "tp": 81,
+      "fp": 343,
+      "fn": 9,
+      "tn": 43,
+      "n": 476,
+      "rappel": 0.9,
+      "precision": 0.19103773584905662,
+      "taux_fausses_alertes_sur_mois_calmes": 0.8886010362694301,
+      "taux_ouverture_revue": 0.8907563025210085,
+      "prevalence": 0.18907563025210083
+    },
+    {
+      "perimetre": "mois_2_a_120",
+      "regle": "saturation_95_pct",
+      "tp": 80,
+      "fp": 340,
+      "fn": 10,
+      "tn": 46,
+      "n": 476,
+      "rappel": 0.8888888888888888,
+      "precision": 0.19047619047619047,
+      "taux_fausses_alertes_sur_mois_calmes": 0.8808290155440415,
+      "taux_ouverture_revue": 0.8823529411764706,
+      "prevalence": 0.18907563025210083
+    },
+    {
+      "perimetre": "mois_2_a_120",
+      "regle": "saturation_99_pct",
+      "tp": 79,
+      "fp": 338,
+      "fn": 11,
+      "tn": 48,
+      "n": 476,
+      "rappel": 0.8777777777777778,
+      "precision": 0.18944844124700239,
+      "taux_fausses_alertes_sur_mois_calmes": 0.8756476683937824,
+      "taux_ouverture_revue": 0.8760504201680672,
+      "prevalence": 0.18907563025210083
+    },
+    {
+      "perimetre": "mois_2_a_120",
+      "regle": "service_precedent_insuffisant",
+      "tp": 26,
+      "fp": 68,
+      "fn": 64,
+      "tn": 318,
+      "n": 476,
+      "rappel": 0.28888888888888886,
+      "precision": 0.2765957446808511,
+      "taux_fausses_alertes_sur_mois_calmes": 0.17616580310880828,
+      "taux_ouverture_revue": 0.19747899159663865,
+      "prevalence": 0.18907563025210083
+    },
+    {
+      "perimetre": "mois_2_a_120",
+      "regle": "aucune_alerte",
+      "tp": 0,
+      "fp": 0,
+      "fn": 90,
+      "tn": 386,
+      "n": 476,
+      "rappel": 0.0,
+      "precision": null,
+      "taux_fausses_alertes_sur_mois_calmes": 0.0,
+      "taux_ouverture_revue": 0.0,
+      "prevalence": 0.18907563025210083
+    },
+    {
+      "perimetre": "mois_121_a_240",
+      "regle": "saturation_90_pct",
+      "tp": 176,
+      "fp": 279,
+      "fn": 7,
+      "tn": 18,
+      "n": 480,
+      "rappel": 0.9617486338797814,
+      "precision": 0.3868131868131868,
+      "taux_fausses_alertes_sur_mois_calmes": 0.9393939393939394,
+      "taux_ouverture_revue": 0.9479166666666666,
+      "prevalence": 0.38125
+    },
+    {
+      "perimetre": "mois_121_a_240",
+      "regle": "saturation_95_pct",
+      "tp": 171,
+      "fp": 276,
+      "fn": 12,
+      "tn": 21,
+      "n": 480,
+      "rappel": 0.9344262295081968,
+      "precision": 0.3825503355704698,
+      "taux_fausses_alertes_sur_mois_calmes": 0.9292929292929293,
+      "taux_ouverture_revue": 0.93125,
+      "prevalence": 0.38125
+    },
+    {
+      "perimetre": "mois_121_a_240",
+      "regle": "saturation_99_pct",
+      "tp": 168,
+      "fp": 273,
+      "fn": 15,
+      "tn": 24,
+      "n": 480,
+      "rappel": 0.9180327868852459,
+      "precision": 0.38095238095238093,
+      "taux_fausses_alertes_sur_mois_calmes": 0.9191919191919192,
+      "taux_ouverture_revue": 0.91875,
+      "prevalence": 0.38125
+    },
+    {
+      "perimetre": "mois_121_a_240",
+      "regle": "service_precedent_insuffisant",
+      "tp": 110,
+      "fp": 72,
+      "fn": 73,
+      "tn": 225,
+      "n": 480,
+      "rappel": 0.6010928961748634,
+      "precision": 0.6043956043956044,
+      "taux_fausses_alertes_sur_mois_calmes": 0.24242424242424243,
+      "taux_ouverture_revue": 0.37916666666666665,
+      "prevalence": 0.38125
+    },
+    {
+      "perimetre": "mois_121_a_240",
+      "regle": "aucune_alerte",
+      "tp": 0,
+      "fp": 0,
+      "fn": 183,
+      "tn": 297,
+      "n": 480,
+      "rappel": 0.0,
+      "precision": null,
+      "taux_fausses_alertes_sur_mois_calmes": 0.0,
+      "taux_ouverture_revue": 0.0,
+      "prevalence": 0.38125
+    }
+  ],
+  "enveloppes": {
+    "tous_les_mois": {
+      "cinq_regles_publiees": [
+        {
+          "borne_basse": "0",
+          "borne_haute": "35/34",
+          "regles": [
+            "aucune_alerte"
+          ]
+        },
+        {
+          "borne_basse": "35/34",
+          "borne_haute": "482/121",
+          "regles": [
+            "service_precedent_insuffisant"
+          ]
+        },
+        {
+          "borne_basse": "482/121",
+          "borne_haute": null,
+          "regles": [
+            "saturation_90_pct"
+          ]
+        }
+      ],
+      "avec_toujours_alerter": [
+        {
+          "borne_basse": "0",
+          "borne_haute": "35/34",
+          "regles": [
+            "aucune_alerte"
+          ]
+        },
+        {
+          "borne_basse": "35/34",
+          "borne_haute": "543/137",
+          "regles": [
+            "service_precedent_insuffisant"
+          ]
+        },
+        {
+          "borne_basse": "543/137",
+          "borne_haute": null,
+          "regles": [
+            "toujours_alerter_reference_derivee"
+          ]
+        }
+      ]
+    },
+    "mois_2_a_120": {
+      "cinq_regles_publiees": [
+        {
+          "borne_basse": "0",
+          "borne_haute": "34/13",
+          "regles": [
+            "aucune_alerte"
+          ]
+        },
+        {
+          "borne_basse": "34/13",
+          "borne_haute": "5",
+          "regles": [
+            "service_precedent_insuffisant"
+          ]
+        },
+        {
+          "borne_basse": "5",
+          "borne_haute": null,
+          "regles": [
+            "saturation_90_pct"
+          ]
+        }
+      ],
+      "avec_toujours_alerter": [
+        {
+          "borne_basse": "0",
+          "borne_haute": "34/13",
+          "regles": [
+            "aucune_alerte"
+          ]
+        },
+        {
+          "borne_basse": "34/13",
+          "borne_haute": "159/32",
+          "regles": [
+            "service_precedent_insuffisant"
+          ]
+        },
+        {
+          "borne_basse": "159/32",
+          "borne_haute": null,
+          "regles": [
+            "toujours_alerter_reference_derivee"
+          ]
+        }
+      ]
+    },
+    "mois_121_a_240": {
+      "cinq_regles_publiees": [
+        {
+          "borne_basse": "0",
+          "borne_haute": "36/55",
+          "regles": [
+            "aucune_alerte"
+          ]
+        },
+        {
+          "borne_basse": "36/55",
+          "borne_haute": "69/22",
+          "regles": [
+            "service_precedent_insuffisant"
+          ]
+        },
+        {
+          "borne_basse": "69/22",
+          "borne_haute": null,
+          "regles": [
+            "saturation_90_pct"
+          ]
+        }
+      ],
+      "avec_toujours_alerter": [
+        {
+          "borne_basse": "0",
+          "borne_haute": "36/55",
+          "regles": [
+            "aucune_alerte"
+          ]
+        },
+        {
+          "borne_basse": "36/55",
+          "borne_haute": "225/73",
+          "regles": [
+            "service_precedent_insuffisant"
+          ]
+        },
+        {
+          "borne_basse": "225/73",
+          "borne_haute": null,
+          "regles": [
+            "toujours_alerter_reference_derivee"
+          ]
+        }
+      ]
+    }
+  },
+  "seuil_95_vs_persistance": "476/115"
+}

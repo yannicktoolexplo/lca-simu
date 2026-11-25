@@ -1,0 +1,275 @@
+{
+  "date": "2026-11-25",
+  "base_commit": "REV-0415",
+  "source_status": "Cahiers publics agrégés de simulation ; exemples nouveaux identifiés séparément",
+  "themes": [
+    {
+      "id": 10,
+      "title": "Jeu complet de composants",
+      "reference": "ICs/Cahiers-metier.md:67-71",
+      "historical_reproduction_executed": false,
+      "experiment_type": "Calcul exécuté sur exemple pédagogique nouveau",
+      "inputs": [
+        {
+          "reference": "A",
+          "pieces_par_jeu": 2,
+          "stock_physique": 20,
+          "bloquees": 0,
+          "reservees": 4,
+          "utilisables": 16,
+          "jeux_permis": 8
+        },
+        {
+          "reference": "B",
+          "pieces_par_jeu": 1,
+          "stock_physique": 12,
+          "bloquees": 5,
+          "reservees": 1,
+          "utilisables": 6,
+          "jeux_permis": 6
+        },
+        {
+          "reference": "C",
+          "pieces_par_jeu": 3,
+          "stock_physique": 30,
+          "bloquees": 0,
+          "reservees": 3,
+          "utilisables": 27,
+          "jeux_permis": 9
+        }
+      ],
+      "assumptions": [
+        "Toutes consommations au même instant",
+        "Aucune substitution",
+        "Blocages et réservations distincts"
+      ],
+      "formula": "min_i(floor((stock_physique_i - bloquees_i - reservees_i)/pieces_par_jeu_i))",
+      "results": {
+        "jeux_stock_physique": 10,
+        "jeux_utilisables": 6,
+        "jeux_si_B_libere_avant_consommation": 8
+      }
+    },
+    {
+      "id": 11,
+      "title": "Retouche et recontrôle",
+      "reference": "ICs/Cahiers-metier.md:73-77",
+      "historical_reproduction_executed": false,
+      "experiment_type": "Calcul exécuté sur exemple pédagogique nouveau de8 pièces, distinct du lot de6 du cahier",
+      "inputs": {
+        "pieces_requises": 8,
+        "emissions_remplacement_piece_kgCO2e": 9,
+        "emissions_retouche_lot_kgCO2e": 25,
+        "transport_supplementaire_kgCO2e": [
+          0,
+          12
+        ]
+      },
+      "formula": "E_retouche=25+T+(8-n)*9 ; delta=25+T-9*n ; réduction stricte si n>(25+T)/9",
+      "assumptions": [
+        "Service identique et durée de vie équivalente",
+        "Émissions passées communes exclues de la différence",
+        "Facteur neuf inclut les étapes de remplacement requises",
+        "Retouche inclut essais et traitement supplémentaire des échecs",
+        "Effet marginal navette supposé nul, à vérifier"
+      ],
+      "results": {
+        "remplacement_integral_kgCO2e": 72,
+        "seuil_acceptations_navette": 3,
+        "seuil_acceptations_tournee_dediee": 5,
+        "comparisons": [
+          {
+            "transport_kgCO2e": 0,
+            "acceptees": 3,
+            "total_kgCO2e": 70,
+            "ecart_remplacement_kgCO2e": -2
+          },
+          {
+            "transport_kgCO2e": 0,
+            "acceptees": 4,
+            "total_kgCO2e": 61,
+            "ecart_remplacement_kgCO2e": -11
+          },
+          {
+            "transport_kgCO2e": 0,
+            "acceptees": 5,
+            "total_kgCO2e": 52,
+            "ecart_remplacement_kgCO2e": -20
+          },
+          {
+            "transport_kgCO2e": 12,
+            "acceptees": 3,
+            "total_kgCO2e": 82,
+            "ecart_remplacement_kgCO2e": 10
+          },
+          {
+            "transport_kgCO2e": 12,
+            "acceptees": 4,
+            "total_kgCO2e": 73,
+            "ecart_remplacement_kgCO2e": 1
+          },
+          {
+            "transport_kgCO2e": 12,
+            "acceptees": 5,
+            "total_kgCO2e": 64,
+            "ecart_remplacement_kgCO2e": -8
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "title": "Pondération des variantes",
+      "reference": "ICs/Cahiers-metier.md:79-83",
+      "historical_reproduction_executed": false,
+      "experiment_type": "Vérification exécutée de traversée du seuil public par une plage pédagogique proposée",
+      "inputs": {
+        "seuil_public": 0.07294,
+        "borne_basse_proposee": 0.05,
+        "borne_haute_proposee": 0.1
+      },
+      "formula": "borne_basse < seuil_public < borne_haute",
+      "results": {
+        "inversion_dans_plage": true,
+        "distance_borne_basse_points_pourcentage": 2.294,
+        "distance_borne_haute_points_pourcentage": 2.706
+      },
+      "limits": [
+        "Seuil non recalculé faute des16vecteurs caractérisés",
+        "Sens de préférence non fourni au cahier",
+        "Poids restants supposés proportionnels comme au cahier",
+        "Plage acceptable à décider par supervision avant classement"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "Q10-MS",
+      "title": "Inventory blocking",
+      "author": "Microsoft Learn",
+      "publication_date": null,
+      "update_date": "2025-08-14",
+      "url": "https://learn.microsoft.com/en-us/dynamics365/supply-chain/inventory/inventory-blocking",
+      "consulted_section": "Blocking items manually; Blocking items by creating a quality order; Take care when blocking items that use both inventory status blocking and quality order blocking",
+      "finding": "La quantité inspectée peut différer de la quantité bloquée ; les réceptions attendues et doubles blocages doivent être distingués.",
+      "themes": [
+        10
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q10-GS1",
+      "title": "EPCIS Standard Release 2.0",
+      "author": "GS1",
+      "publication_date": "2022-06",
+      "update_date": null,
+      "url": "https://ref.gs1.org/standards/epcis/",
+      "consulted_section": "7.3.6.2 Disposition and Persistent Disposition",
+      "finding": "Les états métier sont portés par des événements datés. Version consultée 2.0 ; aucune affirmation sur la dernière version.",
+      "themes": [
+        10
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q10-ISO",
+      "title": "ISO launches update to world’s most widely used quality management standard for a new era of business",
+      "author": "ISO",
+      "publication_date": "2026-09-16",
+      "update_date": null,
+      "url": "https://www.iso.org/news/2026/09/ISO9001-2026",
+      "consulted_section": "Communiqué de publication",
+      "finding": "Publication de ISO9001:2026 ; ne pas attribuer aux clauses du texte intégral non lu des exigences détaillées.",
+      "themes": [
+        10
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q11-GHG",
+      "title": "Product Life Cycle Accounting and Reporting Standard",
+      "author": "WRI WBCSD GHG Protocol",
+      "publication_date": "2011",
+      "update_date": null,
+      "url": "https://ghgprotocol.org/sites/default/files/standards/Product-Life-Cycle-Accounting-Reporting-Standard_041613.pdf",
+      "consulted_section": "Chapitres6 à10, annexe A, introduction1.2",
+      "finding": "Cadre des inventaires produits, périmètre, données, allocation ; ne constitue pas à lui seul une méthode de crédit d’émissions évitées.",
+      "themes": [
+        11
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q11-GHG-2026",
+      "title": "Product Standard",
+      "author": "GHG Protocol",
+      "publication_date": null,
+      "update_date": null,
+      "event_date": "2026-02-09",
+      "url": "https://ghgprotocol.org/product-standard",
+      "consulted_section": "Annonce du groupe conjoint avec ISO en tête de page",
+      "finding": "Groupe de travail conjoint annoncé ; pas de nouvelle méthode finale inférée de cette annonce.",
+      "themes": [
+        11
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q11-RECHERCHE",
+      "title": "Does repair improve environmental performance? Integrating temporal dynamics into environmental assessment of circular strategies",
+      "author": "Järnefelt V.; Ashouri S.; Behm K.",
+      "publication_date": "2026-09-20",
+      "update_date": null,
+      "url": "https://cris.vtt.fi/en/publications/does-repair-improve-environmental-performance-integrating-tempora/",
+      "doi": "10.1016/j.jclepro.2026.149164",
+      "consulted_section": "Résumé primaire et métadonnées du portail auteur VTT. Texte intégral éditeur non accessible (403).",
+      "finding": "Cas mobile : le choix réparation/remplacement dépend du composant, du moment de panne et de la catégorie d’impact. Aucun pourcentage transféré au cas industriel.",
+      "themes": [
+        11
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q12-PEF",
+      "title": "Recommendation on the use of Environmental Footprint methods, Annexes1 and2",
+      "author": "European Commission DG Environment",
+      "publication_date": "2021-12-16",
+      "update_date": null,
+      "url": "https://environment.ec.europa.eu/document/download/680503dc-5a19-4f6a-bb92-84d9bfc8f312_en?filename=Annexes+1+to+2.pdf",
+      "consulted_section": "AnnexeI,3.2,5.2,6.2",
+      "finding": "Séparation fonction, périmètre, indicateurs caractérisés, normalisation, pondération et robustesse.",
+      "themes": [
+        12
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q12-EF31",
+      "title": "Updated characterisation and normalisation factors for the environmental footprint3.1 method",
+      "author": "European Commission JRC",
+      "publication_date": "2023-02-08",
+      "update_date": null,
+      "url": "https://op.europa.eu/en/publication-detail/-/publication/145f8401-a82a-11ed-b508-01aa75ed71a1",
+      "consulted_section": "Notice primaire et résumé du rapport JRC130796",
+      "finding": "Changements pour6 catégories de caractérisation et8 normalisations ; comparaison de2752 jeux de données et49 produits représentatifs.",
+      "themes": [
+        12
+      ],
+      "consultation_date": "2026-11-25"
+    },
+    {
+      "id": "Q12-EF-SUIVI",
+      "title": "Environmental Footprint Transition Phase",
+      "author": "European Commission JRC",
+      "publication_date": "2025-08-25",
+      "update_date": "2026-11-04",
+      "url": "https://knowledge-for-policy.ec.europa.eu/environmental-footprint-transition-phase_en",
+      "consulted_section": "EF reference package",
+      "finding": "Page actualisée répertoriant le package EF3.1 de juillet2022 ; ne démontre pas une nouvelle version de méthode en2026.",
+      "themes": [
+        12
+      ],
+      "consultation_date": "2026-11-25"
+    }
+  ]
+}

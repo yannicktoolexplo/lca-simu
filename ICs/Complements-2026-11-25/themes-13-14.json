@@ -1,0 +1,197 @@
+{
+  "date": "2026-11-25",
+  "base_commit": "REV-0415",
+  "scope": "Public ICs only; pedagogical examples independently created, not reconstructions of underlying case results",
+  "themes": [
+    {
+      "id": 13,
+      "source": "ICs/Cahiers-metier.md:87-91",
+      "existing_result_status": "reported_simulation_not_recomputed",
+      "calculation_status": "executed_exact_enumeration_pedagogical",
+      "inputs": {
+        "sublots_per_parent_lot": 4,
+        "marginal_emergency_probability": 0.25,
+        "fee_eur_per_emergency": 100,
+        "cap_eur_per_parent_lot": 200,
+        "premium_eur_per_parent_lot": 20
+      },
+      "enumeration_independent": [
+        {
+          "urgent_sublots": 0,
+          "probability": 0.31640625,
+          "uncapped_eur": 0,
+          "capped_eur": 0
+        },
+        {
+          "urgent_sublots": 1,
+          "probability": 0.421875,
+          "uncapped_eur": 100,
+          "capped_eur": 100
+        },
+        {
+          "urgent_sublots": 2,
+          "probability": 0.2109375,
+          "uncapped_eur": 200,
+          "capped_eur": 200
+        },
+        {
+          "urgent_sublots": 3,
+          "probability": 0.046875,
+          "uncapped_eur": 300,
+          "capped_eur": 200
+        },
+        {
+          "urgent_sublots": 4,
+          "probability": 0.00390625,
+          "uncapped_eur": 400,
+          "capped_eur": 200
+        }
+      ],
+      "results": {
+        "independent_expected_uncapped_eur_per_parent_lot": 100.0,
+        "independent_expected_capped_excluding_premium_eur_per_parent_lot": 94.53125,
+        "independent_cap_value_eur_per_parent_lot": 5.46875,
+        "grouped_expected_uncapped_eur_per_parent_lot": 100,
+        "grouped_expected_capped_excluding_premium_eur_per_parent_lot": 50,
+        "grouped_cap_value_eur_per_parent_lot": 50,
+        "independent_expected_capped_plus_premium_eur_per_parent_lot": 114.53125,
+        "grouped_expected_capped_plus_premium_eur_per_parent_lot": 70,
+        "cap_value_if_resets_per_sublot_eur": 0
+      },
+      "method": "Enumerate k=0..4, P(k)=comb(4,k)*0.25**k*0.75**(4-k); sum P(k)*min(100*k,200). Grouped: P(4)=0.25, P(0)=0.75.",
+      "sources": [
+        "CG1",
+        "CG2",
+        "CG4"
+      ]
+    },
+    {
+      "id": 14,
+      "source": "ICs/Cahiers-metier.md:93-97",
+      "existing_result_status": "reported_simulation_not_recomputed",
+      "calculation_status": "executed_arithmetic_pedagogical",
+      "inputs": {
+        "expedite_cost_eur": 300,
+        "combine_cost_eur": 400,
+        "expedite_backlog_unit_days": 70,
+        "combine_backlog_unit_days": 30
+      },
+      "results": {
+        "incremental_cost_eur": 100,
+        "backlog_saved_unit_days": 40,
+        "switching_penalty_eur_per_unit_day": 2.5,
+        "switching_penalty_if_gain_is_20_unit_days": 5.0,
+        "cost_comparison": [
+          {
+            "penalty_eur_per_unit_day": 2,
+            "expedite_total_eur": 440,
+            "combine_total_eur": 460
+          },
+          {
+            "penalty_eur_per_unit_day": 2.5,
+            "expedite_total_eur": 475.0,
+            "combine_total_eur": 475.0
+          },
+          {
+            "penalty_eur_per_unit_day": 3,
+            "expedite_total_eur": 510,
+            "combine_total_eur": 490
+          }
+        ]
+      },
+      "method": "Incremental cost / additional backlog avoided; evaluate action_cost + penalty*backlog. Zero backlog gain: choose lower cost if other objectives identical.",
+      "sources": [
+        "CG1",
+        "CG3",
+        "CG5"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "CG1",
+      "title": "The Green Book 2026",
+      "author": "HM Treasury and Government Finance Function",
+      "published": null,
+      "updated": "2026-10-28",
+      "consulted": "2026-11-25",
+      "url": "https://www.gov.uk/government/publications/the-green-book--2/the-green-book-2026",
+      "opened": true,
+      "locator": "Sensitivity analysis and switching values, HTML lines 804-812",
+      "source_type": "primary_official_guidance",
+      "themes": [
+        13,
+        14
+      ],
+      "finding": "Comparer les options et calculer les valeurs qui font basculer leur classement. Guide public britannique utilisé comme repère méthodologique."
+    },
+    {
+      "id": "CG2",
+      "title": "The Orange Book Management of Risk Principles and Concepts",
+      "author": "HM Treasury and Government Finance Function",
+      "published": null,
+      "updated": "2026-11-18",
+      "consulted": "2026-11-25",
+      "url": "https://www.gov.uk/government/publications/orange-book/the-orange-book-management-of-risk-principles-and-concepts",
+      "opened": true,
+      "locator": "Section B2, HTML lines 226-239",
+      "source_type": "primary_official_guidance",
+      "themes": [
+        13
+      ],
+      "finding": "Considérer les dépendances et relations entre risques dans une comparaison d’options. La date de mise à jour ne prouve pas une nouveauté de ce principe."
+    },
+    {
+      "id": "CG3",
+      "title": "Relevant costs",
+      "author": "ACCA",
+      "published": null,
+      "updated": null,
+      "date_note": "Aucune date de publication ou mise à jour affichée sur la page ouverte",
+      "consulted": "2026-11-25",
+      "url": "https://www.accaglobal.com/uk/en/student/exam-support-resources/fundamentals-exams-study-resources/f5/technical-articles/relevant-costs.html",
+      "opened": true,
+      "locator": "HTML lines 435-459",
+      "source_type": "primary_professional_guidance",
+      "themes": [
+        14
+      ],
+      "finding": "Comparer les flux futurs modifiés par la décision et les coûts d’opportunité, exclure les réallocations inchangées et coûts déjà engagés."
+    },
+    {
+      "id": "CG4",
+      "title": "Cash flow dynamics in the supply chain during and after disruptions",
+      "author": "Dmitry Ivanov",
+      "published": "2024-05",
+      "updated": null,
+      "consulted": "2026-11-25",
+      "url": "https://doi.org/10.1016/j.tre.2024.103526",
+      "opened_url": "https://www.researchgate.net/publication/379997336_Cash_flow_dynamics_in_the_supply_chain_during_and_after_disruptions",
+      "opened": true,
+      "source_type": "primary_author_deposited_full_text",
+      "locator": "Sections 3.2 and 4; dataset fragment anonymised, author upload 2024-04-22",
+      "themes": [
+        13
+      ],
+      "finding": "Sur le réseau simulé, des ajustements de paiement coordonnés améliorent la disponibilité de trésorerie. Ne mesure pas la valeur d’un plafond de frais urgents."
+    },
+    {
+      "id": "CG5",
+      "title": "Resilient transportation network design with disruption uncertainty and lead times",
+      "author": "Daniel Müllerklein and Pirmin Fontaine",
+      "published": "2025",
+      "online_first": "2024-11-22",
+      "updated": null,
+      "consulted": "2026-11-25",
+      "url": "https://doi.org/10.1016/j.ejor.2024.11.021",
+      "opened_url": "https://edoc.ku.de/id/eprint/34580/1/1-s2.0-S0377221724008907-main.pdf",
+      "opened": true,
+      "source_type": "primary_full_text_in_university_repository",
+      "locator": "Abstract page 1 and case study section 7",
+      "themes": [
+        14
+      ],
+      "finding": "Comparaison modélisée de stratégies sur un approvisionnement industriel. Jusqu’à 50 % de gain de coûts selon les combinaisons; la valeur d’une prévision dépend des capacités de réacheminement. Résultat publié non recalculé et non transférable."
+    }
+  ]
+}

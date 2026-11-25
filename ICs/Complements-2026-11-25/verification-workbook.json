@@ -1,0 +1,652 @@
+{
+  "date": "2026-11-25",
+  "source_commit": "REV-0415",
+  "checks": [
+    {
+      "name": "revue baisse_positive quota 0 listes",
+      "actual": 2002,
+      "expected": 2002
+    },
+    {
+      "name": "revue baisse_positive quota 0 sans",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "name": "revue baisse_positive quota 0 avec",
+      "actual": 715,
+      "expected": 715
+    },
+    {
+      "name": "revue baisse_positive quota 0 moyenne",
+      "actual": 0.35714285714285715,
+      "expected": 0.35714286
+    },
+    {
+      "name": "revue baisse_positive quota 1 listes",
+      "actual": 13013,
+      "expected": 13013
+    },
+    {
+      "name": "revue baisse_positive quota 1 sans",
+      "actual": 5720,
+      "expected": 5720
+    },
+    {
+      "name": "revue baisse_positive quota 1 avec",
+      "actual": 7293,
+      "expected": 7293
+    },
+    {
+      "name": "revue baisse_positive quota 1 moyenne",
+      "actual": 0.6703296703296704,
+      "expected": 0.67032967
+    },
+    {
+      "name": "revue baisse_positive quota 2 listes",
+      "actual": 28392,
+      "expected": 28392
+    },
+    {
+      "name": "revue baisse_positive quota 2 sans",
+      "actual": 8008,
+      "expected": 8008
+    },
+    {
+      "name": "revue baisse_positive quota 2 avec",
+      "actual": 20384,
+      "expected": 20384
+    },
+    {
+      "name": "revue baisse_positive quota 2 moyenne",
+      "actual": 0.9835164835164836,
+      "expected": 0.98351648
+    },
+    {
+      "name": "revue baisse_positive quota 3 listes",
+      "actual": 26026,
+      "expected": 26026
+    },
+    {
+      "name": "revue baisse_positive quota 3 sans",
+      "actual": 4368,
+      "expected": 4368
+    },
+    {
+      "name": "revue baisse_positive quota 3 avec",
+      "actual": 21658,
+      "expected": 21658
+    },
+    {
+      "name": "revue baisse_positive quota 3 moyenne",
+      "actual": 1.2967032967032965,
+      "expected": 1.2967033
+    },
+    {
+      "name": "revue baisse_positive quota 4 listes",
+      "actual": 10010,
+      "expected": 10010
+    },
+    {
+      "name": "revue baisse_positive quota 4 sans",
+      "actual": 910,
+      "expected": 910
+    },
+    {
+      "name": "revue baisse_positive quota 4 avec",
+      "actual": 9100,
+      "expected": 9100
+    },
+    {
+      "name": "revue baisse_positive quota 4 moyenne",
+      "actual": 1.60989010989011,
+      "expected": 1.60989011
+    },
+    {
+      "name": "revue baisse_positive quota 5 listes",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "name": "revue baisse_positive quota 5 sans",
+      "actual": 56,
+      "expected": 56
+    },
+    {
+      "name": "revue baisse_positive quota 5 avec",
+      "actual": 1231,
+      "expected": 1231
+    },
+    {
+      "name": "revue baisse_positive quota 5 moyenne",
+      "actual": 1.9230769230769231,
+      "expected": 1.92307692
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 0 listes",
+      "actual": 2002,
+      "expected": 2002
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 0 sans",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 0 avec",
+      "actual": 715,
+      "expected": 715
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 0 moyenne",
+      "actual": 0.35714285714285715,
+      "expected": 0.35714286
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 1 listes",
+      "actual": 13013,
+      "expected": 13013
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 1 sans",
+      "actual": 7150,
+      "expected": 7150
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 1 avec",
+      "actual": 5863,
+      "expected": 5863
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 1 moyenne",
+      "actual": 0.5164835164835164,
+      "expected": 0.51648352
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 2 listes",
+      "actual": 28392,
+      "expected": 28392
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 2 sans",
+      "actual": 12870,
+      "expected": 12870
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 2 avec",
+      "actual": 15522,
+      "expected": 15522
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 2 moyenne",
+      "actual": 0.6758241758241759,
+      "expected": 0.67582418
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 3 listes",
+      "actual": 26026,
+      "expected": 26026
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 3 sans",
+      "actual": 9360,
+      "expected": 9360
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 3 avec",
+      "actual": 16666,
+      "expected": 16666
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 3 moyenne",
+      "actual": 0.8351648351648351,
+      "expected": 0.83516484
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 4 listes",
+      "actual": 10010,
+      "expected": 10010
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 4 sans",
+      "actual": 2730,
+      "expected": 2730
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 4 avec",
+      "actual": 7280,
+      "expected": 7280
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 4 moyenne",
+      "actual": 0.9945054945054945,
+      "expected": 0.99450549
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 5 listes",
+      "actual": 1287,
+      "expected": 1287
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 5 sans",
+      "actual": 252,
+      "expected": 252
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 5 avec",
+      "actual": 1035,
+      "expected": 1035
+    },
+    {
+      "name": "revue baisse_au_moins_20_points quota 5 moyenne",
+      "actual": 1.1538461538461537,
+      "expected": 1.15384615
+    },
+    {
+      "name": "fret 9 total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "fret 9 rappel",
+      "actual": 0.9413919413919414,
+      "expected": 0.9413919413919414
+    },
+    {
+      "name": "fret 9 précision",
+      "actual": 0.2923777019340159,
+      "expected": 0.2923777019340159
+    },
+    {
+      "name": "fret 10 total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "fret 10 rappel",
+      "actual": 0.9194139194139194,
+      "expected": 0.9194139194139194
+    },
+    {
+      "name": "fret 10 précision",
+      "actual": 0.2895040369088812,
+      "expected": 0.2895040369088812
+    },
+    {
+      "name": "fret 11 total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "fret 11 rappel",
+      "actual": 0.9047619047619048,
+      "expected": 0.9047619047619048
+    },
+    {
+      "name": "fret 11 précision",
+      "actual": 0.2878787878787879,
+      "expected": 0.2878787878787879
+    },
+    {
+      "name": "fret 12 total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "fret 12 rappel",
+      "actual": 0.4981684981684982,
+      "expected": 0.4981684981684982
+    },
+    {
+      "name": "fret 12 précision",
+      "actual": 0.4927536231884058,
+      "expected": 0.4927536231884058
+    },
+    {
+      "name": "fret 13 total",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "fret 13 rappel",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "fret 13 précision",
+      "actual": "Indéfinie",
+      "expected": "Indéfinie"
+    },
+    {
+      "name": "fret 16 total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "name": "fret 16 rappel",
+      "actual": 0.9,
+      "expected": 0.9
+    },
+    {
+      "name": "fret 16 précision",
+      "actual": 0.19103773584905662,
+      "expected": 0.19103773584905662
+    },
+    {
+      "name": "fret 17 total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "name": "fret 17 rappel",
+      "actual": 0.8888888888888888,
+      "expected": 0.8888888888888888
+    },
+    {
+      "name": "fret 17 précision",
+      "actual": 0.19047619047619047,
+      "expected": 0.19047619047619047
+    },
+    {
+      "name": "fret 18 total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "name": "fret 18 rappel",
+      "actual": 0.8777777777777778,
+      "expected": 0.8777777777777778
+    },
+    {
+      "name": "fret 18 précision",
+      "actual": 0.18944844124700239,
+      "expected": 0.18944844124700239
+    },
+    {
+      "name": "fret 19 total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "name": "fret 19 rappel",
+      "actual": 0.28888888888888886,
+      "expected": 0.28888888888888886
+    },
+    {
+      "name": "fret 19 précision",
+      "actual": 0.2765957446808511,
+      "expected": 0.2765957446808511
+    },
+    {
+      "name": "fret 20 total",
+      "actual": 476,
+      "expected": 476
+    },
+    {
+      "name": "fret 20 rappel",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "fret 20 précision",
+      "actual": "Indéfinie",
+      "expected": "Indéfinie"
+    },
+    {
+      "name": "fret 23 total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "name": "fret 23 rappel",
+      "actual": 0.9617486338797814,
+      "expected": 0.9617486338797814
+    },
+    {
+      "name": "fret 23 précision",
+      "actual": 0.3868131868131868,
+      "expected": 0.3868131868131868
+    },
+    {
+      "name": "fret 24 total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "name": "fret 24 rappel",
+      "actual": 0.9344262295081968,
+      "expected": 0.9344262295081968
+    },
+    {
+      "name": "fret 24 précision",
+      "actual": 0.3825503355704698,
+      "expected": 0.3825503355704698
+    },
+    {
+      "name": "fret 25 total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "name": "fret 25 rappel",
+      "actual": 0.9180327868852459,
+      "expected": 0.9180327868852459
+    },
+    {
+      "name": "fret 25 précision",
+      "actual": 0.38095238095238093,
+      "expected": 0.38095238095238093
+    },
+    {
+      "name": "fret 26 total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "name": "fret 26 rappel",
+      "actual": 0.6010928961748634,
+      "expected": 0.6010928961748634
+    },
+    {
+      "name": "fret 26 précision",
+      "actual": 0.6043956043956044,
+      "expected": 0.6043956043956044
+    },
+    {
+      "name": "fret 27 total",
+      "actual": 480,
+      "expected": 480
+    },
+    {
+      "name": "fret 27 rappel",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "fret 27 précision",
+      "actual": "Indéfinie",
+      "expected": "Indéfinie"
+    },
+    {
+      "name": "somme périodes règle 0 champ 2",
+      "actual": 257,
+      "expected": 257
+    },
+    {
+      "name": "somme périodes règle 0 champ 3",
+      "actual": 622,
+      "expected": 622
+    },
+    {
+      "name": "somme périodes règle 0 champ 4",
+      "actual": 16,
+      "expected": 16
+    },
+    {
+      "name": "somme périodes règle 0 champ 5",
+      "actual": 61,
+      "expected": 61
+    },
+    {
+      "name": "somme périodes règle 0 champ 6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "somme périodes règle 1 champ 2",
+      "actual": 251,
+      "expected": 251
+    },
+    {
+      "name": "somme périodes règle 1 champ 3",
+      "actual": 616,
+      "expected": 616
+    },
+    {
+      "name": "somme périodes règle 1 champ 4",
+      "actual": 22,
+      "expected": 22
+    },
+    {
+      "name": "somme périodes règle 1 champ 5",
+      "actual": 67,
+      "expected": 67
+    },
+    {
+      "name": "somme périodes règle 1 champ 6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "somme périodes règle 2 champ 2",
+      "actual": 247,
+      "expected": 247
+    },
+    {
+      "name": "somme périodes règle 2 champ 3",
+      "actual": 611,
+      "expected": 611
+    },
+    {
+      "name": "somme périodes règle 2 champ 4",
+      "actual": 26,
+      "expected": 26
+    },
+    {
+      "name": "somme périodes règle 2 champ 5",
+      "actual": 72,
+      "expected": 72
+    },
+    {
+      "name": "somme périodes règle 2 champ 6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "somme périodes règle 3 champ 2",
+      "actual": 136,
+      "expected": 136
+    },
+    {
+      "name": "somme périodes règle 3 champ 3",
+      "actual": 140,
+      "expected": 140
+    },
+    {
+      "name": "somme périodes règle 3 champ 4",
+      "actual": 137,
+      "expected": 137
+    },
+    {
+      "name": "somme périodes règle 3 champ 5",
+      "actual": 543,
+      "expected": 543
+    },
+    {
+      "name": "somme périodes règle 3 champ 6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "somme périodes règle 4 champ 2",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "somme périodes règle 4 champ 3",
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "somme périodes règle 4 champ 4",
+      "actual": 273,
+      "expected": 273
+    },
+    {
+      "name": "somme périodes règle 4 champ 5",
+      "actual": 683,
+      "expected": 683
+    },
+    {
+      "name": "somme périodes règle 4 champ 6",
+      "actual": 956,
+      "expected": 956
+    },
+    {
+      "name": "cinq règles coût défaut saturation 90",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "name": "six règles coût défaut toujours",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "name": "ratio 2 persistance minimum",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "name": "ratio zéro aucune alerte",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "name": "ratio absent signalé",
+      "actual": "À renseigner",
+      "expected": "À renseigner"
+    },
+    {
+      "name": "ex æquo aucune",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "name": "ex æquo persistance",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "name": "coût revue juste change décision",
+      "actual": "Minimum",
+      "expected": "Minimum"
+    },
+    {
+      "name": "seuil cinq règles",
+      "actual": 3.9834710743801653,
+      "expected": 3.9834710743801653
+    },
+    {
+      "name": "seuil six règles",
+      "actual": 3.9635036496350367,
+      "expected": 3.9635036496350367
+    }
+  ],
+  "limitations": [
+    "Calcul et rendu vérifiés dans Artifact Tool ; ouverture dans Excel desktop non exécutée.",
+    "Coûts de classification illustratifs ; efficacité des relances et pertes industrielles non mesurées.",
+    "Deux résultats fournisseurs manquants exclus du portefeuille de 27 essais."
+  ],
+  "error_scan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}"
+}
