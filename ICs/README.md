@@ -18,3 +18,5 @@ Les [livrables du 25 novembre 2026](Livrables-2026-11-25/README.md) comprennent 
 Les [pièces de veille préparatoires](Complements-2026-11-25/README.md) restent disponibles séparément. Leurs nouveaux exemples pédagogiques ne sont pas repris dans le bilan des travaux existants.
 
 Le [prompt de production](PROMPT-INTERCONTRATS.md) utilise désormais la cible privée de chaque dossier pour dimensionner les lots de fichiers et vérifier la charge de reproduction à ±5 %. Fournir la fiche des 14 cibles dans la conversation privée.
+
+Les [dossiers de travail par sujet](Dossiers-metier/README.md) donnent accès aux 30 nouveaux compléments de veille, d’arbitrage et d’essai ainsi qu’aux pièces initiales utiles à chaque décision.
