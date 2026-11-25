@@ -20,3 +20,7 @@ Les [pièces de veille préparatoires](Complements-2026-11-25/README.md) restent
 Le [prompt de production](PROMPT-INTERCONTRATS.md) utilise désormais la cible privée de chaque dossier pour dimensionner les lots de fichiers et vérifier la charge de reproduction à ±5 %. Fournir la fiche des 14 cibles dans la conversation privée.
 
 Les [dossiers de travail par sujet](Dossiers-metier/README.md) donnent accès aux 32 nouveaux compléments de veille, d’arbitrage et d’essai ainsi qu’aux pièces initiales utiles à chaque décision.
+
+## Registre public des consignes
+
+Le [classeur anonymisé](Registre/List_contrib_all_anonyme.xlsx) reprend 95 fiches, dont 76 avec une consigne formulée. La [synthèse CSV](Registre/Livrables-par-famille.csv) permet de consulter les consignes et leurs effectifs sans ouvrir Excel. Les regroupements décrivent le travail demandé et les variantes présentes dans le registre. Les angles détaillés du CSV sont ceux de la famille entière, tous projets confondus.
