@@ -1,0 +1,130 @@
+{
+  "sources": {
+    "boxarr-registre": {
+      "product": "BOXARR",
+      "title": "Companies House — BOXARR LIMITED, 04873279",
+      "url": "https://find-and-update.company-information.service.gov.uk/company/04873279",
+      "checked": "2026-11-27",
+      "kind": "Registre public britannique",
+      "observation": "La société britannique BOXARR LIMITED est immatriculée depuis le 20 août 2003 et son siège déclaré est à Bristol, en Angleterre. Cette fiche établit l'identité de l'entreprise."
+    },
+    "boxarr-flux": {
+      "product": "BOXARR",
+      "title": "Large Scale Parametric Value Stream Model of BOXARR",
+      "url": "https://www.boxarr.com/post/parametric-value-stream-model",
+      "checked": "2026-11-27",
+      "kind": "Exemple illustré publié par l'éditeur",
+      "observation": "L'article du 11 avril 2018, actualisé le 18 septembre 2023, illustre une chaîne de valeur par pièce, site et fournisseur. Il décrit le recalcul des stocks, des charges et des flux quand la cadence ou la répartition de la production change. Les captures montrent des variantes de scénario et un chemin critique. Le détail des livraisons quotidiennes permettant de reproduire l'exemple reste inconnu."
+    },
+    "boxarr-donnees": {
+      "product": "BOXARR",
+      "title": "BOXARR Data Orchestration",
+      "url": "https://www.boxarr.com/platform/data",
+      "checked": "2026-11-27",
+      "kind": "Documentation publique de l'éditeur",
+      "observation": "La page décrit l'import et l'export CSV, la correspondance entre colonnes et objets du modèle, la conservation d'identifiants internes et externes et une API REST JSON. L'éditeur précise que les opérations de l'API évoluent avec les versions. Le profil d'échange d'une installation donnée reste à vérifier sur un exemple."
+    },
+    "boxarr-FRN-1045D929655FAF": {
+      "product": "BOXARR",
+      "title": "Cas FRN-1045D929655FAF publié par BOXARR",
+      "url": "https://www.boxarr.com/post/boxarr-FRN-1045D929655FAF-supply-chain-complexity",
+      "checked": "2026-11-27",
+      "kind": "Retour d'application présenté par l'éditeur",
+      "observation": "Le cas décrit l'analyse de fournisseurs liés à plusieurs chaînes d'approvisionnement et programmes avion. Il illustre l'intérêt de rapprocher les dépendances. Les données de référence nécessaires pour mesurer l'exactitude de la carte sur ce cas restent à obtenir."
+    },
+    "sg-equipe": {
+      "product": "Supply-Graph",
+      "title": "Supply-Graph — About us",
+      "url": "https://www.supply-graph.io/about-us",
+      "checked": "2026-11-27",
+      "kind": "Présentation de l'équipe par l'éditeur",
+      "observation": "Romuald Sobalski se présente comme fondateur et dirigeant de Supply-Graph, créée en 2022. Il décrit un travail de cartographie des capacités de production de l'aéronautique à partir de sources publiques."
+    },
+    "sg-versailles": {
+      "product": "Supply-Graph",
+      "title": "Versailles Grand Parc — SUPPLY GRAPH",
+      "url": "https://www.versaillesgrandparc.fr/269-6164/vie-economique/creer-et-developper/entreprises-de-la-maison-des-entreprises/resultats-de-la-recherche/ficheAnnu/supply-graph.htm",
+      "checked": "2026-11-27",
+      "kind": "Annuaire public de Versailles Grand Parc",
+      "observation": "L'annuaire de la Maison des entreprises identifie Romuald Sobalski comme dirigeant et le rattache au domaine supply-graph.io. La fiche renseigne l'identité de l'entreprise française."
+    },
+    "sg-cartographie": {
+      "product": "Supply-Graph",
+      "title": "Supply-Chain risk & mapping",
+      "url": "https://www.supply-graph.io/solutions/supply-chain-mapping",
+      "checked": "2026-11-27",
+      "kind": "Fiche produit de l'éditeur",
+      "observation": "Supply-Graph annonce une cartographie des capacités des fournisseurs sur plusieurs rangs, des étapes de fabrication par pièce et des risques fournisseurs et pièces. La page décrit les vues en liste, sur carte ou dans une base de graphes. La couverture et l'exactitude des liens sur un réseau donné restent à mesurer."
+    },
+    "sg-usine": {
+      "product": "Supply-Graph",
+      "title": "Factory digital twin",
+      "url": "https://www.supply-graph.io/solutions/factory-digital-twin",
+      "checked": "2026-11-27",
+      "kind": "Fiche produit de l'éditeur",
+      "observation": "Le jumeau d'usine annoncé recense les équipements et zones de stockage. L'éditeur décrit des connexions aux logiciels d'entreprise, d'atelier et de qualité (ERP, MES et QMS) pour produire notamment des cartes de flux et des rapports. Les noms des champs et le niveau de détail des historiques par ordre restent à examiner sur un export."
+    },
+    "sg-transfact": {
+      "product": "Supply-Graph",
+      "title": "Sysorg & Transfact",
+      "url": "https://www.supply-graph.io/clients-partners/sysorg-transfact",
+      "checked": "2026-11-27",
+      "kind": "Présentation de partenariat par l'éditeur",
+      "observation": "Supply-Graph présente une offre associée à l'ERP et MES Transfact avec son distributeur Sysorg. En démonstration, demander quels champs et historiques un ordre de fabrication réel permet de récupérer et à quelle fréquence."
+    },
+    "sg-portail": {
+      "product": "Supply-Graph",
+      "title": "Client - supplier portal",
+      "url": "https://www.supply-graph.io/solutions/client---supplier-portal",
+      "checked": "2026-11-27",
+      "kind": "Fiche produit de l'éditeur",
+      "observation": "Le portail présente le partage des carnets de commandes, des informations qualité et des caractéristiques des pièces. La page annonce le suivi de lots à partir de métadonnées. La disponibilité de la relation entre un lot de matière, un ordre et la quantité effectivement consommée reste à vérifier."
+    }
+  },
+  "cases": [
+    {
+      "id": "tampon-service",
+      "title": "Combien d'unités un stock tampon permet-il de livrer à temps ?",
+      "question": "Avec cinq unités dues chaque jour pendant trois jours et une réception unique au troisième jour, quel retard évite un stock initial de dix unités ?",
+      "capabilities": ["stock-retard-52s", "politiques-stock-service"],
+      "references": ["boxarr-flux", "sg-usine"],
+      "opportunity": "Compléter une vue de flux et de stocks par le service réellement rendu à chaque échéance. Un même volume total livré peut masquer deux niveaux de retard différents.",
+      "procedure": "Appliquer essai-tampon.md aux deux variantes. Les réceptions journalières valent 0, 0 et 15 unités. Seul le stock initial change, de 0 à 10 unités. Recevoir avant de servir, servir les demandes les plus anciennes en premier et garder le journal daté pour chaque variante.",
+      "metric": "Quantité servie à son échéance divisée par les 15 unités dues, puis somme des quantités encore dues à chaque fin de journée (unités-jours). Avec 0 en stock initial, le calcul donne 5/15 à l'heure et 15 unités-jours de retard. Avec 10 en stock initial, il donne 15/15 et 0 unité-jour.",
+      "decision": "Valider le calcul du service si les deux mesures coïncident avec le calcul manuel dans chaque variante. Une divergence observée appelle une vérification de la date de disponibilité ou d'échéance. Garder un produit sans résultat sur ce jeu au statut non évalué."
+    },
+    {
+      "id": "lot-conditionnement",
+      "title": "Quel lot a fourni la matière réellement consommée au conditionnement ?",
+      "question": "Lorsque deux lots de semi-fini sont utilisables pour le même ordre, peut-on attribuer à chacun la masse effectivement prélevée ?",
+      "capabilities": ["trace-lots"],
+      "references": ["sg-portail", "sg-usine", "sg-transfact", "boxarr-donnees"],
+      "opportunity": "Compléter le suivi de lot annoncé par un rapprochement vérifiable entre le lot entrant, l'ordre de conditionnement et la quantité consommée. Le planificateur pourrait ainsi départager un prélèvement sur du stock antérieur et une consommation de la dernière réception.",
+      "procedure": "Construire un cas synthétique avec un ordre Q et deux lots L1 et L2 disponibles avant Q. Une pièce de consommation porte 12 kg de L1, une autre 8 kg de L2. Comparer deux dossiers distincts. Le premier contient les deux pièces. Dans le second, remplacer les deux pièces par leur seul total de 20 kg, conserver les dates de disponibilité des lots et la même nomenclature.",
+      "metric": "Pour le dossier détaillé, compter les deux liens lot-ordre justifiés et mesurer l'écart en kg avec 12 et 8. Pour le dossier agrégé, compter les attributions par lot dépourvues de pièce justificative et vérifier que les 20 kg restent visibles.",
+      "decision": "Accepter la traçabilité sur ce cas si les deux liens détaillés donnent 12 et 8 kg et si le dossier agrégé conserve 20 kg à répartir, sans attribution inventée. Un échec sur ce dernier point exclut l'usage du résultat pour identifier le lot industriel."
+    },
+    {
+      "id": "receptions-besoin-mrp",
+      "title": "Quel besoin MRP déclenche chacune des réceptions supplémentaires ?",
+      "question": "Deux rejeux ont les mêmes expéditions mais des stocks finaux différents. Peut-on relier l'écart aux décisions datées qui ont effectivement créé ou maintenu les ordres ?",
+      "capabilities": ["mrp-date", "trace-lots"],
+      "references": ["boxarr-flux", "boxarr-donnees", "sg-portail"],
+      "opportunity": "Expliquer chaque réception supplémentaire à partir de la décision qui a créé ou maintenu l'ordre correspondant. Le planificateur pourrait ainsi distinguer un ordre imposé par le plan figé d'un nouvel ordre calculé pour couvrir un besoin.",
+      "procedure": "Comparer deux rejeux de la même demande avec le même stock initial et les mêmes paramètres. Préciser quelles dates et quantités d'ordres le plan fige sur son horizon. Activer cette règle dans un seul rejeu. Sur un cas à cinq réceptions supplémentaires, rapprocher les réceptions par article, site, ordre et échéance pour distinguer les ajouts des reports. Pour chaque ajout, remonter de la réception au transfert, à l'ordre et à sa version de création. Relever les besoins connus à cette date, les stocks de sécurité et les arrondis de taille de lot. Pour un ordre maintenu après la disparition du besoin, retrouver aussi la version qui constate cette disparition et la règle qui conserve l'ordre. Vérifier les annulations et les autres mouvements.",
+      "metric": "Nombre de réceptions dont toute la chaîne est justifiée sur les cinq, quantité restant à attribuer en unités et écart résiduel du bilan des mouvements. Un total annuel identique à l'écart de stock valide seulement le bilan.",
+      "decision": "Retenir l'explication si les décisions datées justifient chaque ordre et son maintien éventuel, si le calcul de lotification reconstitue les quantités et si le bilan ferme à l'unité. Quantifier tout volume inexpliqué et indiquer la première liaison à documenter."
+    },
+    {
+      "id": "source-commune-rang-deux",
+      "title": "Deux fournisseurs directs dépendent-ils de la même source amont ?",
+      "question": "Un acheteur peut-il reconnaître, derrière deux fournisseurs de rang 1, une même usine de rang 2 dont l'arrêt toucherait les deux voies d'approvisionnement ?",
+      "capabilities": ["cascade-pilote", "allocation-sites"],
+      "references": ["sg-cartographie", "boxarr-flux", "boxarr-FRN-1045D929655FAF", "boxarr-donnees"],
+      "opportunity": "Relier la carte multi-rangs aux scénarios de panne. L'identité physique du site est décisive pour évaluer si un second fournisseur offre une voie indépendante.",
+      "procedure": "Créer deux petits réseaux synthétiques. Dans le premier, A et B livrent la même référence au client C et citent tous deux le même identifiant d'usine amont U1. Dans le second, seul B est rattaché à une autre usine U2, portant le même libellé que U1 et un identifiant différent. À l'arrêt de U1, lister les voies exposées dans chaque réseau.",
+      "metric": "Nombre de voies client exposées à l'arrêt de U1 sur les deux voies possibles. Le premier réseau en expose deux, le second une. Vérifier l'identifiant de chaque usine et la liste explicite des chemins touchés.",
+      "decision": "Retenir le graphe pour instruire la dépendance commune s'il distingue les deux réseaux et restitue les trois chemins exposés attendus au total, sans fusionner U1 et U2. Pour estimer ensuite un retard client, renseigner les stocks utilisables, les durées d'arrêt et les délais de réapprovisionnement."
+    }
+  ]
+}
