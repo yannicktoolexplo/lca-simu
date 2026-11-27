@@ -1,0 +1,950 @@
+{
+  "capabilities": [
+    {
+      "id": "sddlca-52s",
+      "method_ids": [
+        "lca",
+        "dlca",
+        "sddlca"
+      ],
+      "name": "Impact carbone selon l’état de la chaîne",
+      "family": "Environnement",
+      "status": "resultat_archive",
+      "decision": "Quelle méthode carbone employer pour comparer deux modes d’exploitation ?",
+      "method": "Comparer sur 52 semaines un inventaire classique, une ACV temporelle et une ACV sensible à l’état de production et de transport.",
+      "finding": "À la semaine 52, la méthode selon l’état atteint 23 169,8 kg CO₂e, contre 19 673,5 pour la classique (+17,8 %).",
+      "limit": "Les paramètres du POC sont illustratifs. La comparaison porte sur un scénario déterminé.",
+      "next_test": "Rejouer ce scénario à paramètres identiques, puis isoler l’effet du rebut et celui des expéditions urgentes.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/outputs_sddlca_poc/csv/poc_method_cumulative_comparison.csv",
+          "blob": "342d5072eebc54141ea26ce86b2fa9f555991c87"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/outputs_sddlca_poc/csv/poc_lca_method_comparison.csv",
+          "blob": "e48de69fa76e70600faf99a1d12abe41d99f6df0"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/config/sddlca_parameters.yml",
+          "blob": "4519f7e10b8b61b749055a8e6ecf0e4753bf09de"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/final_sddlca_poc_script.py",
+          "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
+        }
+      ],
+      "external_ok": true,
+      "visual": {
+        "kind": "line",
+        "title": "Émissions cumulées dans le scénario de référence",
+        "unit": "kg CO₂e",
+        "x_label": "Semaine",
+        "categories": [
+          "13",
+          "26",
+          "39",
+          "52"
+        ],
+        "series": [
+          {
+            "name": "ACV classique",
+            "values": [
+              4219.2,
+              9346.6,
+              14440.6,
+              19673.5
+            ]
+          },
+          {
+            "name": "ACV temporelle",
+            "values": [
+              4857.8,
+              10122.0,
+              14929.5,
+              19457.8
+            ]
+          },
+          {
+            "name": "ACV selon l’état",
+            "values": [
+              4872.1,
+              10439.1,
+              17006.1,
+              23169.8
+            ]
+          }
+        ],
+        "caption": "Quatre jalons du scénario de 52 semaines. Le calcul classique répartit son total au fil des semaines. La méthode selon l’état modélise explicitement les basculements de régime opérationnel."
+      },
+      "public": {
+        "name": "Combien émet la chaîne quand elle travaille sous tension ?",
+        "family": "Empreinte carbone",
+        "decision": "Choisir une mesure carbone adaptée aux épisodes de surcharge.",
+        "method": "Comparer trois méthodes sur une chaîne pédagogique pendant 52 semaines.",
+        "finding": "Sur ce scénario, le cumul selon l’état dépasse de 17,8 % l’estimation classique en fin d’année.",
+        "limit": "Les facteurs d’émission et les seuils de surcharge sont illustratifs.",
+        "next_test": "Déterminer quels taux de rebut et modes de transport mesurer sur votre périmètre.",
+        "visual": {
+          "kind": "line",
+          "title": "Émissions cumulées dans le scénario de référence",
+          "unit": "kg CO₂e",
+          "x_label": "Semaine",
+          "categories": [
+            "13",
+            "26",
+            "39",
+            "52"
+          ],
+          "series": [
+            {
+              "name": "ACV classique",
+              "values": [
+                4219.2,
+                9346.6,
+                14440.6,
+                19673.5
+              ]
+            },
+            {
+              "name": "ACV temporelle",
+              "values": [
+                4857.8,
+                10122.0,
+                14929.5,
+                19457.8
+              ]
+            },
+            {
+              "name": "ACV selon l’état",
+              "values": [
+                4872.1,
+                10439.1,
+                17006.1,
+                23169.8
+              ]
+            }
+          ],
+          "caption": "Quatre jalons du scénario de 52 semaines. Le calcul classique répartit son total au fil des semaines. La méthode selon l’état modélise explicitement les basculements de régime opérationnel."
+        }
+      }
+    },
+    {
+      "id": "politiques-stock-service",
+      "method_ids": [
+        "inventory",
+        "service",
+        "scenario_design"
+      ],
+      "name": "Couverture hebdomadaire de la demande",
+      "family": "Pilotage des stocks",
+      "status": "resultat_archive",
+      "decision": "Le stock tampon améliore-t-il la couverture hebdomadaire à volume total livré identique ?",
+      "method": "Additionner, semaine par semaine, le minimum entre volume expédié et demande, puis diviser par la demande totale sur 52 semaines.",
+      "finding": "Le ratio de couverture passe de 93,25 % à 98,42 % (+5,17 points). Les deux politiques livrent 100 % du volume à terme.",
+      "limit": "Des livraisons de retards anciens peuvent entrer dans le numérateur. La ponctualité des commandes exige les dates promises et réelles.",
+      "next_test": "Comparer ce ratio aux livraisons rattachées à une commande et mesurer le coût du stock tampon.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/outputs_sddlca_poc/csv/poc_policy_decision_summary.csv",
+          "blob": "05ee6273cfd7568dd7a6e39d026199d5fd741768"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/config/sddlca_parameters.yml",
+          "blob": "4519f7e10b8b61b749055a8e6ecf0e4753bf09de"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/final_sddlca_poc_script.py",
+          "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
+        }
+      ],
+      "external_ok": true,
+      "visual": {
+        "kind": "bar",
+        "title": "Couverture hebdomadaire de la demande",
+        "unit": "%",
+        "x_label": "Politique",
+        "categories": [
+          "Référence",
+          "Stock tampon",
+          "Carbone",
+          "Service"
+        ],
+        "series": [
+          {
+            "name": "Couverture hebdomadaire",
+            "values": [
+              93.25,
+              98.42,
+              91.19,
+              97.29
+            ]
+          }
+        ],
+        "caption": "Quatre politiques du cas pédagogique. Pour chaque semaine, le volume expédié est plafonné à la demande de la semaine. Les sommes sont rapportées à la demande totale."
+      },
+      "public": {
+        "name": "Couverture hebdomadaire de la demande",
+        "family": "Stocks et service",
+        "decision": "Le stock tampon améliore-t-il la couverture hebdomadaire à volume total livré identique ?",
+        "method": "Additionner, semaine par semaine, le minimum entre volume expédié et demande, puis diviser par la demande totale sur 52 semaines.",
+        "finding": "Le ratio de couverture passe de 93,25 % à 98,42 % (+5,17 points). Les deux politiques livrent 100 % du volume à terme.",
+        "limit": "Des livraisons de retards anciens peuvent entrer dans le numérateur. La ponctualité des commandes exige les dates promises et réelles.",
+        "next_test": "Comparer ce ratio aux livraisons rattachées à une commande et mesurer le coût du stock tampon.",
+        "visual": {
+          "kind": "bar",
+          "title": "Couverture hebdomadaire de la demande",
+          "unit": "%",
+          "x_label": "Politique",
+          "categories": [
+            "Référence",
+            "Stock tampon",
+            "Carbone",
+            "Service"
+          ],
+          "series": [
+            {
+              "name": "Couverture hebdomadaire",
+              "values": [
+                93.25,
+                98.42,
+                91.19,
+                97.29
+              ]
+            }
+          ],
+          "caption": "Quatre politiques du cas pédagogique. Pour chaque semaine, le volume expédié est plafonné à la demande de la semaine. Les sommes sont rapportées à la demande totale."
+        }
+      }
+    },
+    {
+      "id": "stock-retard-52s",
+      "method_ids": [
+        "inventory",
+        "stress",
+        "resilience",
+        "transport",
+        "service"
+      ],
+      "status": "resultat_archive",
+      "external_ok": true,
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/outputs_sddlca_poc/images/poc_state_space_projection.png",
+          "blob": "31c1fa975d2baac363a6d9765aaddaa5424f1c2e"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/outputs_sddlca_poc/csv/poc_supply_chain_states.csv",
+          "blob": "375c39844963f4ef61d09e9566a4dcb308641f55"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/outputs_sddlca_poc/csv/poc_regime_events.csv",
+          "blob": "7b27f42bb1fb99112901c07ea4173507f6ec8075"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/final_sddlca_poc_script.py",
+          "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
+        }
+      ],
+      "visual": {
+        "kind": "image",
+        "title": "À quel moment le stock cesse-t-il de protéger les livraisons ?",
+        "caption": "À droite, suivre le stock de produits finis (vert) et la demande en retard (bleu). À gauche, la couleur date chaque état de la chaîne. Le maximum de retard intervient onze semaines après épuisement du stock.",
+        "evidence": {
+          "branch": "dev_yannick",
+          "path": "POC2026/outputs_sddlca_poc/images/poc_state_space_projection.png",
+          "blob": "31c1fa975d2baac363a6d9765aaddaa5424f1c2e"
+        }
+      },
+      "public": {
+        "name": "Du stock disponible au retard client",
+        "family": "Stocks et résilience",
+        "decision": "Quand déclencher un réapprovisionnement ou un mode de transport accéléré ?",
+        "method": "Suivre chaque semaine le stock de produits finis, la demande restant à livrer et le mode de transport dans le scénario pédagogique de référence.",
+        "finding": "Le stock de produits finis atteint zéro en semaine 26. Le retard passe de 4,2 unités en semaine 26 à un maximum de 36,4 en semaine 37, puis revient à zéro en semaine 52.",
+        "limit": "Le modèle illustratif autorise des unités fractionnaires. Les trajectoires seules ne mesurent pas l’effet causal du passage au fret aérien.",
+        "next_test": "Rejouer la même demande avec le même état initial en modifiant uniquement la règle de déclenchement du fret aérien. Comparer le pic de retard, sa durée et le surcoût.",
+        "visual": {
+          "kind": "image",
+          "title": "À quel moment le stock cesse-t-il de protéger les livraisons ?",
+          "caption": "À droite, suivre le stock de produits finis (vert) et la demande en retard (bleu). À gauche, la couleur date chaque état de la chaîne. Le maximum de retard intervient onze semaines après épuisement du stock.",
+          "evidence": {
+            "branch": "dev_yannick",
+            "path": "POC2026/outputs_sddlca_poc/images/poc_state_space_projection.png",
+            "blob": "31c1fa975d2baac363a6d9765aaddaa5424f1c2e"
+          },
+          "approved_blob": "31c1fa975d2baac363a6d9765aaddaa5424f1c2e"
+        }
+      },
+      "name": "Du stock disponible au retard client",
+      "family": "Stocks et résilience",
+      "decision": "Quand déclencher un réapprovisionnement ou un mode de transport accéléré ?",
+      "method": "Suivre chaque semaine le stock de produits finis, la demande restant à livrer et le mode de transport dans le scénario pédagogique de référence.",
+      "finding": "Le stock de produits finis atteint zéro en semaine 26. Le retard passe de 4,2 unités en semaine 26 à un maximum de 36,4 en semaine 37, puis revient à zéro en semaine 52.",
+      "limit": "Le modèle illustratif autorise des unités fractionnaires. Les trajectoires seules ne mesurent pas l’effet causal du passage au fret aérien.",
+      "next_test": "Rejouer la même demande avec le même état initial en modifiant uniquement la règle de déclenchement du fret aérien. Comparer le pic de retard, sa durée et le surcoût."
+    },
+    {
+      "id": "adaptation-20ans",
+      "method_ids": [
+        "adaptation",
+        "dlca",
+        "sddlca"
+      ],
+      "name": "Adaptation et empreinte à vingt ans",
+      "family": "Environnement",
+      "status": "resultat_archive",
+      "decision": "Comment évaluer une stratégie d’adaptation qui change l’énergie disponible et le recours aux approvisionnements de secours ?",
+      "method": "Suivre les trajectoires de climat, énergie, service et impacts dans un modèle mensuel sur vingt ans.",
+      "finding": "La référence dégradée cumule 136,2 t CO₂e selon l’état et 121,1 t en ACV temporelle.",
+      "limit": "Les valeurs décrivent une trajectoire stylisée. La table retenue ne compare qu’une politique.",
+      "next_test": "Comparer les stratégies avec la même météo et isoler la part attribuable au mix électrique.",
+      "evidence": [
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "POC2026/horizon-adaptation/baseline/csv/ha_method_comparison.csv",
+          "blob": "159ece6989e95c736c033dc2030d5645e753d74e"
+        },
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "POC2026/horizon-adaptation/baseline/csv/ha_strategy_summary.csv",
+          "blob": "56d718cd3d99354da2a9731f74d94136261f4645"
+        },
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "POC2026/horizon-adaptation/README.md",
+          "blob": "1372e4210fe6f2e6d8dc79bea835cc99691b99fa"
+        }
+      ],
+      "external_ok": true,
+      "visual": {
+        "kind": "bar",
+        "title": "Impact cumulé sur vingt ans",
+        "unit": "t CO₂e",
+        "x_label": "Méthode",
+        "categories": [
+          "Classique",
+          "Temporelle",
+          "Selon l’état"
+        ],
+        "series": [
+          {
+            "name": "Total simulé",
+            "values": [
+              121.6,
+              121.1,
+              136.2
+            ]
+          }
+        ],
+        "caption": "Scénario de référence dégradé du modèle pédagogique. Les résultats du CSV sont convertis de kg en tonnes et arrondis à 0,1 tonne."
+      },
+      "public": {
+        "name": "Quel bilan carbone retenir à vingt ans ?",
+        "family": "Adaptation",
+        "decision": "Cadrer l’évaluation d’une adaptation énergétique à long terme.",
+        "method": "Suivre une chaîne pédagogique soumise aux aléas climatiques.",
+        "finding": "Dans la référence dégradée de vingt ans, le modèle selon l’état donne 136,2 t CO₂e.",
+        "limit": "Le modèle est pédagogique et la figure représente une seule trajectoire.",
+        "next_test": "Choisir les scénarios climatiques à comparer sur votre horizon de décision.",
+        "visual": {
+          "kind": "bar",
+          "title": "Impact cumulé sur vingt ans",
+          "unit": "t CO₂e",
+          "x_label": "Méthode",
+          "categories": [
+            "Classique",
+            "Temporelle",
+            "Selon l’état"
+          ],
+          "series": [
+            {
+              "name": "Total simulé",
+              "values": [
+                121.6,
+                121.1,
+                136.2
+              ]
+            }
+          ],
+          "caption": "Scénario de référence dégradé du modèle pédagogique. Les résultats du CSV sont convertis de kg en tonnes et arrondis à 0,1 tonne."
+        }
+      }
+    },
+    {
+      "id": "mrp-date",
+      "method_ids": [
+        "mrp",
+        "lot_sizing",
+        "bom",
+        "lead_time"
+      ],
+      "name": "Calcul des besoins nets datés",
+      "family": "Planification",
+      "status": "implemente",
+      "decision": "À quelle date proposer un ordre lorsque le stock utilisable et les réceptions fermes couvrent seulement une partie du besoin ?",
+      "method": "Rapprocher les besoins datés du stock et des engagements, appliquer les bornes de lot et les calendriers.",
+      "finding": "Le planificateur distingue les propositions d’ordre et les allocations aux besoins. Les unités physiques UN doivent être entières.",
+      "limit": "La justesse de la proposition dépend du stock d’ouverture, des ordres déjà engagés et des unités de nomenclature.",
+      "next_test": "Confronter un besoin, deux réceptions datées et un multiple de lot à un calcul manuel.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/simulation/engine/mrp_planning.py",
+          "blob": "bddf0b8662bd512b33c6f6c08f7f681244b281a3"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/docs/REGLES_MRP.md",
+          "blob": "58025adb96ca76a489442b0166bf556ce69973c6"
+        }
+      ],
+      "external_ok": true,
+      "public": {
+        "name": "Quand déclencher le prochain ordre ?",
+        "family": "Planification",
+        "decision": "Décider de la date et de la quantité à lancer.",
+        "method": "Déduire le stock disponible et les réceptions annoncées des besoins datés, puis appliquer les règles de lot.",
+        "finding": "Le moteur contient des règles de couverture des besoins et de proposition des ordres.",
+        "limit": "La date de disponibilité réelle et la fiabilité des ordres ouverts restent à vérifier sur chaque périmètre.",
+        "next_test": "Reprendre un exemple anonymisé de besoin, de stock et de deux réceptions."
+      }
+    },
+    {
+      "id": "trace-lots",
+      "method_ids": [
+        "lots",
+        "causal",
+        "service"
+      ],
+      "name": "Traçabilité incident, lot et service",
+      "family": "Exécution",
+      "status": "implemente",
+      "decision": "Quel lot a effectivement reçu un composant affecté et quel client peut en subir l’effet ?",
+      "method": "Relier les événements, les lots parents et enfants et le service, en contrôlant la provenance des fichiers et les unités.",
+      "finding": "Le registre construit des entités et des liens pour les incidents, les lots et le service client.",
+      "limit": "L’attribution dépend de la présence de liens et de la sémantique des quantités. Un lien de généalogie seul ne mesure pas un manque client.",
+      "next_test": "Isoler un lot connu, rapprocher sorties du parent et consommations de l’enfant puis comparer le service à un témoin.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+          "blob": "8d3a8d4a0ea2c542abb41b769edd4c8e7d59a078"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/simulation/lot_trace/causal_links.py",
+          "blob": "c791034dad6a77c5a3510bd3edca537bc7b7b1be"
+        }
+      ],
+      "external_ok": true,
+      "public": {
+        "name": "De l’incident au lot livré",
+        "family": "Traçabilité",
+        "decision": "Identifier quelles expéditions examiner après un incident.",
+        "method": "Reconstituer la généalogie des lots et relier chaque mouvement à une chronologie.",
+        "finding": "Le registre sait représenter la filiation et les liens vers le service client.",
+        "limit": "Un lien physique ne quantifie pas à lui seul le dommage au client.",
+        "next_test": "Examiner un lot anonymisé dont les entrées, sorties et livraisons sont rapprochables."
+      }
+    },
+    {
+      "id": "cascade-pilote",
+      "method_ids": [
+        "cascade",
+        "stress",
+        "service"
+      ],
+      "name": "Propagation physique d’un retard",
+      "family": "Résilience",
+      "status": "documente",
+      "decision": "Un retard sur une liaison dégrade-t-il forcément le service final dans ce pilote ?",
+      "method": "Le rapport d’essai compare neuf bras sur 120 jours, avec règle recalculée, calendrier figé et variantes de stock.",
+      "finding": "Le rapport consigne 17 arrivées retardées de deux jours et un service journalier identique dans les neuf bras.",
+      "limit": "Le résultat concerne la configuration historique, une graine et un choc imposé. Les journaux transactionnels de cet essai restent locaux.",
+      "next_test": "Comparer le cas au témoin sur plusieurs graines et vérifier où le retard est absorbé avant le client.",
+      "evidence": [
+        {
+          "branch": "codex/article-cascade-pilot-20261104",
+          "sha": "8da31a4fc270a5b63b725b39293214c5075be2e7",
+          "path": "etudecas/docs/ARTICLE_CASCADE_PILOT_20261104.md",
+          "blob": "b022d2813071bb85791eff1b7dcdd9b0b2e4bd2e"
+        },
+        {
+          "branch": "codex/article-cascade-pilot-20261104",
+          "sha": "8da31a4fc270a5b63b725b39293214c5075be2e7",
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_state_dependent_cascade_pilot.py",
+          "blob": "17242bc8aeb3a21183f42abda1097323f2fd4cdd"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "incertitude-appariee",
+      "method_ids": [
+        "monte_carlo",
+        "sensitivity"
+      ],
+      "name": "Sensibilité par scénarios appariés",
+      "family": "Expérimentation",
+      "status": "implemente",
+      "decision": "Quel paramètre fournisseur change le plus le service et le retard dans la plage considérée ?",
+      "method": "Faire varier une entrée entre valeurs basse, centrale et haute en conservant les autres paramètres tirés et la même graine.",
+      "finding": "Le code distingue entre autres capacité, stock, délai et fiabilité fournisseur et prévoit des KPI de service, retard et production.",
+      "limit": "L’effet mesuré est conditionnel au cas et à la plage de variation. Les interactions entre facteurs demandent un autre plan.",
+      "next_test": "Sur une même graine, vérifier que seul le délai change. Répéter sur des graines distinctes et publier la dispersion des différences.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/simulation/uncertainty/paired_propagation.py",
+          "blob": "d2d26419962ce350a6d35d1062e7cd374e48cfbb"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "flux-transport",
+      "method_ids": [
+        "network",
+        "transport"
+      ],
+      "name": "Répartition modale des flux nominaux",
+      "family": "Logistique",
+      "status": "resultat_archive",
+      "decision": "Quelles liaisons méritent un relevé plus précis de distance et de masse ?",
+      "method": "Sommer les kg·km estimés par mode à partir des parcours primaires et de l’hypothèse de répartition des distances.",
+      "finding": "La table nominale archive 52,4 % des kg·km pour la route, 47,0 % pour la mer et 0,6 % pour le rail.",
+      "limit": "Hypothèse equal_split portée par le fichier. Il s’agit de travail de transport modélisé, distinct des émissions et des volumes achetés.",
+      "next_test": "Remplacer la distance répartie sur une liaison multimodale par ses distances par segment et recalculer les parts.",
+      "evidence": [
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "supply_geo/analysis/archive/reports_csv_md_2026-05-22/output8_GEO_nominal_baseline_transport_modes.csv",
+          "blob": "98e668243ae49f9970ebafd3a0117d137001aef7"
+        },
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "supply_geo/analysis/scripts/run_nominal_baseline_simulation.py",
+          "blob": "952b6d5ef38b4c12eb1b95548fd4291e3823c5f8"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "allocation-sites",
+      "method_ids": [
+        "optimization",
+        "capacity",
+        "cost"
+      ],
+      "name": "Allocation des sites de production",
+      "family": "Conception du réseau",
+      "status": "implemente",
+      "decision": "Quel site ouvrir et quelle quantité affecter à chaque marché sous contraintes de capacité ?",
+      "method": "Un programme mixte PuLP/CBC combine décisions binaires de capacité et flux continus. Objectifs proposés : coût, CO₂ ou pondération.",
+      "finding": "Les contraintes incluent la satisfaction de la demande, le minimum de production et l’exclusivité des régimes de capacité par site.",
+      "limit": "Les flux alloués sont continus. Les résultats d’un objectif pondéré dépendent des unités et des poids retenus.",
+      "next_test": "Tester un petit réseau calculable à la main, vérifier la faisabilité et étudier le compromis coût-carbone.",
+      "evidence": [
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "optimization/optimization_engine.py",
+          "blob": "be90eee0b7c028a79f2b1b148354675eb2da843c"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "dynamique-frequence",
+      "method_ids": [
+        "system_dynamics",
+        "frequency",
+        "des"
+      ],
+      "name": "Demande périodique et réponse du stock",
+      "family": "Simulation",
+      "status": "implemente",
+      "decision": "À quelles fréquences les variations de la demande amplifient-elles les oscillations de stock ou le retard client ?",
+      "method": "Exciter le modèle dynamique discret par une demande sinusoïdale, écarter la phase initiale puis estimer gain et phase du stock aval et de l’arriéré.",
+      "finding": "Le module expose les gains et phases de ces deux sorties. Un autre point d’entrée SimPy décrit une simulation à événements discrets de la chaîne.",
+      "limit": "Une réponse mesurée dépend de l’amplitude, de la saturation et du régime. L’équivalence numérique des deux modèles reste à mesurer.",
+      "next_test": "Fixer le régime initial et vérifier deux amplitudes à une fréquence, puis comparer les trajectoires SD et DES sous la même demande.",
+      "evidence": [
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "main_system_dynamics.py",
+          "blob": "37aba34bd0b017587b66a1e2e09755576b453f02"
+        },
+        {
+          "branch": "main",
+          "sha": "9d347bac176761cea08a1a4253b6d42a535a6312",
+          "path": "main_supply_chain_des.py",
+          "blob": "71893fe31ab09da22795e3644597c1db061bccd3"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "regulation-pid",
+      "method_ids": [
+        "control",
+        "pid",
+        "monte_carlo"
+      ],
+      "name": "Réglages PID sous demande variable",
+      "family": "Pilotage",
+      "status": "implemente",
+      "decision": "Comment des variantes de gains PID réagissent-elles à un pic de demande et à des capacités limitées ?",
+      "method": "Le script programme 500 graines, un témoin naturel et trois réglages PID, avec erreur cumulée et taux de service.",
+      "finding": "Dans ce script, les variantes étiquetées LQR et Hinf multiplient les gains Ziegler–Nichols par 1,1 et 0,9.",
+      "limit": "Ces deux variantes constituent des sensibilités de gains. Le script seul ne démontre ni synthèse LQR ni garantie H∞.",
+      "next_test": "Examiner séparément les implémentations candidates à la synthèse, puis comparer les commandes sur des réalisations appariées.",
+      "evidence": [
+        {
+          "branch": "dev_thierry",
+          "sha": "8323d14ae9bfd696fda4f23198877207c2ba02d7",
+          "path": "Control_supply/2025_hinf_poc.py",
+          "blob": "4b7e6dd6074a6b1641307b29d55dc3a63ad3eb6b"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "risque-fournisseur-calibre",
+      "method_ids": [
+        "forecast",
+        "calibration",
+        "supplier_scoring"
+      ],
+      "name": "Probabilité d’incident fournisseur à 30 jours",
+      "family": "Anticipation",
+      "status": "resultat_archive",
+      "decision": "Quelles situations fournisseur–article méritent une revue de risque prioritaire ?",
+      "method": "Régression logistique puis calibration isotonique sur une fenêtre distincte. Les scores sont évalués sur les 480 observations ultérieures.",
+      "finding": "Sur le test synthétique, l’AUC ROC vaut 0,692 et le score de Brier 0,1065. La classe sous 10 % prévoit 1,7 % en moyenne et contient 7,6 % d’incidents.",
+      "limit": "Historique et incidents synthétiques. Le classement et la calibration dépendent du régime de test. La classe la plus élevée contient 46 observations.",
+      "next_test": "Évaluer sur une période industrielle postérieure à l’apprentissage, vérifier le chevauchement des fenêtres des labels et comparer à la fréquence historique.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/prototypes/prediction/README.md",
+          "blob": "82f119d79546f9afb521a17c3ac27058de8e10f7"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/prototypes/prediction/run_prediction_poc.py",
+          "blob": "e37599496a018356dac8b833c6b2b5b660046c11"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/prototypes/prediction/result/evaluation_metrics.json",
+          "blob": "15a10feb956803109ea72029ed796d55bb721ba2"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/prototypes/prediction/result/prediction_test_scored_rows.csv",
+          "blob": "0a4929951195a35c8fea6b9a1880508fba2ab020"
+        }
+      ],
+      "external_ok": true,
+      "visual": {
+        "kind": "bar",
+        "title": "Probabilités annoncées et incidents simulés à 30 jours",
+        "unit": "%",
+        "x_label": "Classe de probabilité annoncée",
+        "categories": [
+          "Moins de 10 %",
+          "10 à <20 %",
+          "20 % et plus"
+        ],
+        "series": [
+          {
+            "name": "Prévision moyenne",
+            "values": [
+              1.7,
+              10.2,
+              30.7
+            ]
+          },
+          {
+            "name": "Incidents simulés",
+            "values": [
+              7.6,
+              19.8,
+              28.3
+            ]
+          }
+        ],
+        "caption": "Test chronologique sur 480 observations synthétiques. De gauche à droite : 328, 106 et 46 observations. Les barres comparent probabilité moyenne et fréquence des incidents dans chaque classe."
+      },
+      "public": {
+        "name": "Quelle confiance accorder à une alerte fournisseur ?",
+        "family": "Risque fournisseur",
+        "decision": "Choisir une plage de risque qui mérite une revue humaine.",
+        "method": "Comparer les probabilités annoncées aux incidents d’un historique pédagogique tenu à part pendant l’apprentissage.",
+        "finding": "Dans le groupe annoncé sous 10 %, le modèle prévoit 1,7 % en moyenne et le test synthétique contient 7,6 % d’incidents.",
+        "limit": "Résultats d’un démonstrateur sur données synthétiques. Le groupe à risque élevé compte 46 observations.",
+        "next_test": "Confronter les probabilités aux incidents réellement observés sur une période ultérieure.",
+        "visual": {
+          "kind": "bar",
+          "title": "Probabilités annoncées et incidents simulés à 30 jours",
+          "unit": "%",
+          "x_label": "Classe de probabilité annoncée",
+          "categories": [
+            "Moins de 10 %",
+            "10 à <20 %",
+            "20 % et plus"
+          ],
+          "series": [
+            {
+              "name": "Prévision moyenne",
+              "values": [
+                1.7,
+                10.2,
+                30.7
+              ]
+            },
+            {
+              "name": "Incidents simulés",
+              "values": [
+                7.6,
+                19.8,
+                28.3
+              ]
+            }
+          ],
+          "caption": "Test chronologique sur 480 observations synthétiques. De gauche à droite : 328, 106 et 46 observations. Les barres comparent probabilité moyenne et fréquence des incidents dans chaque classe."
+        }
+      }
+    },
+    {
+      "id": "risque-action-robuste",
+      "method_ids": [
+        "decision_support",
+        "control",
+        "monte_carlo",
+        "resilience"
+      ],
+      "name": "De l’incertitude de risque à une action datée",
+      "family": "Pilotage",
+      "status": "implemente",
+      "decision": "Quelle politique appliquer à la prochaine revue si les scénarios de risque divergent ?",
+      "method": "Classer le régime à partir de l’état simulé, tester les actions admissibles sur plusieurs scénarios et classer leur score moyen pénalisé par la perte en queue de distribution (CVaR).",
+      "finding": "Le choix fait après le pas courant prend effet au pas suivant. Le code conserve les évaluations de candidats et distingue les essais contrefactuels hors sélection.",
+      "limit": "L’origine et la disponibilité à date des trajectoires de demande et de risque fournies au contrôleur doivent être démontrées. Son gain opérationnel dépend du modèle réduit.",
+      "next_test": "Comparer à la référence MRP sur des scénarios tenus à part, figer les informations connues à chaque revue et mesurer service, coût et variabilité des actions.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/prototypes/scan_2027_risk_control/decision.py",
+          "blob": "0d0b3a8d1c70868a55730f00b89e0f75fc6ab099"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/prototypes/scan_2027_risk_control/model.py",
+          "blob": "2bc325839a73fa33788d29b1d675d8f810018a02"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "etudecas/prototypes/scan_2027_risk_control/README.md",
+          "blob": "03c88ba79522706db201d7a3720cf1762908d5fb"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "brightway-echanges",
+      "method_ids": [
+        "lca",
+        "sddlca"
+      ],
+      "name": "Relier les variations d’échanges à Brightway",
+      "family": "Environnement",
+      "status": "implemente",
+      "decision": "Quelle part de la variation carbone d’un scénario peut être rattachée à un échange environnemental identifié ?",
+      "method": "Associer l’échange à une activité et à une unité, calculer son score unitaire Brightway, puis multiplier ce score par la variation de quantité.",
+      "finding": "Le traitement conserve la méthode retenue pour chaque ligne : score Brightway disponible ou estimation du modèle. Les proxys sont identifiés.",
+      "limit": "Le calcul dépend de la base, de la méthode climatique disponible et de la qualité de correspondance. Un proxy conserve une incertitude spécifique.",
+      "next_test": "Sur un échange apparié et un proxy, vérifier les unités, le facteur unitaire et le statut conservé dans le résultat.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/supply_geo_case/tools/run_sdd_exchange_lcia.py",
+          "blob": "3ae242967a9f0733f6a70eb003bf4e15fe5ee544"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/supply_geo_case/lca_comparison.py",
+          "blob": "83a096b4172ffa36b216950db908a1bb6f1e814d"
+        }
+      ],
+      "external_ok": false
+    },
+    {
+      "id": "pareto-cout-service-carbone",
+      "method_ids": [
+        "pareto",
+        "cost",
+        "service",
+        "decision_support",
+        "scenario_design"
+      ],
+      "name": "Choix non dominés sur coût, service et carbone",
+      "family": "Aide à la décision",
+      "status": "resultat_archive",
+      "decision": "Quelles politiques écarter quand elles coûtent davantage, émettent davantage et couvrent moins bien la demande ?",
+      "method": "Comparer les cinq politiques archivées sur trois critères : coût et carbone à minimiser, couverture hebdomadaire à maximiser. La dominance exige au moins une amélioration stricte.",
+      "finding": "Sur les cinq politiques, toutes sont non dominées avec l’ACV classique. Avec l’ACV selon l’état, seul le stock tampon reste non dominé.",
+      "limit": "Le front porte sur cinq politiques prédéfinies, dont deux ont ici des valeurs identiques. Le statut décrit cette comparaison à paramètres fixes.",
+      "next_test": "Faire varier le coût du stockage et le facteur du fret urgent, puis calculer la fréquence à laquelle chaque politique reste non dominée.",
+      "evidence": [
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/outputs_sddlca_poc/csv/poc_policy_pareto.csv",
+          "blob": "8a075a9876f17411f5e3462f80f164ba339ac126"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/config/sddlca_parameters.yml",
+          "blob": "4519f7e10b8b61b749055a8e6ecf0e4753bf09de"
+        },
+        {
+          "branch": "dev_yannick",
+          "sha": "3daaedbbc6d8863c29940170841d4ef15e921a06",
+          "path": "POC2026/final_sddlca_poc_script.py",
+          "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
+        }
+      ],
+      "external_ok": true,
+      "public": {
+        "name": "Quelles politiques conserver dans la discussion ?",
+        "family": "Choix de politiques",
+        "decision": "Comparer les options sur coût, volume couvert et carbone.",
+        "method": "Écarter une politique lorsqu’une autre est au moins aussi bonne sur les trois critères et meilleure sur au moins un.",
+        "finding": "Sur le cas pédagogique, le stock tampon est la seule des cinq politiques qui reste non dominée avec le carbone selon l’état.",
+        "limit": "Résultat limité aux cinq politiques et aux paramètres du démonstrateur.",
+        "next_test": "Tester si le classement tient lorsque changent coût du stock et émissions de transport."
+      }
+    }
+  ],
+  "gaps": [
+    {
+      "title": "Reproduire les écarts carbone au même horizon",
+      "impact": "Le choix de méthode peut changer la comparaison technique.",
+      "test": "Recalculer la trajectoire de référence et retrouver les trois totaux archivés avec les mêmes paramètres.",
+      "priority": "haute",
+      "capability_ids": [
+        "sddlca-52s",
+        "adaptation-20ans"
+      ],
+      "external_ok": true,
+      "public": {
+        "title": "Vérifier les facteurs carbone en période de tension",
+        "impact": "L’écart de bilan dépend des mécanismes activés.",
+        "test": "Relever énergie, rebuts et expéditions urgentes sur une période choisie.",
+        "priority": "haute"
+      }
+    },
+    {
+      "title": "Tester la propagation jusqu’au service client",
+      "impact": "Un retard fournisseur peut être absorbé avant la livraison.",
+      "test": "Comparer les calendriers sur plusieurs graines, identifier les réceptions retardées puis tester l’effet sur le service à échéance.",
+      "priority": "haute",
+      "capability_ids": [
+        "cascade-pilote",
+        "trace-lots",
+        "incertitude-appariee"
+      ],
+      "external_ok": false
+    },
+    {
+      "title": "Qualifier les méthodes de commande citées",
+      "impact": "Un nom de variante peut donner une fausse impression de garantie de performance.",
+      "test": "Examiner les équations de synthèse, le modèle et les contraintes des autres modules avant de qualifier le portefeuille LQR ou H∞.",
+      "priority": "moyenne",
+      "capability_ids": [
+        "regulation-pid",
+        "dynamique-frequence"
+      ],
+      "external_ok": false
+    },
+    {
+      "title": "Relier la règle de lot au niveau de service",
+      "impact": "La ponctualité dépend à la fois du calendrier, des quantités, du tampon et des ordres ouverts.",
+      "test": "Faire varier le tampon à besoins datés fixes. Mesurer séparément couverture hebdomadaire, ponctualité par commande et capital immobilisé.",
+      "priority": "haute",
+      "capability_ids": [
+        "mrp-date",
+        "politiques-stock-service"
+      ],
+      "external_ok": true,
+      "public": {
+        "title": "Chiffrer le compromis stock et service",
+        "impact": "Un volume annuel identique peut masquer un décalage entre demande et expédition.",
+        "test": "Rapprocher commandes et expéditions datées avant de comparer la ponctualité et le stock.",
+        "priority": "haute"
+      }
+    },
+    {
+      "title": "Tester conjointement la fiabilité de l’alerte et la valeur de l’action",
+      "impact": "Une probabilité qui classe correctement les incidents peut conduire à des actions trop coûteuses.",
+      "test": "Sur une période tenue à part, comparer les actions avec et sans signal à stock initial identique. Mesurer calibration, coûts et service.",
+      "priority": "haute",
+      "capability_ids": [
+        "risque-fournisseur-calibre",
+        "risque-action-robuste"
+      ],
+      "external_ok": true,
+      "public": {
+        "title": "Quel bénéfice apporte réellement une alerte ?",
+        "impact": "Le seuil détermine combien de situations seront traitées.",
+        "test": "Comparer les décisions prises avec le signal à une règle habituelle sur une période tenue à part.",
+        "priority": "haute"
+      }
+    }
+  ]
+}

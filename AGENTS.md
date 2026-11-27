@@ -58,3 +58,7 @@ Consigne utilisateur : ne plus exécuter de tests qui altèrent volontairement d
 Avant de lancer des tests existants, relire les cas sélectionnés et leurs fixtures : ne pas lancer une suite globale susceptible de contenir ces opérations. Privilégier les simulations normales dans un nouveau dossier de résultats, les comparaisons en lecture seule avec les références et les tests de calcul en mémoire. Une vérification exclue reste signalée comme non exécutée ; ne pas la compter comme réussie.
 
 En cas de nouveau refus d'écriture ou d'alerte de sécurité, arrêter les exécutions concernées et diagnostiquer en lecture seule. Ne pas multiplier les sondes d'écriture ni contourner Sophos ; sa gestion relève du service informatique.
+
+## Recenser les méthodes et préparer une réunion
+
+Pour une cartographie des branches, une revue des manques, un PowerPoint ou une réunion scientifique ou opérationnelle, utiliser [supply-portfolio](.agents/skills/supply-portfolio/SKILL.md). Le [guide du portefeuille](tools/portfolio/README.md) donne les commandes, les niveaux de preuve et des exemples de demandes. Un indice dans l'inventaire ouvre une investigation. Seules les fiches relues alimentent les supports.
