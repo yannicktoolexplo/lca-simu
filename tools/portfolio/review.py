@@ -197,7 +197,7 @@ def write_differences(out, heads, paths):
                 writer.writerow([path, label, *(versions.get(b, "") for b in heads)])
 
 
-def run(scan, catalog_path, out, repo):
+def run(scan, catalog_path, out, repo, compare_solutions=False):
     inventory, heads, paths = load_snapshot(scan)
     catalog = read_json(catalog_path)
     history = historical_evidence(repo, catalog, heads)
@@ -214,8 +214,19 @@ def run(scan, catalog_path, out, repo):
         write_differences(stage, heads, paths)
         write_method_queue(stage, inventory, ready)
         (stage / "review.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        if compare_solutions:
+            if __package__:
+                from .benchmark import github_project, protocol_href, render_comparison
+            else:
+                from benchmark import github_project, protocol_href, render_comparison
+            registry = read_json(HERE / "solutions.json")
+            project = github_project(repo, inventory.get("remote", "origin"))
+            report = render_comparison(registry, result, protocol_href(out), project)
+            (stage / "comparaison-solutions.md").write_text(report, encoding="utf-8")
         stage.rename(out)
     print(f"{len(ready)} fiches utilisables, {len(paused)} suspendues. {out / 'portefeuille.md'}")
+    if compare_solutions:
+        print(f"Comparaison interne : {out / 'comparaison-solutions.md'}")
 
 
 def main():
@@ -224,9 +235,11 @@ def main():
     parser.add_argument("--repo", type=Path, default=Path("."), help="Clone pour vérifier les preuves antérieures")
     parser.add_argument("--catalog", type=Path, default=HERE / "catalog.json")
     parser.add_argument("--out", type=Path, required=True, help="Nouveau dossier de sortie")
+    parser.add_argument("--compare-solutions", action="store_true",
+                        help="Ajouter la comparaison fonctionnelle interne à la revue")
     args = parser.parse_args()
     try:
-        run(args.scan, args.catalog, args.out, args.repo)
+        run(args.scan, args.catalog, args.out, args.repo, compare_solutions=args.compare_solutions)
     except (ValueError, OSError, KeyError, TypeError) as exc:
         parser.exit(2, f"Revue interrompue : {exc}\n")
 

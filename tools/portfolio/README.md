@@ -43,7 +43,33 @@ Pour un laboratoire externe, ajouter `--external` au profil `science`. Pour une 
 | `revue/differences.tsv` | Matrice chemin × branche pour les divergences et présences partielles. Un identifiant de contenu identique signale le même contenu. |
 | `revue/instruction.tsv` | État de la revue pour chaque méthode de la taxonomie, fiches associées et première vérification à entreprendre. |
 | `revue/review.json` | Fiches utilisables, manques proposés et fiches suspendues après changement d’une source. Entrée du rendu. |
+| `revue/comparaison-solutions.md` | Avec `--compare-solutions`, revue interne de BOXARR et Supply-Graph, preuves Git de lca-simu, hypothèses de complémentarité et essais proposés. |
 | `PUBLIC/presentation.pptx`, `PUBLIC/brief.md` | Diaporama avec notes et dossier de réunion adapté au profil choisi. Remplacer PUBLIC par le nom du dossier de sortie. |
+
+## Comparer BOXARR, Supply-Graph et lca-simu
+
+> Utilise le harnais pour comparer BOXARR, Supply-Graph et lca-simu sur l’arrêt d’un fournisseur. Quelles commandes clients seraient livrées en retard avec et sans stock tampon ? Montre ce que chaque solution documente, ce que nos branches permettent de vérifier et les données à demander en démonstration.
+
+Depuis la racine du dépôt, réutiliser le dossier `scan` produit ci-dessus et choisir une nouvelle destination.
+
+```sh
+python -B tools/portfolio/review.py --repo . --scan ../portfolio-01/scan --out ../portfolio-01/comparatif --compare-solutions
+```
+
+Ouvrir `../portfolio-01/comparatif/comparaison-solutions.md`. La commande rapproche le [registre des publications](solutions.json) des preuves retenues pour les branches du scan. Le registre conserve la date de la dernière lecture de chaque source. Lors d’une actualisation, ouvrir les pages citées, identifier l’édition ou le module présenté lorsque c’est possible et consigner ce que l’on voit ou ce que l’éditeur affirme. Une fonction peu documentée devient une question de démonstration.
+
+| Solution | Point de départ documenté | Ce qu’une équipe supply peut essayer |
+|---|---|---|
+| **BOXARR** | La démonstration de flux multi-sites recalcule les encours, les stocks et le chemin critique. L’éditeur décrit le mappage des imports et exports CSV. [Démonstration](https://www.boxarr.com/post/parametric-value-stream-model) · [Documentation des échanges](https://www.boxarr.com/platform/data) | Exporter un changement de scénario identifié par article, site et date. Rapprocher dans lca-simu la variation des réceptions de celle des livraisons à l’échéance. Vérifier que les dates et quantités gardent le même sens d’un outil à l’autre. |
+| **Supply-Graph** | L’éditeur décrit une carte fournisseurs multi-rangs et un portail partagé qui associe des métadonnées aux lots. [Cartographie](https://www.supply-graph.io/solutions/supply-chain-mapping) · [Portail](https://www.supply-graph.io/solutions/client---supplier-portal) | Sur un ordre de conditionnement, demander un exemple anonymisé donnant le lot de semi-fini réellement consommé, sa quantité, son unité et la date de consommation. Mesurer combien de lignes d’ordre peuvent être reliées à un mouvement matière. |
+
+**Ce que notre modèle permet déjà d’examiner.** Dans un [POC archivé sur 52 semaines](https://github.com/yannicktoolexplo/lca-simu/blob/3daaedbbc6d8863c29940170841d4ef15e921a06/POC2026/outputs_sddlca_poc/csv/poc_policy_decision_summary.csv), deux politiques de stock finissent par livrer 100 % du volume demandé. Leur couverture hebdomadaire atteint respectivement 93,25 % et 98,42 %. Cet indicateur peut inclure des livraisons de demandes plus anciennes. Pour savoir quelle politique protège la date promise au client, il faut rapprocher les quantités effectivement livrées des échéances des commandes. C’est l’objet de l’essai ci-dessous.
+
+**Quel développement mérite la priorité ?** Donner au planificateur la même question, les mêmes données et le même niveau d’assistance dans chaque outil. Lui demander, par exemple, de justifier un ordre maintenu dans le plan après la disparition du besoin initial. Relever le nombre d’ordres expliqués jusqu’à la version MRP, les volumes encore inexpliqués et le temps nécessaire pour fournir les pièces justificatives. Si les deux approches donnent la même réponse, le temps et les reprises manuelles peuvent départager les parcours. Une démonstration limitée à une tâche mesure le gain sur cette tâche.
+
+**Quand essayer une intégration ?** Si un outil fournit un meilleur accès aux données dont dépend le calcul de l’autre, essayer un échange sur un enregistrement synthétique. Par exemple, transmettre un lot identifié, son article, son site, sa quantité et son unité, avec la date prévue de disponibilité, la date effectivement constatée et la date à laquelle chaque information était connue. Conserver une date inconnue vide. Vérifier si le planificateur peut ensuite remonter d’un retard à l’enregistrement d’origine. Le format d’échange et les champs réellement disponibles chez le partenaire sont à confirmer en démonstration.
+
+L’[essai commun de stock tampon](essai-tampon.md) fournit les entrées et les résultats attendus jour par jour. Son [vérificateur](check_buffer.py) lit un export normalisé, recalcule les indicateurs et localise le premier écart ainsi que la première mesure manquante. Pour comparer deux résultats, consigner la version de chaque outil, le scénario, les unités, les hypothèses de calendrier, la sortie obtenue et les étapes manuelles. Une capture d’écran peut documenter le parcours de l’utilisateur. Un écart de performance exige deux mesures portant sur la même tâche.
 
 ## Actualiser le contenu scientifique
 
@@ -60,6 +86,8 @@ Depuis la racine, les commandes suivantes contrôlent la suspension des preuves 
 
 ```sh
 python -B tools/portfolio/test_review.py
+python -B tools/portfolio/test_benchmark.py
+python -B tools/portfolio/test_buffer.py
 python -B tools/portfolio/test_render.py
 python -B tools/portfolio/test_catalog_figures.py
 ```

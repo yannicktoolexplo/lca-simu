@@ -62,3 +62,5 @@ En cas de nouveau refus d'écriture ou d'alerte de sécurité, arrêter les exé
 ## Recenser les méthodes et préparer une réunion
 
 Pour une cartographie des branches, une revue des manques, un PowerPoint ou une réunion scientifique ou opérationnelle, utiliser [supply-portfolio](.agents/skills/supply-portfolio/SKILL.md). Le [guide du portefeuille](tools/portfolio/README.md) donne les commandes, les niveaux de preuve et des exemples de demandes. Un indice dans l'inventaire ouvre une investigation. Seules les fiches relues alimentent les supports.
+
+Pour comparer le simulateur à **BOXARR** ou à **Supply-Graph**, suivre la [revue fonctionnelle des solutions](tools/portfolio/README.md#comparer-boxarr-supply-graph-et-lca-simu). Relier chaque fonction documentée à une décision opérationnelle et à un essai commun. Pour une complémentarité, préciser quelles données circuleraient entre les outils et comment vérifier leur sens à la réception.
