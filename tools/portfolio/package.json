@@ -1,0 +1,8 @@
+{
+  "name": "lca-simu-portfolio-slides",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Optional editable PowerPoint export for the scientific portfolio",
+  "engines": {"node": ">=18"},
+  "dependencies": {"pptxgenjs": "4.0.1"}
+}
