@@ -133,8 +133,70 @@
             }
           ],
           "caption": "Quatre jalons du scénario de 52 semaines. Le calcul classique répartit son total au fil des semaines. La méthode selon l’état modélise explicitement les basculements de régime opérationnel."
+        },
+        "exhibits": [
+          {
+            "kind": "table",
+            "title": "Hypothèses du cas sur 52 semaines",
+            "columns": [
+              "Paramètre illustratif",
+              "Valeur du modèle"
+            ],
+            "rows": [
+              [
+                "Délai du fournisseur principal / de secours",
+                "2 / 1 semaines"
+              ],
+              [
+                "Stock initial de matières / de produits finis",
+                "30 / 14 unités"
+              ],
+              [
+                "Matière principale / de secours",
+                "20 / 24 kg CO₂e par unité"
+              ],
+              [
+                "Transport aval par camion / avion",
+                "1,8 / 10 kg CO₂e par unité"
+              ]
+            ],
+            "caption": "Les basculements vers le secours et le fret aérien modifient les impacts des flux dans le scénario.",
+            "observation": "L’avion représente 10 kg CO₂e par unité expédiée, contre 1,8 pour le camion. Un changement de mode influe donc sur le bilan d’une même quantité.",
+            "limit": "Facteurs illustratifs de ce modèle ; leur transfert à un flux réel demande des données de transport."
+          }
+        ]
+      },
+      "exhibits": [
+        {
+          "kind": "table",
+          "title": "Hypothèses du cas sur 52 semaines",
+          "columns": [
+            "Paramètre illustratif",
+            "Valeur du modèle"
+          ],
+          "rows": [
+            [
+              "Délai du fournisseur principal / de secours",
+              "2 / 1 semaines"
+            ],
+            [
+              "Stock initial de matières / de produits finis",
+              "30 / 14 unités"
+            ],
+            [
+              "Matière principale / de secours",
+              "20 / 24 kg CO₂e par unité"
+            ],
+            [
+              "Transport aval par camion / avion",
+              "1,8 / 10 kg CO₂e par unité"
+            ]
+          ],
+          "caption": "Les basculements vers le secours et le fret aérien modifient les impacts des flux dans le scénario.",
+          "observation": "L’avion représente 10 kg CO₂e par unité expédiée, contre 1,8 pour le camion. Un changement de mode influe donc sur le bilan d’une même quantité.",
+          "limit": "Facteurs illustratifs de ce modèle ; leur transfert à un flux réel demande des données de transport."
         }
-      }
+      ]
     },
     {
       "id": "politiques-stock-service",
@@ -227,8 +289,90 @@
             }
           ],
           "caption": "Quatre politiques du cas pédagogique. Pour chaque semaine, le volume expédié est plafonné à la demande de la semaine. Les sommes sont rapportées à la demande totale."
+        },
+        "exhibits": [
+          {
+            "kind": "table",
+            "title": "Quelles règles changent avec le stock tampon ?",
+            "columns": [
+              "Règle ou résultat",
+              "Référence",
+              "Stock tampon"
+            ],
+            "rows": [
+              [
+                "Cible de matières (unités)",
+                "60",
+                "72"
+              ],
+              [
+                "Seuil de réapprovisionnement (unités)",
+                "26",
+                "32"
+              ],
+              [
+                "Cible de produits finis (unités)",
+                "16",
+                "22"
+              ],
+              [
+                "Pic de demande en retard (unités)",
+                "36,44",
+                "10,66"
+              ],
+              [
+                "Part de la demande totale livrée sur l’horizon",
+                "100 %",
+                "100 %"
+              ]
+            ],
+            "caption": "Trois paramètres changent ensemble. Ce scénario réduit le pic de retard de 25,78 unités. Un essai par paramètre permettrait de distinguer leurs effets.",
+            "observation": "Le pic de retard passe de 36,44 à 10,66 unités. Sur 52 semaines, les deux politiques livrent tout le volume demandé.",
+            "limit": "Cible matière, seuil de déclenchement et cible de produits finis varient simultanément."
+          }
+        ]
+      },
+      "exhibits": [
+        {
+          "kind": "table",
+          "title": "Quelles règles changent avec le stock tampon ?",
+          "columns": [
+            "Règle ou résultat",
+            "Référence",
+            "Stock tampon"
+          ],
+          "rows": [
+            [
+              "Cible de matières (unités)",
+              "60",
+              "72"
+            ],
+            [
+              "Seuil de réapprovisionnement (unités)",
+              "26",
+              "32"
+            ],
+            [
+              "Cible de produits finis (unités)",
+              "16",
+              "22"
+            ],
+            [
+              "Pic de demande en retard (unités)",
+              "36,44",
+              "10,66"
+            ],
+            [
+              "Part de la demande totale livrée sur l’horizon",
+              "100 %",
+              "100 %"
+            ]
+          ],
+          "caption": "Trois paramètres changent ensemble. Ce scénario réduit le pic de retard de 25,78 unités. Un essai par paramètre permettrait de distinguer leurs effets.",
+          "observation": "Le pic de retard passe de 36,44 à 10,66 unités. Sur 52 semaines, les deux politiques livrent tout le volume demandé.",
+          "limit": "Cible matière, seuil de déclenchement et cible de produits finis varient simultanément."
         }
-      }
+      ]
     },
     {
       "id": "stock-retard-52s",
@@ -295,7 +439,86 @@
             "blob": "31c1fa975d2baac363a6d9765aaddaa5424f1c2e"
           },
           "approved_blob": "31c1fa975d2baac363a6d9765aaddaa5424f1c2e"
-        }
+        },
+        "exhibits": [
+          {
+            "kind": "line",
+            "title": "Le tampon de produits finis s’épuise en semaine 26",
+            "unit": "Unités du modèle",
+            "x_label": "Semaine",
+            "categories": [
+              "22",
+              "23",
+              "24",
+              "25",
+              "26",
+              "27",
+              "28",
+              "29",
+              "30",
+              "31",
+              "32",
+              "33",
+              "34",
+              "35",
+              "36",
+              "37",
+              "38",
+              "39"
+            ],
+            "series": [
+              {
+                "name": "Stock de produits finis",
+                "values": [
+                  12.7,
+                  9.9,
+                  6.5,
+                  1.2,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "name": "Demande restant à livrer",
+                "values": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  4.2,
+                  10.6,
+                  13.9,
+                  20.0,
+                  25.7,
+                  29.6,
+                  32.3,
+                  35.6,
+                  29.7,
+                  32.4,
+                  35.1,
+                  36.4,
+                  28.9,
+                  29.2
+                ]
+              }
+            ],
+            "caption": "À la fin de S25, il reste 1,2 unité en stock et aucun retard. En S26, le stock tombe à zéro et 4,2 unités restent à livrer.",
+            "observation": "Le tampon couvre la demande jusqu’à S25. Dès S26, les quantités restant à livrer augmentent pour atteindre 36,4 unités en S37.",
+            "limit": "La simulation autorise des unités fractionnaires. Une trajectoire seule ne permet pas d’isoler l’effet du transport."
+          }
+        ]
       },
       "name": "Du stock disponible au retard client",
       "family": "Stocks et résilience",
@@ -303,7 +526,86 @@
       "method": "Suivre chaque semaine le stock de produits finis, la demande restant à livrer et le mode de transport dans le scénario pédagogique de référence.",
       "finding": "Le stock de produits finis atteint zéro en semaine 26. Le retard passe de 4,2 unités en semaine 26 à un maximum de 36,4 en semaine 37, puis revient à zéro en semaine 52.",
       "limit": "Le modèle illustratif autorise des unités fractionnaires. Les trajectoires seules ne mesurent pas l’effet causal du passage au fret aérien.",
-      "next_test": "Rejouer la même demande avec le même état initial en modifiant uniquement la règle de déclenchement du fret aérien. Comparer le pic de retard, sa durée et le surcoût."
+      "next_test": "Rejouer la même demande avec le même état initial en modifiant uniquement la règle de déclenchement du fret aérien. Comparer le pic de retard, sa durée et le surcoût.",
+      "exhibits": [
+        {
+          "kind": "line",
+          "title": "Le tampon de produits finis s’épuise en semaine 26",
+          "unit": "Unités du modèle",
+          "x_label": "Semaine",
+          "categories": [
+            "22",
+            "23",
+            "24",
+            "25",
+            "26",
+            "27",
+            "28",
+            "29",
+            "30",
+            "31",
+            "32",
+            "33",
+            "34",
+            "35",
+            "36",
+            "37",
+            "38",
+            "39"
+          ],
+          "series": [
+            {
+              "name": "Stock de produits finis",
+              "values": [
+                12.7,
+                9.9,
+                6.5,
+                1.2,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "name": "Demande restant à livrer",
+              "values": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                4.2,
+                10.6,
+                13.9,
+                20.0,
+                25.7,
+                29.6,
+                32.3,
+                35.6,
+                29.7,
+                32.4,
+                35.1,
+                36.4,
+                28.9,
+                29.2
+              ]
+            }
+          ],
+          "caption": "À la fin de S25, il reste 1,2 unité en stock et aucun retard. En S26, le stock tombe à zéro et 4,2 unités restent à livrer.",
+          "observation": "Le tampon couvre la demande jusqu’à S25. Dès S26, les quantités restant à livrer augmentent pour atteindre 36,4 unités en S37.",
+          "limit": "La simulation autorise des unités fractionnaires. Une trajectoire seule ne permet pas d’isoler l’effet du transport."
+        }
+      ]
     },
     {
       "id": "adaptation-20ans",
@@ -433,8 +735,126 @@
         "method": "Déduire le stock disponible et les réceptions annoncées des besoins datés, puis appliquer les règles de lot.",
         "finding": "Le moteur contient des règles de couverture des besoins et de proposition des ordres.",
         "limit": "La date de disponibilité réelle et la fiabilité des ordres ouverts restent à vérifier sur chaque périmètre.",
-        "next_test": "Reprendre un exemple anonymisé de besoin, de stock et de deux réceptions."
-      }
+        "next_test": "Reprendre un exemple anonymisé de besoin, de stock et de deux réceptions.",
+        "exhibits": [
+          {
+            "kind": "flow",
+            "title": "Du besoin daté à la quantité réellement disponible",
+            "steps": [
+              {
+                "label": "Besoin brut",
+                "detail": "Quantité requise à une date donnée."
+              },
+              {
+                "label": "Besoin net",
+                "detail": "Déduire le stock utilisable et les réceptions engagées à temps."
+              },
+              {
+                "label": "Proposition",
+                "detail": "Appliquer minimum, multiple ou lot fixe ; calculer la date de lancement."
+              },
+              {
+                "label": "Disponibilité",
+                "detail": "Suivre l’ordre engagé, sa réception physique puis la libération du stock."
+              }
+            ],
+            "caption": "Un ordre proposé reste révisable. Le stock devient utilisable après réception et contrôle selon le calendrier applicable."
+          },
+          {
+            "kind": "table",
+            "title": "Exemple de lotification en unités entières",
+            "columns": [
+              "Étape",
+              "Hypothèse ou calcul",
+              "Résultat"
+            ],
+            "rows": [
+              [
+                "Besoin brut",
+                "90 unités nécessaires",
+                "90"
+              ],
+              [
+                "Besoin net",
+                "90 − 38 disponibles ; aucun ordre en cours",
+                "52"
+              ],
+              [
+                "Lot proposé",
+                "Minimum 40 ; multiple 20 ; arrondi supérieur",
+                "60"
+              ],
+              [
+                "Solde après couverture",
+                "38 + 60 − 90, si réception disponible à temps",
+                "8"
+              ]
+            ],
+            "caption": "Exemple construit pour expliquer la règle. Les quantités sont pédagogiques et ne proviennent pas d’un ordre historique.",
+            "observation": "Le besoin net de 52 unités déclenche un lot de 60. Les 8 unités supplémentaires proviennent du multiple de 20.",
+            "limit": "Exemple arithmétique illustratif avec stock utilisable et sans ordre déjà engagé."
+          }
+        ]
+      },
+      "exhibits": [
+        {
+          "kind": "flow",
+          "title": "Du besoin daté à la quantité réellement disponible",
+          "steps": [
+            {
+              "label": "Besoin brut",
+              "detail": "Quantité requise à une date donnée."
+            },
+            {
+              "label": "Besoin net",
+              "detail": "Déduire le stock utilisable et les réceptions engagées à temps."
+            },
+            {
+              "label": "Proposition",
+              "detail": "Appliquer minimum, multiple ou lot fixe ; calculer la date de lancement."
+            },
+            {
+              "label": "Disponibilité",
+              "detail": "Suivre l’ordre engagé, sa réception physique puis la libération du stock."
+            }
+          ],
+          "caption": "Un ordre proposé reste révisable. Le stock devient utilisable après réception et contrôle selon le calendrier applicable."
+        },
+        {
+          "kind": "table",
+          "title": "Exemple de lotification en unités entières",
+          "columns": [
+            "Étape",
+            "Hypothèse ou calcul",
+            "Résultat"
+          ],
+          "rows": [
+            [
+              "Besoin brut",
+              "90 unités nécessaires",
+              "90"
+            ],
+            [
+              "Besoin net",
+              "90 − 38 disponibles ; aucun ordre en cours",
+              "52"
+            ],
+            [
+              "Lot proposé",
+              "Minimum 40 ; multiple 20 ; arrondi supérieur",
+              "60"
+            ],
+            [
+              "Solde après couverture",
+              "38 + 60 − 90, si réception disponible à temps",
+              "8"
+            ]
+          ],
+          "caption": "Exemple construit pour expliquer la règle. Les quantités sont pédagogiques et ne proviennent pas d’un ordre historique.",
+          "observation": "Le besoin net de 52 unités déclenche un lot de 60. Les 8 unités supplémentaires proviennent du multiple de 20.",
+          "limit": "Exemple arithmétique illustratif avec stock utilisable et sans ordre déjà engagé."
+        }
+      ]
     },
     {
       "id": "trace-lots",
@@ -463,6 +883,12 @@
           "sha": "REV-0414",
           "path": "etudecas/simulation/lot_trace/causal_links.py",
           "blob": "c791034dad6a77c5a3510bd3edca537bc7b7b1be"
+        },
+        {
+          "branch": "dev_P0001",
+          "sha": "REV-0414",
+          "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
+          "blob": "bda2ef8945a9784f302df3c9099d78d65bbd94a8"
         }
       ],
       "external_ok": true,
@@ -473,8 +899,120 @@
         "method": "Reconstituer la généalogie des lots et relier chaque mouvement à une chronologie.",
         "finding": "Le registre sait représenter la filiation et les liens vers le service client.",
         "limit": "Un lien physique ne quantifie pas à lui seul le dommage au client.",
-        "next_test": "Examiner un lot anonymisé dont les entrées, sorties et livraisons sont rapprochables."
-      }
+        "next_test": "Examiner un lot anonymisé dont les entrées, sorties et livraisons sont rapprochables.",
+        "exhibits": [
+          {
+            "kind": "flow",
+            "title": "Du lot exposé à la demande livrée, de J0 à J9",
+            "steps": [
+              {
+                "label": "J0–J1 · Fournisseur",
+                "detail": "Incident qualité à J0. Départ à J1 du lot de 100 composants, avec identifiant de l’incident."
+              },
+              {
+                "label": "J3–J4 · Usine",
+                "detail": "Réception de 100 composants à J3. À J4, la campagne les transforme en 50 produits finis."
+              },
+              {
+                "label": "J5–J8 · Distribution",
+                "detail": "Départ usine à J5, réception au dépôt à J6. Les 50 produits rejoignent le client à J8."
+              },
+              {
+                "label": "J9 · Service",
+                "detail": "La demande de 20 unités est servie en totalité. Aucune unité ne reste en retard."
+              }
+            ],
+            "caption": "Jeu de test synthétique. La filiation relie l’incident au lot livré ; dans cet exemple, le client reçoit toute la quantité demandée.",
+            "observation": "Cent composants exposés donnent cinquante produits finis. À J9, les vingt unités demandées sont intégralement servies.",
+            "limit": "Jeu de données synthétiques de test. L’exposition du lot peut être suivie même quand le service reste complet."
+          },
+          {
+            "kind": "table",
+            "title": "Quelles preuves demander pour remonter la chaîne ?",
+            "columns": [
+              "Pièce disponible",
+              "Conclusion permise"
+            ],
+            "rows": [
+              [
+                "Identifiants événement et expédition",
+                "Cette transaction porte la trace de cet incident."
+              ],
+              [
+                "Liaison et jour uniquement",
+                "Le rapprochement suggère une association à vérifier."
+              ],
+              [
+                "Généalogie de plusieurs composants",
+                "L’exposition du lot produit est bornée pour éviter le double comptage."
+              ],
+              [
+                "Demande et livraison dans deux scénarios",
+                "L’écart de service peut être mesuré sur le même horizon."
+              ]
+            ],
+            "caption": "Une expédition exposée peut être absorbée par un tampon. Vérifier la première date où la demande livrée diffère.",
+            "observation": "La référence d’expédition identifie le lot affecté. Pour chiffrer un défaut de service incrémental, il faut aussi la demande et un témoin.",
+            "limit": "Des correspondances limitées à une même liaison et à une même date nécessitent une vérification."
+          }
+        ]
+      },
+      "exhibits": [
+        {
+          "kind": "flow",
+          "title": "Du lot exposé à la demande livrée, de J0 à J9",
+          "steps": [
+            {
+              "label": "J0–J1 · Fournisseur",
+              "detail": "Incident qualité à J0. Départ à J1 du lot de 100 composants, avec identifiant de l’incident."
+            },
+            {
+              "label": "J3–J4 · Usine",
+              "detail": "Réception de 100 composants à J3. À J4, la campagne les transforme en 50 produits finis."
+            },
+            {
+              "label": "J5–J8 · Distribution",
+              "detail": "Départ usine à J5, réception au dépôt à J6. Les 50 produits rejoignent le client à J8."
+            },
+            {
+              "label": "J9 · Service",
+              "detail": "La demande de 20 unités est servie en totalité. Aucune unité ne reste en retard."
+            }
+          ],
+          "caption": "Jeu de test synthétique. La filiation relie l’incident au lot livré ; dans cet exemple, le client reçoit toute la quantité demandée.",
+          "observation": "Cent composants exposés donnent cinquante produits finis. À J9, les vingt unités demandées sont intégralement servies.",
+          "limit": "Jeu de données synthétiques de test. L’exposition du lot peut être suivie même quand le service reste complet."
+        },
+        {
+          "kind": "table",
+          "title": "Quelles preuves demander pour remonter la chaîne ?",
+          "columns": [
+            "Pièce disponible",
+            "Conclusion permise"
+          ],
+          "rows": [
+            [
+              "Identifiants événement et expédition",
+              "Cette transaction porte la trace de cet incident."
+            ],
+            [
+              "Liaison et jour uniquement",
+              "Le rapprochement suggère une association à vérifier."
+            ],
+            [
+              "Généalogie de plusieurs composants",
+              "L’exposition du lot produit est bornée pour éviter le double comptage."
+            ],
+            [
+              "Demande et livraison dans deux scénarios",
+              "L’écart de service peut être mesuré sur le même horizon."
+            ]
+          ],
+          "caption": "Une expédition exposée peut être absorbée par un tampon. Vérifier la première date où la demande livrée diffère.",
+          "observation": "La référence d’expédition identifie le lot affecté. Pour chiffrer un défaut de service incrémental, il faut aussi la demande et un témoin.",
+          "limit": "Des correspondances limitées à une même liaison et à une même date nécessitent une vérification."
+        }
+      ]
     },
     {
       "id": "cascade-pilote",
@@ -505,7 +1043,32 @@
           "blob": "17242bc8aeb3a21183f42abda1097323f2fd4cdd"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "flow",
+          "title": "À quelle étape la propagation est-elle observable ?",
+          "steps": [
+            {
+              "label": "J0–J89",
+              "detail": "Choc imposé : +35 jours sur une liaison."
+            },
+            {
+              "label": "J30",
+              "detail": "La règle génère un événement sur une autre liaison, également sans choc imposé."
+            },
+            {
+              "label": "J31–J44",
+              "detail": "Fenêtre d’application aux expéditions. Leurs 17 arrivées ont lieu deux jours plus tard que dans le bras avec le seul retard imposé."
+            },
+            {
+              "label": "J0–J119",
+              "detail": "Le service journalier reste identique dans les neuf bras du pilote."
+            }
+          ],
+          "caption": "Configuration historique, 120 jours, une graine. Le contraste démontre un retard physique. Le lien entre les deux événements reste indéterminé."
+        }
+      ]
     },
     {
       "id": "incertitude-appariee",
@@ -527,9 +1090,123 @@
           "sha": "REV-0414",
           "path": "etudecas/simulation/uncertainty/paired_propagation.py",
           "blob": "d2d26419962ce350a6d35d1062e7cd374e48cfbb"
+        },
+        {
+          "branch": "main",
+          "path": "etudecas/simulation/montecarlo/active_mrp_physical_uncertainty/montecarlo_trajectories.json",
+          "sha": "REV-0299",
+          "blob": "490c453dbbd04809364babea8acbf1c97d683003"
+        },
+        {
+          "branch": "main",
+          "path": "etudecas/simulation/montecarlo/active_mrp_physical_uncertainty/montecarlo_report.md",
+          "sha": "REV-0299",
+          "blob": "a5d91705d2a3a540864da126050fb9f479f5d578"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "flow",
+          "title": "Isoler l’effet d’un facteur dans des essais appariés",
+          "steps": [
+            {
+              "label": "Contexte",
+              "detail": "Tirer les autres facteurs et fixer la graine commune."
+            },
+            {
+              "label": "Trois variantes",
+              "detail": "Appliquer au facteur choisi sa valeur basse, centrale et haute."
+            },
+            {
+              "label": "Comparaison",
+              "detail": "Calculer l’écart de production, de retard ou de service pour le même tirage."
+            },
+            {
+              "label": "Interprétation",
+              "detail": "Vérifier si le signe et l’ampleur persistent pour les autres contextes."
+            }
+          ],
+          "caption": "La variation d’un facteur à la fois teste un effet conditionnel. Les interactions demandent des essais supplémentaires."
+        },
+        {
+          "kind": "band",
+          "title": "Campagne Monte-Carlo distincte : dispersion du service cumulé",
+          "unit": "Volume servi / demande cumulée (%)",
+          "x_label": "Jour",
+          "categories": [
+            "50",
+            "100",
+            "150",
+            "200",
+            "250",
+            "300",
+            "350",
+            "400",
+            "450",
+            "500",
+            "550",
+            "600"
+          ],
+          "series": [
+            {
+              "name": "P10",
+              "values": [
+                100.0,
+                80.7,
+                85.6,
+                64.0,
+                54.4,
+                47.1,
+                38.9,
+                37.6,
+                37.0,
+                38.1,
+                40.7,
+                43.5
+              ]
+            },
+            {
+              "name": "Médiane (P50)",
+              "values": [
+                100.0,
+                84.6,
+                89.7,
+                67.1,
+                57.2,
+                48.5,
+                42.0,
+                49.6,
+                51.4,
+                51.7,
+                53.9,
+                57.2
+              ]
+            },
+            {
+              "name": "P90",
+              "values": [
+                100.0,
+                97.5,
+                96.5,
+                74.1,
+                64.0,
+                57.4,
+                57.0,
+                61.3,
+                66.2,
+                68.8,
+                71.8,
+                73.8
+              ]
+            }
+          ],
+          "caption": "Dix tirages de stress, témoin exclu ; quantiles empiriques aux jours 50 à 600 du scénario de 1 825 jours. À J600, le P10 atteint 43,5 %, la médiane 57,2 % et le P90 73,8 %.",
+          "observation": "À J600, la médiane atteint 57,2 %. Le P10 et le P90 valent respectivement 43,5 % et 73,8 % de volume servi cumulé.",
+          "limit": "Campagne historique distincte des essais appariés. Dix tirages donnent une estimation exploratoire des quantiles, conditionnelle au scénario de stress.",
+          "status": "resultat_archive"
+        }
+      ]
     },
     {
       "id": "flux-transport",
@@ -559,7 +1236,33 @@
           "blob": "952b6d5ef38b4c12eb1b95548fd4291e3823c5f8"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "bar",
+          "title": "La route et la mer concentrent le travail de transport",
+          "unit": "Part des kg·km (%)",
+          "x_label": "Mode",
+          "categories": [
+            "Route",
+            "Mer",
+            "Rail",
+            "Interne"
+          ],
+          "series": [
+            {
+              "name": "Part du travail de transport",
+              "values": [
+                52.4,
+                47.0,
+                0.6,
+                0
+              ]
+            }
+          ],
+          "caption": "Répartition nominale avec distances ventilées à parts égales selon la convention du fichier. Ces parts concernent les kg·km ; les émissions exigent des facteurs par mode."
+        }
+      ]
     },
     {
       "id": "allocation-sites",
@@ -584,7 +1287,36 @@
           "blob": "be90eee0b7c028a79f2b1b148354675eb2da843c"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "table",
+          "title": "Variables et contraintes de l’allocation",
+          "columns": [
+            "Élément du modèle",
+            "Rôle dans la décision"
+          ],
+          "rows": [
+            [
+              "Choix de capacité (binaire)",
+              "Ouvrir un site selon un régime de capacité autorisé."
+            ],
+            [
+              "Flux site–marché (continu)",
+              "Allouer les volumes aux marchés."
+            ],
+            [
+              "Contraintes",
+              "Satisfaire la demande, respecter les bornes du site et l’exclusivité du régime."
+            ],
+            [
+              "Objectif",
+              "Minimiser le coût, le CO₂ ou une combinaison pondérée."
+            ]
+          ],
+          "caption": "Pour lire une solution, contrôler d’abord les volumes servis et les capacités utilisées, puis comparer les objectifs avec leurs unités."
+        }
+      ]
     },
     {
       "id": "dynamique-frequence",
@@ -615,7 +1347,32 @@
           "blob": "71893fe31ab09da22795e3644597c1db061bccd3"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "flow",
+          "title": "Mesurer comment une oscillation de demande se propage",
+          "steps": [
+            {
+              "label": "Exciter le modèle",
+              "detail": "Ajouter une sinusoïde à la demande moyenne."
+            },
+            {
+              "label": "Attendre le régime",
+              "detail": "Écarter les cycles d’amorçage."
+            },
+            {
+              "label": "Mesurer",
+              "detail": "Estimer amplitude et phase du stock aval et du retard."
+            },
+            {
+              "label": "Balayer les fréquences",
+              "detail": "Calculer gain sortie/entrée et déphasage pour chaque fréquence."
+            }
+          ],
+          "caption": "Un gain et un retard de phase s’interprètent à amplitude et à régime fixés ; répéter l’expérience si la capacité sature."
+        }
+      ]
     },
     {
       "id": "regulation-pid",
@@ -640,7 +1397,128 @@
           "blob": "4b7e6dd6074a6b1641307b29d55dc3a63ad3eb6b"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "line",
+          "title": "Réponse du PID à une hausse temporaire de demande",
+          "unit": "Unités par pas",
+          "x_label": "Pas de simulation",
+          "categories": [
+            "35",
+            "36",
+            "37",
+            "38",
+            "39",
+            "40",
+            "41",
+            "42",
+            "43",
+            "44",
+            "45",
+            "46",
+            "47",
+            "48",
+            "49",
+            "50",
+            "51",
+            "52",
+            "53",
+            "54",
+            "55",
+            "56",
+            "57",
+            "58",
+            "59",
+            "60",
+            "61",
+            "62",
+            "63",
+            "64",
+            "65",
+            "66"
+          ],
+          "series": [
+            {
+              "name": "Demande",
+              "values": [
+                9,
+                11,
+                11,
+                8,
+                8,
+                15,
+                15,
+                14,
+                21,
+                16,
+                17,
+                15,
+                19,
+                14,
+                17,
+                16,
+                18,
+                16,
+                15,
+                17,
+                18,
+                18,
+                18,
+                16,
+                17,
+                16,
+                8,
+                7,
+                5,
+                9,
+                8,
+                5
+              ]
+            },
+            {
+              "name": "Livraison PID",
+              "values": [
+                8.8,
+                8.2,
+                11.8,
+                9.7,
+                8.5,
+                7.7,
+                15.1,
+                14.1,
+                14.6,
+                18.9,
+                15.6,
+                18.0,
+                13.4,
+                19.7,
+                12.8,
+                19.1,
+                13.8,
+                20.3,
+                14.0,
+                16.9,
+                15.4,
+                19.1,
+                17.1,
+                18.4,
+                15.3,
+                17.8,
+                15.3,
+                9.2,
+                7.6,
+                5.3,
+                10.6,
+                7.3
+              ]
+            }
+          ],
+          "caption": "Cas synthétique, graine 0, 100 pas ; Kp = 1,02, Ki = 0,816, Kd = 0,31875. À t=40 : 15 unités demandées, 7,7 livrées. À t=41 : 15 demandées, 15,1 livrées.",
+          "observation": "À t=40, la consigne passe à 15 unités alors que la livraison vaut 7,7. Au pas suivant, la livraison atteint 15,1 unités.",
+          "limit": "Un seul tirage synthétique et un réglage PID. Cette courbe ne mesure pas la robustesse sous d’autres régimes."
+        }
+      ]
     },
     {
       "id": "risque-fournisseur-calibre",
@@ -790,7 +1668,32 @@
           "blob": "03c88ba79522706db201d7a3720cf1762908d5fb"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "flow",
+          "title": "De l’état observé à l’action au pas suivant",
+          "steps": [
+            {
+              "label": "État au jour t",
+              "detail": "Observer le stock, la tension et le risque fournisseur."
+            },
+            {
+              "label": "Actions admissibles",
+              "detail": "Comparer protection du service, réglage du tampon ou soulagement fournisseur selon le régime."
+            },
+            {
+              "label": "Risque en queue",
+              "detail": "Pour chaque action : score moyen + aversion × CVaR."
+            },
+            {
+              "label": "Décision",
+              "detail": "Retenir le score minimal et appliquer l’action au pas t+1."
+            }
+          ],
+          "caption": "La CVaR représente ici la moyenne des pertes dans la queue défavorable. Vérifier les informations réellement accessibles au décideur à t."
+        }
+      ]
     },
     {
       "id": "brightway-echanges",
@@ -820,7 +1723,32 @@
           "blob": "83a096b4172ffa36b216950db908a1bb6f1e814d"
         }
       ],
-      "external_ok": false
+      "external_ok": false,
+      "exhibits": [
+        {
+          "kind": "flow",
+          "title": "Du changement de flux à sa contribution climatique",
+          "steps": [
+            {
+              "label": "Écart physique",
+              "detail": "Mesurer la variation de quantité de l’échange."
+            },
+            {
+              "label": "Correspondance",
+              "detail": "Identifier activité, zone, base et unité Brightway."
+            },
+            {
+              "label": "Caractérisation",
+              "detail": "Appliquer le score unitaire à la variation si la correspondance est exploitable."
+            },
+            {
+              "label": "Traçabilité",
+              "detail": "Enregistrer la contribution retenue et signaler le recours à une estimation."
+            }
+          ],
+          "caption": "Le cumul peut combiner calculs par activité et estimations. Conserver la méthode de chaque échange pour analyser la couverture."
+        }
+      ]
     },
     {
       "id": "pareto-cout-service-carbone",
@@ -867,8 +1795,102 @@
         "method": "Écarter une politique lorsqu’une autre est au moins aussi bonne sur les trois critères et meilleure sur au moins un.",
         "finding": "Sur le cas pédagogique, le stock tampon est la seule des cinq politiques qui reste non dominée avec le carbone selon l’état.",
         "limit": "Résultat limité aux cinq politiques et aux paramètres du démonstrateur.",
-        "next_test": "Tester si le classement tient lorsque changent coût du stock et émissions de transport."
-      }
+        "next_test": "Tester si le classement tient lorsque changent coût du stock et émissions de transport.",
+        "exhibits": [
+          {
+            "kind": "table",
+            "title": "Le stock tampon domine les quatre autres politiques sur ce cas",
+            "columns": [
+              "Politique",
+              "Coût¹",
+              "Couverture²",
+              "ACV selon l’état (t CO₂e)"
+            ],
+            "rows": [
+              [
+                "Référence",
+                "57 053",
+                "93,25 %",
+                "23,17"
+              ],
+              [
+                "Secours anticipé",
+                "57 053",
+                "93,25 %",
+                "23,17"
+              ],
+              [
+                "Stock tampon",
+                "43 497",
+                "98,42 %",
+                "21,97"
+              ],
+              [
+                "Discipline carbone",
+                "61 978",
+                "91,19 %",
+                "22,80"
+              ],
+              [
+                "Service prioritaire",
+                "45 757",
+                "97,29 %",
+                "22,51"
+              ]
+            ],
+            "caption": "¹ Unités monétaires du modèle. ² Couverture hebdomadaire agrégée. Le stock tampon associe le coût et les émissions les plus bas à la couverture la plus élevée.",
+            "observation": "Le stock tampon atteint 98,42 % de couverture pour 43 497 unités monétaires et 21,97 t CO₂e. Il domine les quatre autres variantes sur ces critères.",
+            "limit": "Comparaison de cinq politiques prédéfinies. Référence et secours anticipé donnent les mêmes valeurs sur ce cas."
+          }
+        ]
+      },
+      "exhibits": [
+        {
+          "kind": "table",
+          "title": "Le stock tampon domine les quatre autres politiques sur ce cas",
+          "columns": [
+            "Politique",
+            "Coût¹",
+            "Couverture²",
+            "ACV selon l’état (t CO₂e)"
+          ],
+          "rows": [
+            [
+              "Référence",
+              "57 053",
+              "93,25 %",
+              "23,17"
+            ],
+            [
+              "Secours anticipé",
+              "57 053",
+              "93,25 %",
+              "23,17"
+            ],
+            [
+              "Stock tampon",
+              "43 497",
+              "98,42 %",
+              "21,97"
+            ],
+            [
+              "Discipline carbone",
+              "61 978",
+              "91,19 %",
+              "22,80"
+            ],
+            [
+              "Service prioritaire",
+              "45 757",
+              "97,29 %",
+              "22,51"
+            ]
+          ],
+          "caption": "¹ Unités monétaires du modèle. ² Couverture hebdomadaire agrégée. Le stock tampon associe le coût et les émissions les plus bas à la couverture la plus élevée.",
+          "observation": "Le stock tampon atteint 98,42 % de couverture pour 43 497 unités monétaires et 21,97 t CO₂e. Il domine les quatre autres variantes sur ces critères.",
+          "limit": "Comparaison de cinq politiques prédéfinies. Référence et secours anticipé donnent les mêmes valeurs sur ce cas."
+        }
+      ]
     }
   ],
   "gaps": [

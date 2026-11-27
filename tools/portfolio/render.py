@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+from zipfile import BadZipFile
 import re
 import shutil
 import struct
@@ -12,8 +13,23 @@ import subprocess
 import zlib
 from tempfile import TemporaryDirectory
 
+from scalian_template import apply_template
+
 
 HERE = Path(__file__).resolve().parent
+TEMPLATE_NAME = "Template Scalian - FR 2026.pptx"
+
+
+def resolve_template(explicit, repo):
+    configured = explicit or os.environ.get("SCALIAN_PPTX_TEMPLATE")
+    candidates = [Path(configured).expanduser()] if configured else [repo / TEMPLATE_NAME, repo.parent / TEMPLATE_NAME]
+    for path in candidates:
+        if path.is_file():
+            return path.resolve()
+    raise ValueError(f"Modèle Scalian introuvable. Fournir --template CHEMIN, définir SCALIAN_PPTX_TEMPLATE "
+                     f"ou placer {TEMPLATE_NAME!r} à côté du clone.")
+
+
 STATUS = {
     "documente": "Documenté",
     "implemente": "Implémenté",
@@ -76,14 +92,14 @@ def ordered_text(row, fields, context):
 
 def clean_visual(raw):
     result = ordered_text(raw, ("kind", "title", "unit", "x_label", "caption"), "visual")
-    if result["kind"] not in ("line", "bar"):
-        raise ValueError("visual.kind doit valoir line ou bar.")
+    if result["kind"] not in ("line", "bar", "band"):
+        raise ValueError("visual.kind doit valoir line, bar ou band.")
     labels, series = raw.get("categories"), raw.get("series")
     if not isinstance(labels, list) or not labels or not all(isinstance(x, str) and x.strip() for x in labels):
         raise ValueError("visual.categories doit être une liste de libellés.")
     if not isinstance(series, list) or not series:
         raise ValueError("visual.series doit contenir une série au minimum.")
-    if result["kind"] == "line" and len(labels) < 2:
+    if result["kind"] in ("line", "band") and len(labels) < 2:
         raise ValueError("Une courbe demande au moins deux abscisses.")
     result.update(categories=labels, series=[])
     for item in series:
@@ -95,7 +111,53 @@ def clean_visual(raw):
             raise ValueError("Chaque série doit fournir une valeur numérique finie par catégorie.")
         clean["values"] = ys
         result["series"].append(clean)
+    if result["kind"] == "band":
+        if len(series) != 3:
+            raise ValueError("Une enveloppe exige trois séries : basse, centrale, haute.")
+        if any(not low <= middle <= high for low, middle, high in zip(*(s["values"] for s in result["series"]))):
+            raise ValueError("Les bornes de l’enveloppe doivent être ordonnées à chaque date.")
     return result
+
+
+def text_cells(items, hint):
+    if not isinstance(items, list) or not items or not all(isinstance(x, str) and x.strip() for x in items):
+        raise ValueError(f"{hint} doit contenir des chaînes non vides.")
+    return [x.strip() for x in items]
+
+
+def prepare_exhibit(raw, evidence, repo, external):
+    """Copy only the fields approved for display for this exhibit and audience."""
+    item = ordered_text(raw, ("kind", "title", "caption"), "visuel")
+    kind = item["kind"]
+    if kind == "image":
+        return reviewed_image(raw, evidence, repo, external)
+    if kind == "table":
+        columns = text_cells(raw.get("columns"), "columns")
+        rows = raw.get("rows")
+        if not isinstance(rows, list) or not rows:
+            raise ValueError("Le tableau demande au moins une ligne.")
+        rows = [text_cells(row, "ligne") for row in rows]
+        if any(len(row) != len(columns) for row in rows):
+            raise ValueError("Chaque ligne du tableau doit correspondre aux colonnes.")
+        return dict(item, columns=columns, rows=rows)
+    if kind == "flow":
+        steps = raw.get("steps")
+        if not isinstance(steps, list) or len(steps) < 2:
+            raise ValueError("Le schéma demande au moins deux étapes.")
+        return dict(item, steps=[ordered_text(step, ("label", "detail"), "étape") for step in steps])
+    return clean_visual(raw)
+
+
+def display_exhibit(raw, evidence, repo, external):
+    item = prepare_exhibit(raw, evidence, repo, external)
+    for field in ("observation", "limit"):
+        if field in raw:
+            item.update(ordered_text(raw, (field,), "visuel"))
+    if "status" in raw:
+        if raw["status"] not in STATUS:
+            raise ValueError("Niveau de preuve du visuel inconnu.")
+        item["status"] = STATUS[raw["status"]]
+    return item
 
 
 def static_png(blob):
@@ -175,9 +237,9 @@ def selected_rows(review, audience, external, focus, repo=Path(".")):
         raise ValueError(f"Identifiants inconnus : {', '.join(sorted(set(focus) - by_id.keys()))}")
     branches = review["snapshot"]["branches"]
     selected = []
-    for cid, source in by_id.items():
-        if focus and cid not in focus:
-            continue
+    ordered_ids = dict.fromkeys(focus) if focus else by_id
+    for cid in ordered_ids:
+        source = by_id[cid]
         if external and source.get("external_ok") is not True:
             if focus:
                 raise ValueError(f"Diffusion externe indisponible pour {cid}.")
@@ -198,11 +260,11 @@ def selected_rows(review, audience, external, focus, repo=Path(".")):
             if not external:
                 row["evidence"].append(f'{item["branch"]} @ {item["sha"]} / {item["path"]}')
         if view.get("visual") is not None:
-            visual = view["visual"]
-            if isinstance(visual, dict) and visual.get("kind") == "image":
-                row["visual"] = reviewed_image(visual, sources, repo, external)
-            else:
-                row["visual"] = clean_visual(visual)
+            row["visual"] = display_exhibit(view["visual"], sources, repo, external)
+        extra = view.get("exhibits", [])
+        if not isinstance(extra, list):
+            raise ValueError(f"{cid}.exhibits doit être une liste de visuels.")
+        row["exhibits"] = [display_exhibit(v, sources, repo, external) for v in extra]
         selected.append(row)
 
     if not selected:
@@ -230,10 +292,13 @@ def write_brief(path, data):
                   f'**Décision.** {c["decision"]}', "", f'**Méthode.** {c["method"]}', "",
                   f'**Constat.** {c["finding"]}', "", f'**Limite.** {c["limit"]}', "",
                   f'**Prochain essai.** {c["next_test"]}']
-        if c.get("visual"):
-            v = c["visual"]
+        for v in ([c["visual"]] if "visual" in c else []) + c["exhibits"]:
             unit = f' ({v["unit"]})' if "unit" in v else ""
             lines += ["", f'**Figure.** {v["title"]}{unit}. {v["caption"]}']
+            if "observation" in v:
+                lines += ["", v["observation"]]
+            if "limit" in v:
+                lines += ["", f'**Portée de cette figure.** {v["limit"]}']
         if c["evidence"]:
             lines += ["", "**Pièces du dépôt**", ""] + [f"- `{ref}`" for ref in c["evidence"]]
     if data["gaps"]:
@@ -248,6 +313,7 @@ def write_brief(path, data):
 
 def main():
     cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument("--template", type=Path, help="Modèle Scalian FR 2026 au format PowerPoint.")
     cli.add_argument("--review", type=Path, required=True)
     cli.add_argument("--audience", choices=PROFILES, required=True)
     cli.add_argument("--out", type=Path, required=True)
@@ -265,6 +331,7 @@ def main():
     if not node:
         cli.error("Installer Node.js 18+ et PptxGenJS (npm ci --prefix tools/portfolio).")
     try:
+        template = resolve_template(args.template, args.repo.resolve())
         private_path = private_note_path(args.out, args.private_out, external, args.question)
         review = json.loads(args.review.read_text(encoding="utf-8"))
         caps, gaps = selected_rows(review, args.audience, external, args.focus, args.repo)
@@ -282,8 +349,9 @@ def main():
             dest.mkdir()
             payload = Path(stage) / "presentation.json"
             payload.write_text(json.dumps(material, ensure_ascii=False), encoding="utf-8")
-            command = [node, str(HERE / "deck.cjs"), str(payload), str(dest / "presentation.pptx")]
-            subprocess.run(command, check=True)
+            content = Path(stage) / "content.pptx"
+            subprocess.run([node, str(HERE / "deck.cjs"), str(payload), str(content)], check=True)
+            apply_template(content, template, dest / "presentation.pptx")
             write_brief(dest / "brief.md", material)
             files = ["brief.md", "presentation.pptx"]
             if private_path:
@@ -299,7 +367,7 @@ def main():
         print("\n".join(str(args.out / name) for name in files))
         if private_path:
             print(private_path)
-    except (ValueError, OSError, KeyError, TypeError, subprocess.CalledProcessError) as exc:
+    except (ValueError, OSError, KeyError, TypeError, BadZipFile, subprocess.CalledProcessError) as exc:
         cli.exit(1, f"Export impossible : {exc}\n")
 
 
