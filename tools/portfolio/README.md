@@ -21,7 +21,7 @@ python -B tools/portfolio/review.py --scan ../portfolio-01/scan --out ../portfol
 
 Le scan en ligne récupère toutes les têtes du distant `origin`, même dans un clone initialement limité à une branche. Changer le distant avec `--remote NOM`. Le travail local et les modifications non commises ne font pas partie de cet instantané. En déplacement, ajouter `--offline` pour utiliser les références et objets disponibles en cache. Le mode figure dans `inventory.json`. Un réseau indisponible en mode en ligne produit une erreur.
 
-Pour le PowerPoint éditable et le brief, installer une fois les dépendances de rendu avec Node.js 18+ et npm. Cette installation reste locale au harnais. Les exemples génèrent des supports différents à partir de la même revue.
+Pour le PowerPoint éditable et le brief, installer une fois les dépendances de rendu avec Node.js 18+ et npm. Cette installation reste locale au harnais. Le rendu utilise le fichier **Template Scalian - FR 2026.pptx** du projet. Pour le retrouver automatiquement, placer le modèle à côté du clone, ou définir `SCALIAN_PPTX_TEMPLATE` avec son chemin complet. L’option `--template "chemin/vers/modele.pptx"` est prioritaire. Le fichier de marque reste dans l’espace de travail. Les exemples génèrent des supports différents à partir de la même revue.
 
 ```sh
 npm ci --prefix tools/portfolio

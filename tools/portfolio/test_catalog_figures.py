@@ -5,17 +5,20 @@ import json
 import subprocess
 import unittest
 from pathlib import Path
-from statistics import mean
+from statistics import mean, quantiles
 
 HERE = Path(__file__).resolve().parent
 CARDS = {c["id"]: c for c in json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))["capabilities"]}
 
 
-def rows(card, filename):
+def archive(card, filename):
     ref, = [e for e in CARDS[card]["evidence"] if e["path"].rsplit("/", 1)[-1] == filename]
     obj = f"{ref['sha']}:{ref['path']}"
-    data = subprocess.check_output(["git", "-C", str(HERE), "show", obj])
-    return list(csv.DictReader(io.StringIO(data.decode("utf-8-sig"))))
+    return subprocess.check_output(["git", "-C", str(HERE), "show", obj]).decode("utf-8-sig")
+
+
+def rows(card, filename):
+    return list(csv.DictReader(io.StringIO(archive(card, filename))))
 
 
 class CatalogFigureTests(unittest.TestCase):
@@ -51,6 +54,23 @@ class CatalogFigureTests(unittest.TestCase):
             groups[index].append((prob, float(row["incident_next_30d"])))
         self.assertEqual([len(g) for g in groups], [328, 106, 46])
         self.check_views(card, [[round(100 * mean(row[i] for row in g), 1) for g in groups] for i in (0, 1)])
+
+    def test_stress_band_excludes_reference_run(self):
+        card = "incertitude-appariee"
+        data = json.loads(archive(card, "montecarlo_trajectories.json"))
+        runs = [s["values"] for s in data["metrics"]["service_rate"]["series"] if not s["is_baseline"]]
+        self.assertEqual(len(runs), 10)
+        band, = [v for v in CARDS[card]["exhibits"] if v["kind"] == "band"]
+        checkpoints = range(50, 601, 50)
+        self.assertEqual(len(band["categories"]), len(checkpoints))
+        self.assertEqual([int(''.join(c for c in label if c.isdigit())) for label in band["categories"]],
+                         list(checkpoints))
+        expected = []
+        for day in checkpoints:
+            index = data["days"].index(day)
+            deciles = quantiles([run[index] for run in runs], n=10, method="inclusive")
+            expected.append([round(deciles[k], 1) for k in (0, 4, 8)])
+        self.assertEqual([list(v) for v in zip(*expected)], [s["values"] for s in band["series"]])
 
     def test_backlog_figure_commentary(self):
         source = rows("stock-retard-52s", "poc_supply_chain_states.csv")

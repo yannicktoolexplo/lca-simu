@@ -1,6 +1,14 @@
 # Supports de réunion
 
-Python 3.11+ prépare la sélection. Le PowerPoint utilise Node.js 18+ et PptxGenJS 4.0.1, installés uniquement pour l’export. Depuis la racine :
+Python 3.11+ prépare la sélection. Le PowerPoint utilise Node.js 18+ et PptxGenJS 4.0.1, installés uniquement pour l’export. Le modèle français Scalian 2026 fournit sa couverture, ses dispositions de contenu, son thème et ses logos à chaque présentation.
+
+Pour un clone Windows, indiquer une fois par session PowerShell l’emplacement du modèle du projet. Adapter le chemin à son emplacement réel.
+
+```powershell
+$env:SCALIAN_PPTX_TEMPLATE = "C:\Documents\Template Scalian - FR 2026.pptx"
+```
+
+Depuis la racine du dépôt :
 
 ```bash
 npm ci --prefix tools/portfolio
@@ -14,7 +22,7 @@ En interne, `--question` personnalise la couverture et le brief. Pour les suppor
 
 ## Contenu à préparer
 
-Chaque capacité a un niveau de preuve, un nom, une famille, une décision, une méthode, un constat, une limite, un prochain essai et une liste de pièces. En interne, les notes PowerPoint et le brief donnent les références complètes branche, commit et chemin. La diffusion externe exige `external_ok: true` et un objet `public` contenant séparément `name`, `family`, `decision`, `method`, `finding`, `limit`, `next_test` et la figure éventuellement autorisée. Relire chaque libellé, chaque chiffre et les possibilités de réidentification avant de valider cette vue. Le niveau de preuve interne affiché doit s’appliquer au constat diffusé. Les lacunes destinées à un partenaire utilisent la même validation avec un objet `public` contenant `title`, `priority`, `impact`, `test`. Le générateur n’exporte aucun autre champ de la vue interne en mode externe, hormis le niveau de preuve.
+Chaque capacité a un niveau de preuve, un nom, une famille, une décision, une méthode, un constat, une limite, un prochain essai et une liste de pièces. En interne, les notes PowerPoint et le brief donnent les références complètes branche, commit et chemin. Chaque fiche dispose d’un visuel principal `visual` et peut proposer des pièces complémentaires dans `exhibits`. La diffusion externe exige `external_ok: true` et un objet `public` contenant séparément `name`, `family`, `decision`, `method`, `finding`, `limit`, `next_test` et la figure éventuellement autorisée. Relire chaque libellé, chaque chiffre et les possibilités de réidentification avant de valider cette vue. Le niveau de preuve interne affiché doit s’appliquer au constat diffusé. Les lacunes destinées à un partenaire utilisent la même validation avec un objet `public` contenant `title`, `priority`, `impact`, `test`. Le générateur n’exporte aucun autre champ de la vue interne en mode externe, hormis le niveau de preuve.
 
 Les valeurs suivantes illustrent uniquement la structure d’une figure. Dans une revue, employer des valeurs extraites d’une pièce référencée au commit et préciser le scénario, le dénominateur, l’horizon et la limite dans la fiche.
 
@@ -30,7 +38,7 @@ Les valeurs suivantes illustrent uniquement la structure d’une figure. Dans un
 }
 ```
 
-Utiliser `line` pour une série ordonnée à pas régulier. Les catégories sont également espacées dans le graphique. Fournir les quantiles comme séries distinctes et indiquer la population de simulations et le niveau des quantiles dans la légende. Une valeur manquante demande une explication ou un autre découpage des séries. Le générateur refuse les longueurs incompatibles ou les valeurs non finies. Il pagine les longues comparaisons de catégories et les séries multiples. Le panorama compte uniquement les capacités relues de la sélection. Les notes et le brief conservent les textes complets lorsque leur longueur oblige à les abréger sur la diapositive.
+Utiliser `line` pour une série ordonnée à pas régulier. Les catégories sont également espacées dans le graphique. Pour une enveloppe, utiliser `kind: "band"` avec trois séries ordonnées (borne basse, médiane, borne haute). Indiquer la population simulée, le nombre de réplications et la convention de quantile. Les jalons doivent être régulièrement espacés. Étiqueter toute campagne distincte de celle décrite par la fiche. Une valeur manquante demande une explication ou un autre découpage des séries. Le générateur refuse les longueurs incompatibles ou les valeurs non finies. Il pagine les longues comparaisons de catégories et les séries multiples. Le panorama compte uniquement les capacités relues de la sélection. Les notes et le brief conservent les textes complets lorsque leur longueur oblige à les abréger sur la diapositive.
 
 
 ## Figures scientifiques déjà archivées
@@ -53,3 +61,21 @@ Pour reprendre un schéma ou une figure complexe dans sa forme publiée, utilise
 Passer `--repo chemin/vers/lca-simu` si la commande est lancée hors du dépôt. Le générateur vérifie le couple commit/chemin puis lit le blob par son empreinte Git. Il conserve les proportions et intègre les pixels dans la diapositive. Les libellés incorporés restent dans l’image archivée. Les titres, légendes et notes demeurent éditables.
 
 Pour diffuser une image, examiner les axes, légendes, annotations et identifiants **sur les pixels**. Dans `public.visual`, renseigner la version relue du titre et de la légende, la même référence et `approved_blob` égal à l’empreinte du PNG autorisé. Le support partageable conserve les pixels et les légendes autorisés. Les chemins Git et métadonnées textuelles du PNG restent hors du support externe. Un autre blob nécessite une nouvelle revue. Le mode graphique natif reste disponible pour des valeurs approuvées dont on souhaite rééditer les séries dans PowerPoint.
+
+
+## Composer une planche de résultat
+
+Choisir un graphique pour une évolution, un diagramme pour un mécanisme ou un tableau pour des hypothèses ou des résultats qui doivent être lus précisément. Dans le catalogue, le champ `visual` et les éléments de `exhibits` acceptent les graphiques `line`, `bar`, `band`, le format `image` et les formats éditables ci-dessous. Pour un visuel qui porte sur une expérience distincte, renseigner `observation`, `limit` et, si son niveau de preuve diffère, `status` avec un statut du catalogue. L’export externe prend exclusivement `public.visual` et `public.exhibits`.
+
+| Format | Données | Usage |
+|---|---|---|
+| `table` | `title`, `caption`, `columns` (libellés) et `rows` (listes de cellules texte de même longueur) | Unité et périmètre des paramètres, témoin et intervention ou comparaison de résultats. |
+| `flow` | `title`, `caption` et `steps` (suite d’objets `label`, `detail`) | Chronologie étayée, séquence de calcul ou parcours d’un lot. Préciser quelle interprétation s’applique. |
+
+Placer la lecture attendue près du visuel. Donner dans les notes les preuves, limites et conditions du prochain essai. Pour la vérification, comparer un panneau de données à ses sorties sources, ouvrir le deck sur sa couverture et une page de contenu, puis vérifier les titres, unités et légendes dans le rendu.
+
+Contrôle du fichier final contre le modèle utilisé (couverture, disposition de contenu, thème, actifs de marque, relations et notes) :
+
+```sh
+python tools/portfolio/test_template.py --template "Template Scalian - FR 2026.pptx" --presentation sortie-science/presentation.pptx
+```
