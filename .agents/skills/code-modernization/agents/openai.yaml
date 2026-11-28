@@ -1,0 +1,4 @@
+interface:
+  display_name: "Modernisation du moteur"
+  short_description: "Moderniser un module et vérifier ses résultats avant et après."
+  default_prompt: "Utilise $code-modernization pour moderniser le module demandé et vérifier les comportements observables."

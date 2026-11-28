@@ -1,0 +1,22 @@
+{
+  "stock": {
+    "ecart_stock": {"axe": "calcul", "valeur": 539000, "pieces": ["B1", "B2"]},
+    "ecart_expeditions": {"axe": "calcul", "valeur": 0, "pieces": ["B1", "B2"]},
+    "lots_supplementaires": {"axe": "calcul", "valeur": 5, "pieces": ["R1", "R2", "R3", "R4", "R5"], "aussi": ["R0"]},
+    "besoin_par_ordre": {"axe": "incertitude", "valeur": {"T01": null, "T02": null, "T03": "N12", "T04": null, "T05": null}, "pieces": ["L1", "L2"], "aussi": ["R1", "R2", "R3", "R4", "R5", "N1"]},
+    "decision": {"axe": "suite", "valeur": "journal_simule", "pieces": ["L2"]}
+  },
+  "prevision": {
+    "decomposition": {"axe": "calcul", "valeur": [7301, 63851], "pieces": ["F1", "F2"], "aussi": ["M1"]},
+    "besoin_reconstitue": {"axe": "calcul", "valeur": 71152, "pieces": ["F1", "F2", "M1"]},
+    "regroupement_systematique": {"axe": "incertitude", "valeur": "indetermine", "pieces": ["P1"], "aussi": ["M1", "M2", "F1", "F2", "F3"]},
+    "decision": {"axe": "suite", "valeur": "parametrage_planificateur", "pieces": ["P1"], "aussi": ["M1", "F1", "F2"]}
+  },
+  "gel": {
+    "OF01": {"axe": "calcul", "valeur": [1, 4, 0, false], "pieces": ["A1", "A2"], "aussi": ["G0"]},
+    "OF02": {"axe": "calcul", "valeur": [2, 0, 800, false], "pieces": ["B1", "B2"], "aussi": ["G0"]},
+    "regle_autorisation": {"axe": "incertitude", "valeur": "indetermine", "pieces": ["G0"], "aussi": ["A1", "A2", "B1", "B2", "E0"]},
+    "fin_reelle_OF01": {"axe": "incertitude", "valeur": null, "pieces": ["E0"], "aussi": ["A1", "A2"]},
+    "decision": {"axe": "suite", "valeur": {"regle": "planificateur", "execution": "atelier"}, "pieces": ["E0"], "aussi": ["G0"]}
+  }
+}
