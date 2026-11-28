@@ -18,25 +18,25 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/outputs_sddlca_poc/csv/poc_method_cumulative_comparison.csv",
           "blob": "342d5072eebc54141ea26ce86b2fa9f555991c87"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/outputs_sddlca_poc/csv/poc_lca_method_comparison.csv",
           "blob": "e48de69fa76e70600faf99a1d12abe41d99f6df0"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/config/sddlca_parameters.yml",
           "blob": "4519f7e10b8b61b749055a8e6ecf0e4753bf09de"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/final_sddlca_poc_script.py",
           "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
         }
@@ -216,19 +216,19 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/outputs_sddlca_poc/csv/poc_policy_decision_summary.csv",
           "blob": "05ee6273cfd7568dd7a6e39d026199d5fd741768"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/config/sddlca_parameters.yml",
           "blob": "4519f7e10b8b61b749055a8e6ecf0e4753bf09de"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/final_sddlca_poc_script.py",
           "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
         }
@@ -388,25 +388,25 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/outputs_sddlca_poc/images/poc_state_space_projection.png",
           "blob": "31c1fa975d2baac363a6d9765aaddaa5424f1c2e"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/outputs_sddlca_poc/csv/poc_supply_chain_states.csv",
           "blob": "375c39844963f4ef61d09e9566a4dcb308641f55"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/outputs_sddlca_poc/csv/poc_regime_events.csv",
           "blob": "7b27f42bb1fb99112901c07ea4173507f6ec8075"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/final_sddlca_poc_script.py",
           "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
         }
@@ -625,19 +625,19 @@
       "evidence": [
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "POC2026/horizon-adaptation/baseline/csv/ha_method_comparison.csv",
           "blob": "159ece6989e95c736c033dc2030d5645e753d74e"
         },
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "POC2026/horizon-adaptation/baseline/csv/ha_strategy_summary.csv",
           "blob": "56d718cd3d99354da2a9731f74d94136261f4645"
         },
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "POC2026/horizon-adaptation/README.md",
           "blob": "1372e4210fe6f2e6d8dc79bea835cc99691b99fa"
         }
@@ -716,15 +716,15 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/simulation/engine/mrp_planning.py",
           "blob": "bddf0b8662bd512b33c6f6c08f7f681244b281a3"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/docs/REGLES_MRP.md",
-          "blob": "58025adb96ca76a489442b0166bf556ce69973c6"
+          "blob": "01cd90906986749f017609607f7c81537fdabb82"
         }
       ],
       "external_ok": true,
@@ -874,19 +874,19 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
           "blob": "8d3a8d4a0ea2c542abb41b769edd4c8e7d59a078"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/simulation/lot_trace/causal_links.py",
           "blob": "c791034dad6a77c5a3510bd3edca537bc7b7b1be"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
           "blob": "bda2ef8945a9784f302df3c9099d78d65bbd94a8"
         }
@@ -1032,13 +1032,13 @@
       "evidence": [
         {
           "branch": "codex/article-cascade-pilot-20261104",
-          "sha": "REV-0332",
+          "sha": "b94115c5aec794a8794eb6f2f8a582a2364ce01d",
           "path": "etudecas/docs/ARTICLE_CASCADE_PILOT_20261104.md",
-          "blob": "b022d2813071bb85791eff1b7dcdd9b0b2e4bd2e"
+          "blob": "1d17a3c8f37d672a4a4e1f695c52d4406b5f5bf4"
         },
         {
           "branch": "codex/article-cascade-pilot-20261104",
-          "sha": "REV-0332",
+          "sha": "b94115c5aec794a8794eb6f2f8a582a2364ce01d",
           "path": "etudecas/prototypes/scan_2027_risk_control/supplier_state_dependent_cascade_pilot.py",
           "blob": "17242bc8aeb3a21183f42abda1097323f2fd4cdd"
         }
@@ -1087,20 +1087,20 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/simulation/uncertainty/paired_propagation.py",
           "blob": "d2d26419962ce350a6d35d1062e7cd374e48cfbb"
         },
         {
           "branch": "main",
           "path": "etudecas/simulation/montecarlo/active_mrp_physical_uncertainty/montecarlo_trajectories.json",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "blob": "490c453dbbd04809364babea8acbf1c97d683003"
         },
         {
           "branch": "main",
           "path": "etudecas/simulation/montecarlo/active_mrp_physical_uncertainty/montecarlo_report.md",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "blob": "a5d91705d2a3a540864da126050fb9f479f5d578"
         }
       ],
@@ -1225,13 +1225,13 @@
       "evidence": [
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "supply_geo/analysis/archive/reports_csv_md_2026-05-22/output8_GEO_nominal_baseline_transport_modes.csv",
           "blob": "98e668243ae49f9970ebafd3a0117d137001aef7"
         },
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "supply_geo/analysis/scripts/run_nominal_baseline_simulation.py",
           "blob": "952b6d5ef38b4c12eb1b95548fd4291e3823c5f8"
         }
@@ -1282,7 +1282,7 @@
       "evidence": [
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "optimization/optimization_engine.py",
           "blob": "be90eee0b7c028a79f2b1b148354675eb2da843c"
         }
@@ -1336,13 +1336,13 @@
       "evidence": [
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "main_system_dynamics.py",
           "blob": "37aba34bd0b017587b66a1e2e09755576b453f02"
         },
         {
           "branch": "main",
-          "sha": "REV-0299",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "main_supply_chain_des.py",
           "blob": "71893fe31ab09da22795e3644597c1db061bccd3"
         }
@@ -1391,8 +1391,8 @@
       "next_test": "Examiner séparément les implémentations candidates à la synthèse, puis comparer les commandes sur des réalisations appariées.",
       "evidence": [
         {
-          "branch": "dev_P0002",
-          "sha": "REV-0251",
+          "branch": "main",
+          "sha": "d9511d564e11f5df57781e7d0931feff1d095f60",
           "path": "Control_supply/2025_hinf_poc.py",
           "blob": "4b7e6dd6074a6b1641307b29d55dc3a63ad3eb6b"
         }
@@ -1538,25 +1538,25 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/prototypes/prediction/README.md",
           "blob": "82f119d79546f9afb521a17c3ac27058de8e10f7"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/prototypes/prediction/run_prediction_poc.py",
           "blob": "e37599496a018356dac8b833c6b2b5b660046c11"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/prototypes/prediction/result/evaluation_metrics.json",
           "blob": "15a10feb956803109ea72029ed796d55bb721ba2"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/prototypes/prediction/result/prediction_test_scored_rows.csv",
           "blob": "0a4929951195a35c8fea6b9a1880508fba2ab020"
         }
@@ -1651,19 +1651,19 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/prototypes/scan_2027_risk_control/decision.py",
           "blob": "0d0b3a8d1c70868a55730f00b89e0f75fc6ab099"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/prototypes/scan_2027_risk_control/model.py",
           "blob": "2bc325839a73fa33788d29b1d675d8f810018a02"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "etudecas/prototypes/scan_2027_risk_control/README.md",
           "blob": "03c88ba79522706db201d7a3720cf1762908d5fb"
         }
@@ -1712,15 +1712,15 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/supply_geo_case/tools/run_sdd_exchange_lcia.py",
           "blob": "3ae242967a9f0733f6a70eb003bf4e15fe5ee544"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/supply_geo_case/lca_comparison.py",
-          "blob": "83a096b4172ffa36b216950db908a1bb6f1e814d"
+          "blob": "81e333ee23ed7f9078327a65615939853e0ea343"
         }
       ],
       "external_ok": false,
@@ -1770,19 +1770,19 @@
       "evidence": [
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/outputs_sddlca_poc/csv/poc_policy_pareto.csv",
           "blob": "8a075a9876f17411f5e3462f80f164ba339ac126"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/config/sddlca_parameters.yml",
           "blob": "4519f7e10b8b61b749055a8e6ecf0e4753bf09de"
         },
         {
           "branch": "dev_P0001",
-          "sha": "REV-0414",
+          "sha": "7c3ac23f6d9c06c5f05de3609bfb9c1215741e92",
           "path": "POC2026/final_sddlca_poc_script.py",
           "blob": "71fd17a59f2ec7accc38a488404bd3658b458a8b"
         }
