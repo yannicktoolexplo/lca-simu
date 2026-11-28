@@ -11,3 +11,5 @@ Compléter les invariants existants par un cas calculable indépendamment : dema
 Lire `etudecas/docs/MULTI_AGENT_OPERATIONNEL.md` pour agréger les manifestes. Rejeter les preuves absentes, altérées ou produites pendant une mutation du code. Rapporter séparément conformité aux conventions programmées et validité industrielle encore non démontrée.
 
 Pour choisir les niveaux de validation, les oracles et les hypothèses des propriétés, consulter [TEST_VALIDATION.md](../../../etudecas/docs/TEST_VALIDATION.md).
+
+Pour une régression liée à l’ordre des événements, utiliser [property-based-testing](../property-based-testing/SKILL.md) avec Hypothesis. Générer des séquences valides de réceptions, libérations et expéditions, exécuter le point d’entrée du moteur et comparer chaque état à un bilan calculé indépendamment. Avec un stock initial nul, recevoir 100 unités bloquées, en libérer 60, puis en expédier 40 doit laisser 60 unités physiques, dont 20 utilisables et 40 bloquées. En cas d’échec, conserver la plus courte séquence reproduisant l’écart. Privilégier un modèle de test en mémoire.

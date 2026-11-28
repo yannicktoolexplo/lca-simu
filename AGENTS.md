@@ -64,3 +64,9 @@ En cas de nouveau refus d'écriture ou d'alerte de sécurité, arrêter les exé
 Pour une cartographie des branches, une revue des manques, un PowerPoint ou une réunion scientifique ou opérationnelle, utiliser [supply-portfolio](.agents/skills/supply-portfolio/SKILL.md). Le [guide du portefeuille](tools/portfolio/README.md) donne les commandes, les niveaux de preuve et des exemples de demandes. Un indice dans l'inventaire ouvre une investigation. Seules les fiches relues alimentent les supports.
 
 Pour comparer le simulateur à **BOXARR** ou à **Supply-Graph**, suivre la [revue fonctionnelle des solutions](tools/portfolio/README.md#comparer-boxarr-supply-graph-et-lca-simu). Relier chaque fonction documentée à une décision opérationnelle et à un essai commun. Pour une complémentarité, préciser quelles données circuleraient entre les outils et comment vérifier leur sens à la réception.
+
+## Utiliser les skills scientifiques et métier
+
+Pour préparer un entretien sur le plan figé, [master-production-scheduling](.agents/skills/master-production-scheduling/SKILL.md) donne le vocabulaire des horizons de planification. Relever les dates de version, quantités, dates prévues et statuts d’un même ordre pour vérifier ce que la règle du site permet de réviser. Pour une hypothèse de regroupement des besoins ou d’arrondi des ordres, [lot-sizing-problems](.agents/skills/lot-sizing-problems/SKILL.md) propose des politiques candidates. Tester leurs prédictions sur d’autres périodes et avec les délais réels avant de les intégrer au simulateur.
+
+Les skills de calibration, de qualification et de portefeuille orientent respectivement vers les plans d’expériences et la statistique, les tests par propriétés et les figures scientifiques. Pour moderniser un module en préservant un résultat métier, utiliser [code-modernization](.agents/skills/code-modernization/SKILL.md). Définir le comportement à préserver et relier l’essai avant/après à la qualification Etudecas.

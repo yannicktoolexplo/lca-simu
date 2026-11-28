@@ -1,0 +1,65 @@
+{
+  "stock": {
+    "question": "Deux rejeux donnent des stocks finaux différents. Quel flux fait la différence et jusqu'où peux-tu identifier son origine ?",
+    "perimetre": "Article A, dépôt D, bornes identiques. Les bilans sont en unités physiques. Le rapprochement des réceptions ci-dessous est exhaustif. Une référence d'ordre a le même sens dans tous les extraits.",
+    "pieces": {
+      "B1": "Rejeu libre : stock initial 1101534, réceptions 1509200, expéditions 1686717, autres mouvements 0, stock final 924017.",
+      "B2": "Rejeu avec gel : stock initial 1101534, réceptions 2048200, expéditions 1686717, autres mouvements 0, stock final 1463017.",
+      "R0": "Réceptions communes aux deux variantes : 14 lots de 107800. Aucun lot propre au rejeu libre.",
+      "R1": "Rejeu avec gel uniquement : ordre T01, réception le 08-09, 107800 unités.",
+      "R2": "Rejeu avec gel uniquement : ordre T02, réception le 22-09, 107800 unités.",
+      "R3": "Rejeu avec gel uniquement : ordre T03, réception le 06-10, 107800 unités.",
+      "R4": "Rejeu avec gel uniquement : ordre T04, réception le 20-10, 107800 unités.",
+      "R5": "Rejeu avec gel uniquement : ordre T05, réception le 03-11, 107800 unités.",
+      "L1": "Trace du planificateur simulé : création de T03 affectée au besoin N12, échéance 06-10. Champ de lien explicite.",
+      "L2": "Couverture de cet extrait du journal de création : T03 seulement. Les journaux du planificateur simulé pour les autres ordres sont à rechercher dans les deux exécutions.",
+      "N1": "Besoin N11 : 107800 unités, échéance 22-09. Aucun ordre associé renseigné dans cette ligne."
+    },
+    "champs": {
+      "ecart_stock": "Stock final avec gel moins stock final libre, en unités. Utiliser les deux bilans.",
+      "ecart_expeditions": "Expéditions avec gel moins expéditions libres, en unités. Utiliser les deux bilans.",
+      "lots_supplementaires": "Nombre de réceptions individuelles propres au rejeu avec gel. Citer chaque réception comptée.",
+      "besoin_par_ordre": "Objet JSON avec une clé par ordre T01 à T05 et l'identifiant du besoin ou null si la liaison reste inconnue. Citer la liaison et sa couverture.",
+      "decision": "Qui peut retrouver les déclencheurs manquants et dans quelle source ? Choisir journal_simule, bons_livraison_client ou prevision_fournisseur. Citer la pièce donnant la couverture."
+    }
+  },
+  "prevision": {
+    "question": "Quelle prévision connaissait le calcul du 6 avril ? Expliquer quantitativement la première ligne et déterminer si la règle générale est établie.",
+    "perimetre": "Article B, site D. Les lundis désignent le début des semaines de besoin. Les versions de prévision portent leur propre date de publication. Les quantités sont en unités.",
+    "pieces": {
+      "M1": "Version MRP du 6 avril : semaine du 7 avril, besoin 71152.",
+      "M2": "Même version : semaine du 14 avril, besoin 49200 ; semaine du 21 avril, besoin 39360.",
+      "F1": "Prévision publiée le 31 mars : semaine du 7 avril, 7301.",
+      "F2": "Prévision publiée le 31 mars : semaine du 14 avril, 63851.",
+      "F3": "Prévision publiée le 31 mars : semaine du 21 avril, 49200 ; semaine du 28 avril, 39360.",
+      "F4": "Prévision révisée publiée le 8 avril : 10000 pour la semaine du 7 avril, puis 61152 pour celle du 14 avril.",
+      "P1": "Le paramétrage de conversion prévision vers besoin est détenu par la planification industrielle. Aucun paramètre de regroupement ni dossier d'explication n'est fourni dans cet extrait."
+    },
+    "champs": {
+      "decomposition": "Liste ordonnée des deux quantités de prévision connues le 6 avril qui reconstituent le besoin. Citer les deux lignes de prévision de cette version.",
+      "besoin_reconstitue": "Somme des quantités, en unités. Relier les deux lignes de prévision à la ligne MRP.",
+      "regroupement_systematique": "La règle du paramétrage qui a regroupé les deux premières semaines est-elle identifiée ? Choisir demontre, refute ou indetermine. Citer la pièce de paramétrage.",
+      "decision": "Où chercher la règle qui produit le regroupement ? Choisir parametrage_planificateur, nouvel_export_prevision ou expedition_client. Citer la pièce identifiant le détenteur."
+    }
+  },
+  "gel": {
+    "question": "Quels champs ont effectivement bougé dans chaque horizon du plan ? Que peut-on en déduire sur les changements autorisés et sur les dates exécutées ?",
+    "perimetre": "Article C, site U. Identifier un ordre par sa référence. Pour ce contrôle, calculer la zone au 31 mars à partir de l'entrée prévue dans cette version : moins de 28 jours = zone 1 ; de 28 à moins de 56 jours = zone 2. Comparer les dates en jours calendaires.",
+    "pieces": {
+      "G0": "Le planificateur indique que le plan comporte des bornes à quatre et huit semaines. Le compte rendu ne dit pas quels champs sont bloqués, ni s'il existe des dérogations.",
+      "A1": "Version du 2025-03-31 : OF01, confirmé, 141795 unités, entrée prévue 2025-04-24.",
+      "A2": "Version du 2025-04-07 : OF01, confirmé, 141795 unités, entrée prévue 2025-04-28.",
+      "A3": "Version du 2025-04-07 : OF03, proposé, 141795 unités, entrée prévue 2025-04-24.",
+      "B1": "Version du 2025-03-31 : OF02, proposé, 50000 unités, entrée prévue 2025-05-12.",
+      "B2": "Version du 2025-04-07 : OF02, proposé, 50800 unités, entrée prévue 2025-05-12.",
+      "E0": "Cet extrait du carnet contient exclusivement des dates prévues. Le planificateur peut confirmer les règles ou dérogations ; le journal atelier détient les lancements et fins constatés."
+    },
+    "champs": {
+      "OF01": "Liste [zone initiale (1 ou 2), variation date prévue en jours, variation quantité en unités, statut modifié (true ou false)]. Citer les deux versions du même ordre.",
+      "OF02": "Même liste pour le deuxième ordre. Citer ses deux versions.",
+      "regle_autorisation": "Peut-on déduire une règle générale des changements autorisés de ces deux observations ? Choisir demontre, refute ou indetermine. Citer l'annonce sur les horizons.",
+      "fin_reelle_OF01": "Date de fin constatée au format ISO ou null si inconnue. Citer la pièce décrivant la portée du carnet.",
+      "decision": "À qui poser les deux questions restantes ? Objet JSON avec cles regle et execution (valeurs possibles : planificateur, atelier, client, equipe_simulation). Citer la pièce distinguant les deux détenteurs."
+    }
+  }
+}

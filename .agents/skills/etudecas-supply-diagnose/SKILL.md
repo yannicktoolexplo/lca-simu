@@ -9,7 +9,7 @@ Appliquer AGENTS.md. Pour une investigation couvrant plusieurs couches indépend
 
 ## Partir d'un événement précis
 
-Définir article, site, produits couverts, unité, intervalle et mesure : demande non servie à l'échéance, rattrapage, stock physique/utilisable ou mouvement prévu/exécuté. Distinguer départ de Muret et livraison au client. Quantifier l'écart et localiser la première divergence, avant d'expliquer les mois suivants.
+Définir article, site, produits couverts, unité, intervalle et mesure : demande non servie à l'échéance, rattrapage, stock physique/utilisable ou mouvement prévu/exécuté. Distinguer départ du dépôt et livraison au client. Quantifier l'écart et localiser la première divergence, avant d'expliquer les mois suivants.
 
 Chercher les analyses existantes et les sections utiles de `etudecas/docs/DONNEES_SOURCES.md`. Revenir aux cellules et CSV pertinents pour vérifier la sémantique ; un ancien rapport n'est pas un oracle industriel. Conserver versions, dates de publication et valeurs manquantes. Ne pas rouvrir un sujet explicitement suspendu par l'utilisateur.
 
@@ -31,3 +31,13 @@ Si un essai peut départager les causes, utiliser `etudecas-supply-calibrate`. S
 Restituer d'abord les causes étayées et leur contribution chiffrée, puis l'écart restant, les alternatives réfutées et la prochaine vérification utile. Donner les preuves accessibles ; conserver au ticket le niveau de confiance et la portée exacte, sans promettre une cause unique quand les données ne l'identifient pas.
 
 Pour reconstruire les informations connues à une date et distinguer causalité simulée et industrielle, lire les sections pertinentes du [guide scientifique](../../../etudecas/docs/DEVELOPPEMENT_SCIENTIFIQUE.md).
+
+## Préparer la question de réunion
+
+Pour un écart chiffré, présenter ensemble les deux termes comparés, leur unité, la date et le calcul reproductible. Pour chaque réception supplémentaire, chercher son ordre puis le lien explicite avec le besoin déclencheur. Une égalité de quantité et d’échéance fournit une piste à vérifier dans le journal de décision.
+
+Pour rattacher un besoin à une prévision, conserver la version publiée au moment du calcul et les lignes qui composent la somme. Tester la règle de regroupement proposée sur les semaines adjacentes. Pour un plan figé, comparer le même identifiant d’ordre dans deux versions datées. Calculer la distance à l’échéance selon la borne utilisée, puis indiquer séparément les variations de quantité, de date prévue et de statut. Les dates de lancement et de fin constatées proviennent du journal d’exécution.
+
+Avant de solliciter le site, attribuer la vérification à son détenteur. Une trace simulée relève de l’équipe simulation. Pour une règle industrielle, identifier le champ, l’ordre et les deux versions à montrer au planificateur. Pour une opération physique, identifier le lot ou l’ordre et l’événement à rechercher. Expliquer quelle hypothèse la réponse permettrait de retenir ou d’écarter.
+
+Pour évaluer cette démarche, consulter le [protocole des trois exercices MRP](references/evaluation-mrp.md).
